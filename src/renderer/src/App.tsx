@@ -9,7 +9,7 @@ function App(): React.JSX.Element {
       <img alt="logo" className="logo" src={electronLogo} />
       <div className="creator">Powered by electron-vite</div>
       <div className="text">
-        TEST app with <span className="react">React</span>
+        TEST v3 app with <span className="react">React</span>
         &nbsp;and <span className="ts">TypeScript</span>
       </div>
       <p className="tip">
