@@ -74,11 +74,19 @@ export class LocalRepositoryService {
     const directoryState = await getDirectoryState(repositoryPath)
 
     if (directoryState.status === 'missing') {
-      return { status: 'invalid', path: repositoryPath, message: 'Saved repository folder does not exist.' }
+      return {
+        status: 'invalid',
+        path: repositoryPath,
+        message: 'Saved repository folder does not exist.'
+      }
     }
 
     if (directoryState.status === 'not-directory') {
-      return { status: 'invalid', path: repositoryPath, message: 'Saved repository path is not a folder.' }
+      return {
+        status: 'invalid',
+        path: repositoryPath,
+        message: 'Saved repository path is not a folder.'
+      }
     }
 
     const config = await this.readConfig(join(repositoryPath, REPOSITORY_CONFIG_FILE_NAME))
@@ -99,7 +107,9 @@ export class LocalRepositoryService {
 
   private async readConfig(
     configPath: string
-  ): Promise<{ status: 'ok'; config: RepositoryConfig } | { status: 'missing' } | { status: 'invalid' }> {
+  ): Promise<
+    { status: 'ok'; config: RepositoryConfig } | { status: 'missing' } | { status: 'invalid' }
+  > {
     try {
       const content = await readFile(configPath, 'utf8')
       const parsed = parseJsonc(content)
@@ -121,9 +131,7 @@ export class LocalRepositoryService {
 }
 
 type DirectoryState =
-  | { status: 'ok'; isEmpty: boolean }
-  | { status: 'missing' }
-  | { status: 'not-directory' }
+  { status: 'ok'; isEmpty: boolean } | { status: 'missing' } | { status: 'not-directory' }
 
 async function getDirectoryState(path: string): Promise<DirectoryState> {
   try {

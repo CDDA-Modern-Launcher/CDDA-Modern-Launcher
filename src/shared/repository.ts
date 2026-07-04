@@ -12,5 +12,4 @@ export type RepositoryStatus =
   | { status: 'invalid'; path: string; message: string }
 
 export type SelectRepositoryResult =
-  | { status: 'cancelled' }
-  | { status: 'selected'; repository: RepositoryStatus }
+  { status: 'cancelled' } | { status: 'selected'; repository: RepositoryStatus }

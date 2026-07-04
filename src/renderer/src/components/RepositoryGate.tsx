@@ -66,7 +66,11 @@ type RepositorySetupProps = {
   onSelectRepository: () => void
 }
 
-function RepositorySetup({ repository, isSelecting, onSelectRepository }: RepositorySetupProps): React.JSX.Element {
+function RepositorySetup({
+  repository,
+  isSelecting,
+  onSelectRepository
+}: RepositorySetupProps): React.JSX.Element {
   return (
     <Card withBorder radius="lg" p="xl" className="repository-card">
       <Stack gap="lg">
@@ -76,8 +80,8 @@ function RepositorySetup({ repository, isSelecting, onSelectRepository }: Reposi
           </Text>
           <Title order={1}>CDDA Launcher</Title>
           <Text c="dimmed">
-            Select a folder where the launcher will keep game builds, mods, soundpacks, tilesets and its local
-            repository metadata.
+            Select a folder where the launcher will keep game builds, mods, soundpacks, tilesets and
+            its local repository metadata.
           </Text>
         </Stack>
 
@@ -96,7 +100,9 @@ function RepositorySetup({ repository, isSelecting, onSelectRepository }: Reposi
             A non-empty folder is accepted only when it already contains a valid{' '}
             <code>cdda.launcher.config.jsonc</code>.
           </Text>
-          <Text size="sm">The selected path is stored in the launcher profile and survives app updates.</Text>
+          <Text size="sm">
+            The selected path is stored in the launcher profile and survives app updates.
+          </Text>
         </Stack>
 
         <Group justify="flex-end">
@@ -126,7 +132,13 @@ function LoadingRepository({ path }: { path: string }): React.JSX.Element {
   )
 }
 
-function ReadyRepository({ path, createdAt }: { path: string; createdAt: string }): React.JSX.Element {
+function ReadyRepository({
+  path,
+  createdAt
+}: {
+  path: string
+  createdAt: string
+}): React.JSX.Element {
   return (
     <Card withBorder radius="lg" p="xl" className="repository-card">
       <Stack gap="lg">
@@ -135,7 +147,9 @@ function ReadyRepository({ path, createdAt }: { path: string; createdAt: string 
             Repository ready
           </Text>
           <Title order={1}>CDDA Launcher</Title>
-          <Text c="dimmed">Local repository has been validated. Version discovery can be connected next.</Text>
+          <Text c="dimmed">
+            Local repository has been validated. Version discovery can be connected next.
+          </Text>
         </Stack>
 
         <Stack gap={4} className="repository-details">

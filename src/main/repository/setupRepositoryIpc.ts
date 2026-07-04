@@ -11,7 +11,10 @@ export function setupRepositoryIpc(repositoryService: LocalRepositoryService): v
       title: 'Select CDDA launcher repository folder',
       properties: ['openDirectory', 'createDirectory'] as Array<'openDirectory' | 'createDirectory'>
     }
-    const result = owner === undefined ? await dialog.showOpenDialog(options) : await dialog.showOpenDialog(owner, options)
+    const result =
+      owner === undefined
+        ? await dialog.showOpenDialog(options)
+        : await dialog.showOpenDialog(owner, options)
 
     if (result.canceled || result.filePaths.length === 0) {
       return { status: 'cancelled' }

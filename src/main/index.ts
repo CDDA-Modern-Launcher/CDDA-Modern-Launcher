@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, nativeTheme } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { appendFileSync, mkdirSync } from 'fs'
 import { autoUpdater, ProgressInfo, UpdateInfo } from 'electron-updater'

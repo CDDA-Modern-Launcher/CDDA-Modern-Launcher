@@ -9,7 +9,8 @@ const updaterApi = {
   installNow: () => ipcRenderer.invoke('updater:install-now'),
   dismiss: () => ipcRenderer.invoke('updater:dismiss'),
   skipVersion: (version: string) => ipcRenderer.invoke('updater:skip-version', version),
-  showMockDownloadedUpdate: (version?: string) => ipcRenderer.invoke('updater:mock-downloaded', version),
+  showMockDownloadedUpdate: (version?: string) =>
+    ipcRenderer.invoke('updater:mock-downloaded', version),
   onStateChanged: (callback: (state: unknown) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, state: unknown): void => callback(state)
 
@@ -23,13 +24,15 @@ const updaterApi = {
 
 const repositoryApi = {
   getStatus: (): Promise<RepositoryStatus> => ipcRenderer.invoke('repository:get-status'),
-  selectFolder: (): Promise<SelectRepositoryResult> => ipcRenderer.invoke('repository:select-folder')
+  selectFolder: (): Promise<SelectRepositoryResult> =>
+    ipcRenderer.invoke('repository:select-folder')
 }
 
 const appearanceApi = {
   get: (): Promise<AppAppearance> => ipcRenderer.invoke('appearance:get'),
   onChanged: (callback: (appearance: AppAppearance) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, appearance: AppAppearance): void => callback(appearance)
+    const listener = (_event: Electron.IpcRendererEvent, appearance: AppAppearance): void =>
+      callback(appearance)
 
     ipcRenderer.on('appearance:changed', listener)
 

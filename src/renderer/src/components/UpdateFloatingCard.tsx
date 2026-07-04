@@ -112,7 +112,11 @@ export function UpdateFloatingCard(): React.JSX.Element | null {
 
         {state.status === 'downloaded' && (
           <Group justify="flex-end" gap="xs">
-            <Button variant="subtle" size="xs" onClick={() => window.api.updater.skipVersion(state.version)}>
+            <Button
+              variant="subtle"
+              size="xs"
+              onClick={() => window.api.updater.skipVersion(state.version)}
+            >
               Skip {state.version}
             </Button>
             <Button variant="default" size="xs" onClick={() => window.api.updater.dismiss()}>
