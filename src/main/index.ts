@@ -278,7 +278,7 @@ app.whenReady().then(async () => {
     await localizationService.initialize();
     const repositoryService = new LocalRepositoryService(settingsStore, localizationService);
 
-    setupAppearanceIpc();
+    await setupAppearanceIpc(settingsStore);
     setupLocalizationIpc(localizationService);
     setupRepositoryIpc(repositoryService, localizationService);
     setupUpdaterIpc(localizationService);

@@ -4,7 +4,11 @@ import React, { useMemo } from "react";
 import { LocaleOption } from "../../../shared/localization";
 import { useLocalization } from "./LocalizationContext";
 
-export function LocaleSelector(): React.JSX.Element | null {
+type LocaleSelectorProps = {
+    variant?: "settings" | "dock";
+};
+
+export function LocaleSelector({ variant = "settings" }: LocaleSelectorProps): React.JSX.Element | null {
     const { selectedLocale, effectiveLocale, options, setLocale, t } = useLocalization();
 
     const data = useMemo(
@@ -21,11 +25,13 @@ export function LocaleSelector(): React.JSX.Element | null {
     }
 
     const currentValue = options.some((option) => option.locale === selectedLocale) ? selectedLocale : effectiveLocale;
+    const currentOption = options.find((option) => option.locale === currentValue);
+    const isDock = variant === "dock";
 
     return (
         <Select
             aria-label={t("locale.label")}
-            label={t("locale.label")}
+            label={isDock ? undefined : t("locale.label")}
             data={data}
             value={currentValue}
             onChange={(value) => {
@@ -35,9 +41,10 @@ export function LocaleSelector(): React.JSX.Element | null {
             }}
             allowDeselect={false}
             size="xs"
-            w={160}
+            w={isDock ? 132 : undefined}
+            className={isDock ? "locale-selector locale-selector--dock" : "locale-selector"}
             renderOption={({ option }) => <LocaleOptionRow option={options.find((locale) => locale.locale === option.value)} />}
-            leftSection={<LocaleIcon option={options.find((option) => option.locale === currentValue)} />}
+            leftSection={<LocaleIcon option={currentOption} />}
         />
     );
 }

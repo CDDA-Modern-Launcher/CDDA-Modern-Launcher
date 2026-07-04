@@ -3,9 +3,12 @@ import { dirname, join } from "node:path";
 
 import { app } from "electron";
 
+import { AppTheme } from "../../shared/appearance";
+
 type LauncherSettings = {
     repositoryPath?: string;
     locale?: string;
+    theme?: AppTheme;
 };
 
 export class LauncherSettingsStore {
@@ -29,6 +32,16 @@ export class LauncherSettingsStore {
     async setLocale(locale: string): Promise<void> {
         const settings = await this.readSettings();
         await this.writeSettings({ ...settings, locale });
+    }
+
+    async getTheme(): Promise<AppTheme> {
+        const settings = await this.readSettings();
+        return isAppTheme(settings.theme) ? settings.theme : "system";
+    }
+
+    async setTheme(theme: AppTheme): Promise<void> {
+        const settings = await this.readSettings();
+        await this.writeSettings({ ...settings, theme });
     }
 
     private async readSettings(): Promise<LauncherSettings> {
@@ -59,6 +72,10 @@ export class LauncherSettingsStore {
 
 function isLauncherSettings(value: unknown): value is LauncherSettings {
     return typeof value === "object" && value !== null;
+}
+
+function isAppTheme(value: unknown): value is AppTheme {
+    return value === "system" || value === "dark" || value === "light";
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

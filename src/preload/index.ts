@@ -2,7 +2,7 @@ import { electronAPI } from "@electron-toolkit/preload";
 import type { IpcRendererEvent } from "electron";
 import { contextBridge, ipcRenderer } from "electron";
 
-import { AppAppearance } from "../shared/appearance";
+import { AppAppearance, AppTheme } from "../shared/appearance";
 import { LocalizationBundle } from "../shared/localization";
 import { RepositoryStatus, SelectRepositoryResult } from "../shared/repository";
 
@@ -44,7 +44,9 @@ const localizationApi = {
 };
 
 const appearanceApi = {
+    getInitial: (): AppAppearance => ipcRenderer.sendSync("appearance:get-sync"),
     get: (): Promise<AppAppearance> => ipcRenderer.invoke("appearance:get"),
+    setTheme: (theme: AppTheme): Promise<AppAppearance> => ipcRenderer.invoke("appearance:set-theme", theme),
     onChanged: (callback: (appearance: AppAppearance) => void) => {
         const listener = (_event: IpcRendererEvent, appearance: AppAppearance): void => callback(appearance);
 

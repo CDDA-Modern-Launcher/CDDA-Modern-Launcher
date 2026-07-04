@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { AppAppearance } from "../../../shared/appearance";
+import { AppAppearance, AppTheme } from "../../../shared/appearance";
 
-export function useSystemAppearance(): AppAppearance {
-    const [appearance, setAppearance] = useState<AppAppearance>({ colorScheme: "dark" });
+export type SystemAppearanceState = AppAppearance & {
+    setTheme: (theme: AppTheme) => Promise<void>;
+};
+
+export function useSystemAppearance(): SystemAppearanceState {
+    const [appearance, setAppearance] = useState<AppAppearance>(() => window.api.appearance.getInitial());
 
     useEffect(() => {
         let mounted = true;
@@ -22,5 +26,9 @@ export function useSystemAppearance(): AppAppearance {
         };
     }, []);
 
-    return appearance;
+    const setTheme = useCallback(async (theme: AppTheme): Promise<void> => {
+        setAppearance(await window.api.appearance.setTheme(theme));
+    }, []);
+
+    return { ...appearance, setTheme };
 }

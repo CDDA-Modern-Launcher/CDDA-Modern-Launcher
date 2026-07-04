@@ -1,6 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
-import { AppAppearance } from '../shared/appearance'
+import { AppAppearance, AppTheme } from '../shared/appearance'
 import { LocalizationBundle } from '../shared/localization'
 import { RepositoryStatus, SelectRepositoryResult } from '../shared/repository'
 
@@ -37,7 +37,9 @@ type LocalizationApi = {
 }
 
 type AppearanceApi = {
+  getInitial: () => AppAppearance
   get: () => Promise<AppAppearance>
+  setTheme: (theme: AppTheme) => Promise<AppAppearance>
   onChanged: (callback: (appearance: AppAppearance) => void) => () => void
 }
 
