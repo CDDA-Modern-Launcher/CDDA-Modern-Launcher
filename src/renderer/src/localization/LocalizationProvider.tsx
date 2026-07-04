@@ -26,7 +26,7 @@ export function LocalizationProvider({ children }: { children: React.ReactNode }
     const t = useCallback(
         (key: string, variables: MessageVariables = {}) => {
             const template = bundle.messages[key] ?? key;
-            return template.replace(/\{([a-zA-Z0-9_.-]+)\}/g, (match, variableName: string) => {
+            return template.replace(/\{([a-zA-Z0-9_.-]+)}/g, (match, variableName: string) => {
                 const value = variables[variableName];
                 return value === undefined ? match : String(value);
             });

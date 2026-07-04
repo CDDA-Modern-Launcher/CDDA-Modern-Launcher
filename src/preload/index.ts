@@ -29,7 +29,6 @@ const repositoryApi = {
     selectFolder: (): Promise<SelectRepositoryResult> => ipcRenderer.invoke("repository:select-folder")
 };
 
-
 const localizationApi = {
     getBundle: (): Promise<LocalizationBundle> => ipcRenderer.invoke("localization:get-bundle"),
     setLocale: (locale: string): Promise<LocalizationBundle> => ipcRenderer.invoke("localization:set-locale", locale),

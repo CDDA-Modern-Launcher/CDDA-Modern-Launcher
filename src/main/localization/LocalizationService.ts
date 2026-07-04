@@ -3,19 +3,12 @@ import { join } from "node:path";
 
 import { app, BrowserWindow } from "electron";
 
-import {
-    DEFAULT_LOCALE,
-    LocaleFile,
-    LocaleMessages,
-    LocaleOption,
-    LocalizationBundle,
-    REPOSITORY_LOCALES_DIRECTORY
-} from "../../shared/localization";
+import { DEFAULT_LOCALE, LocaleFile, LocaleMessages, LocaleOption, LocaleSource, LocalizationBundle, REPOSITORY_LOCALES_DIRECTORY } from "../../shared/localization";
 import { LauncherSettingsStore } from "../settings/LauncherSettingsStore";
 import builtInEn from "./locales/en.json";
 import builtInRu from "./locales/ru.json";
 
-const BUILT_IN_LOCALES = [builtInEn, builtInRu].filter(isLocaleFile);
+const BUILT_IN_LOCALES = [coerceBuiltInLocale(builtInEn, "en"), coerceBuiltInLocale(builtInRu, "ru")];
 
 type LoadedLocale = LocaleFile & {
     source: "built-in" | "repository";
@@ -31,7 +24,8 @@ export class LocalizationService {
 
     constructor(private readonly settingsStore: LauncherSettingsStore) {
         for (const locale of BUILT_IN_LOCALES) {
-            this.builtInLocales.set(normalizeLocale(locale.locale), { ...locale, locale: normalizeLocale(locale.locale), source: "built-in" });
+            const normalizedLocale = normalizeLocale(locale.locale);
+            this.builtInLocales.set(normalizedLocale, toLoadedLocale(locale, normalizedLocale, "built-in"));
         }
     }
 
@@ -116,7 +110,7 @@ export class LocalizationService {
                 }
 
                 const locale = normalizeLocale(parsed.locale);
-                this.repositoryLocales.set(locale, { ...parsed, locale, source: "repository" });
+                this.repositoryLocales.set(locale, toLoadedLocale(parsed, locale, "repository"));
             } catch (error) {
                 console.error(`[localization] failed to load locale file: ${filePath}`, error);
             }
@@ -212,6 +206,26 @@ export class LocalizationService {
     }
 }
 
+function coerceBuiltInLocale(value: unknown, expectedLocale: string): LocaleFile {
+    if (!isLocaleFile(value)) {
+        throw new Error(`Invalid built-in locale file: ${expectedLocale}`);
+    }
+
+    return value;
+}
+
+function toLoadedLocale(file: LocaleFile, locale: string, source: LocaleSource): LoadedLocale {
+    return {
+        schemaVersion: 1,
+        locale,
+        name: file.name,
+        nativeName: file.nativeName,
+        iconPng: file.iconPng,
+        messages: file.messages,
+        source
+    };
+}
+
 function mergeMessages(...sources: Array<LocaleMessages | undefined>): LocaleMessages {
     return Object.assign({}, ...sources.filter((source): source is LocaleMessages => source !== undefined));
 }
@@ -221,7 +235,7 @@ function normalizeLocale(locale: string): string {
 }
 
 function formatMessage(message: string, variables: FormatVariables): string {
-    return message.replace(/\{([a-zA-Z0-9_.-]+)\}/g, (match, key: string) => {
+    return message.replace(/\{([a-zA-Z0-9_.-]+)}/g, (match, key: string) => {
         const value = variables[key];
         return value === undefined ? match : String(value);
     });
@@ -233,6 +247,7 @@ function isLocaleFile(value: unknown): value is LocaleFile {
     }
 
     const candidate = value as Partial<LocaleFile>;
+    // noinspection SuspiciousTypeOfGuard
     return (
         candidate.schemaVersion === 1 &&
         typeof candidate.locale === "string" &&
