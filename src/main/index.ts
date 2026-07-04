@@ -52,6 +52,21 @@ function shouldIgnoreVersion(version: string): boolean {
   return skippedVersion !== null && skippedVersion === version
 }
 
+
+function getFriendlyUpdateErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error)
+
+  if (message.includes('latest.yml') && message.includes('404')) {
+    return 'Update metadata is missing in the latest GitHub release.'
+  }
+
+  if (message.includes('HttpError') || message.includes('ENOTFOUND') || message.includes('ECONNRESET') || message.includes('ETIMEDOUT')) {
+    return 'Cannot check for updates right now. Please try again later.'
+  }
+
+  return 'Cannot check for updates right now. Please try again later.'
+}
+
 function setupUpdaterIpc(): void {
   ipcMain.handle('updater:get-state', () => updateState)
 
@@ -186,7 +201,7 @@ function setupAutoUpdater(): void {
       message: error.message,
       stack: error.stack
     })
-    setUpdateState({ status: 'error', message: error.message })
+    setUpdateState({ status: 'error', message: getFriendlyUpdateErrorMessage(error) })
   })
 
   autoUpdater.checkForUpdates().catch((error) => {
@@ -197,7 +212,7 @@ function setupAutoUpdater(): void {
     })
     setUpdateState({
       status: 'error',
-      message: error instanceof Error ? error.message : String(error)
+      message: getFriendlyUpdateErrorMessage(error)
     })
   })
 }

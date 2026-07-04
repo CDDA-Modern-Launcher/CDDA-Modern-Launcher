@@ -36,10 +36,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify tag matches package version
+      - name: Read package version
+        id: package
         shell: pwsh
         run: |
           $packageVersion = node -p "require('./package.json').version"
+          "version=$packageVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Verify tag matches package version
+        shell: pwsh
+        run: |
+          $packageVersion = "${{ steps.package.outputs.version }}"
           $expectedTag = "v$packageVersion"
           $actualTag = "${{ github.ref_name }}"
 
@@ -51,7 +58,40 @@ jobs:
       - name: Build renderer and main process
         run: npm run build
 
-      - name: Build and publish Windows installer
-        run: npx electron-builder --win --publish always
+      - name: Build Windows installer
+        run: npx electron-builder --win --publish never
+
+      - name: Verify release files
+        shell: pwsh
+        run: |
+          $requiredFiles = @(
+            (Get-ChildItem -Path dist -Filter '*-setup.exe' -File),
+            (Get-ChildItem -Path dist -Filter '*.exe.blockmap' -File),
+            (Get-ChildItem -Path dist -Filter 'latest.yml' -File)
+          )
+
+          foreach ($entry in $requiredFiles) {
+            if ($null -eq $entry -or $entry.Count -eq 0) {
+              Write-Error 'Missing required release artifact. Expected setup.exe, setup.exe.blockmap and latest.yml in dist/.'
+              Get-ChildItem -Path dist -Recurse | Format-Table FullName, Length
+              exit 1
+            }
+          }
+
+          Get-ChildItem -Path dist -File | Format-Table Name, Length
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ steps.package.outputs.version }}
+          body: |
+            v${{ steps.package.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/*-setup.exe
+            dist/*-setup.exe.blockmap
+            dist/latest.yml
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
