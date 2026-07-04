@@ -1,9 +1,10 @@
-import { readdir, readFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { access, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { app, BrowserWindow } from "electron";
 
-import { DEFAULT_LOCALE, LocaleFile, LocaleMessages, LocaleOption, LocaleSource, LocalizationBundle, REPOSITORY_LOCALES_DIRECTORY } from "../../shared/localization";
+import { DEFAULT_LOCALE, LocaleFile, LocaleMessages, LocaleOption, LocalizationBundle, REPOSITORY_LOCALES_DIRECTORY } from "../../shared/localization";
 import { LauncherSettingsStore } from "../settings/LauncherSettingsStore";
 import builtInEn from "./locales/en.json";
 import builtInRu from "./locales/ru.json";
@@ -31,6 +32,7 @@ export class LocalizationService {
 
     async initialize(): Promise<void> {
         this.repositoryPath = await this.settingsStore.getRepositoryPath();
+        await this.ensureRepositoryLocales();
         await this.reloadRepositoryLocales();
 
         const savedLocale = await this.settingsStore.getLocale();
@@ -39,6 +41,7 @@ export class LocalizationService {
 
     async setRepositoryPath(repositoryPath: string): Promise<void> {
         this.repositoryPath = repositoryPath;
+        await this.ensureRepositoryLocales();
         await this.reloadRepositoryLocales();
 
         if (!this.hasLocale(this.selectedLocale)) {
@@ -74,6 +77,74 @@ export class LocalizationService {
     t(key: string, variables: FormatVariables = {}): string {
         const value = this.getBundle().messages[key] ?? key;
         return formatMessage(value, variables);
+    }
+
+    private async ensureRepositoryLocales(): Promise<void> {
+        if (this.repositoryPath === null) {
+            return;
+        }
+
+        if (!(await isExistingDirectory(this.repositoryPath))) {
+            return;
+        }
+
+        const localeDirectory = join(this.repositoryPath, REPOSITORY_LOCALES_DIRECTORY);
+
+        try {
+            await mkdir(localeDirectory, { recursive: true });
+        } catch (error) {
+            console.error("[localization] failed to create repository locales directory", error);
+            return;
+        }
+
+        const existingLocales = await this.readRepositoryLocaleCodes(localeDirectory);
+
+        for (const locale of this.builtInLocales.values()) {
+            if (existingLocales.has(locale.locale)) {
+                continue;
+            }
+
+            const targetPath = join(localeDirectory, `${locale.locale}.json`);
+
+            if (await pathExists(targetPath)) {
+                continue;
+            }
+
+            try {
+                await writeFile(targetPath, `${JSON.stringify(toLocaleFile(locale), null, 2)}\n`, "utf8");
+                existingLocales.add(locale.locale);
+            } catch (error) {
+                console.error(`[localization] failed to copy built-in locale to repository: ${targetPath}`, error);
+            }
+        }
+    }
+
+    private async readRepositoryLocaleCodes(localeDirectory: string): Promise<Set<string>> {
+        const locales = new Set<string>();
+        let fileNames: string[];
+
+        try {
+            fileNames = await readdir(localeDirectory);
+        } catch (error) {
+            console.error("[localization] failed to inspect repository locale directory", error);
+            return locales;
+        }
+
+        for (const fileName of fileNames.filter((name) => name.toLowerCase().endsWith(".json"))) {
+            const filePath = join(localeDirectory, fileName);
+
+            try {
+                const parsed: unknown = JSON.parse(await readFile(filePath, "utf8"));
+
+                if (isLocaleFile(parsed)) {
+                    locales.add(normalizeLocale(parsed.locale));
+                }
+            } catch (error) {
+                console.error(`[localization] failed to inspect repository locale file: ${filePath}`, error);
+            }
+        }
+
+        return locales;
     }
 
     private async reloadRepositoryLocales(): Promise<void> {
@@ -214,7 +285,7 @@ function coerceBuiltInLocale(value: unknown, expectedLocale: string): LocaleFile
     return value;
 }
 
-function toLoadedLocale(file: LocaleFile, locale: string, source: LocaleSource): LoadedLocale {
+function toLoadedLocale(file: LocaleFile, locale: string, source: LoadedLocale["source"]): LoadedLocale {
     return {
         schemaVersion: 1,
         locale,
@@ -224,6 +295,42 @@ function toLoadedLocale(file: LocaleFile, locale: string, source: LocaleSource):
         messages: file.messages,
         source
     };
+}
+
+function toLocaleFile(locale: LoadedLocale): LocaleFile {
+    return {
+        schemaVersion: 1,
+        locale: locale.locale,
+        name: locale.name,
+        nativeName: locale.nativeName,
+        iconPng: locale.iconPng,
+        messages: locale.messages
+    };
+}
+
+async function isExistingDirectory(path: string): Promise<boolean> {
+    try {
+        return (await stat(path)).isDirectory();
+    } catch (error) {
+        if (isNodeError(error) && error.code === "ENOENT") {
+            return false;
+        }
+
+        throw error;
+    }
+}
+
+async function pathExists(path: string): Promise<boolean> {
+    try {
+        await access(path, constants.F_OK);
+        return true;
+    } catch (error) {
+        if (isNodeError(error) && error.code === "ENOENT") {
+            return false;
+        }
+
+        throw error;
+    }
 }
 
 function mergeMessages(...sources: Array<LocaleMessages | undefined>): LocaleMessages {
