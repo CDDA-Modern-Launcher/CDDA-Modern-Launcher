@@ -31,6 +31,7 @@ function shouldSkip(relativePath: string, dirent: fs.Dirent): boolean {
         return true;
     }
 
+    // noinspection RedundantIfStatementJS
     if (normalized.endsWith(".zip")) {
         return true;
     }

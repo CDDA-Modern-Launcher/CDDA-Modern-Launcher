@@ -8,40 +8,40 @@ import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 
 export default defineConfig(
-  { ignores: ["**/node_modules", "**/dist", "**/out"] },
-  tseslint.configs.recommended,
-  eslintPluginReact.configs.flat.recommended,
-  eslintPluginReact.configs.flat["jsx-runtime"],
-  {
-    settings: {
-      react: {
-        version: "detect"
-      }
-    }
-  },
-  {
-    files: ["**/*.{ts,tsx}"],
-    plugins: {
-      "react-hooks": eslintPluginReactHooks,
-      "react-refresh": eslintPluginReactRefresh,
-      "simple-import-sort": simpleImportSort
+    { ignores: ["**/node_modules", "**/dist", "**/out"] },
+    tseslint.configs.recommended,
+    eslintPluginReact.configs.flat.recommended,
+    eslintPluginReact.configs.flat["jsx-runtime"],
+    {
+        settings: {
+            react: {
+                version: "detect"
+            }
+        }
     },
-    rules: {
-      ...eslintPluginReactHooks.configs.recommended.rules,
-      ...eslintPluginReactRefresh.configs.vite.rules,
-      "simple-import-sort/imports": "error",
-      "simple-import-sort/exports": "error",
-      "no-undef": "error"
+    {
+        files: ["**/*.{ts,tsx}"],
+        plugins: {
+            "react-hooks": eslintPluginReactHooks,
+            "react-refresh": eslintPluginReactRefresh,
+            "simple-import-sort": simpleImportSort
+        },
+        rules: {
+            ...eslintPluginReactHooks.configs.recommended.rules,
+            ...eslintPluginReactRefresh.configs.vite.rules,
+            "simple-import-sort/imports": "error",
+            "simple-import-sort/exports": "error",
+            "no-undef": "error"
+        }
+    },
+    eslintConfigPrettier,
+    {
+        files: ["src/main/**/*.{ts,tsx}", "src/preload/**/*.{ts,tsx}"],
+        languageOptions: {
+            globals: {
+                ...globals.node,
+                NodeJS: "readonly"
+            }
+        }
     }
-  },
-  eslintConfigPrettier,
-  {
-    files: ["src/main/**/*.{ts,tsx}", "src/preload/**/*.{ts,tsx}"],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        NodeJS: "readonly"
-      }
-    }
-  }
 );
