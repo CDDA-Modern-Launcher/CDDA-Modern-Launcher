@@ -1,4 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import { AppAppearance } from '../shared/appearance'
+import { RepositoryStatus, SelectRepositoryResult } from '../shared/repository'
 
 type UpdateState =
   | { status: 'idle' }
@@ -20,8 +22,20 @@ type UpdaterApi = {
   onStateChanged: (callback: (state: UpdateState) => void) => () => void
 }
 
+type RepositoryApi = {
+  getStatus: () => Promise<RepositoryStatus>
+  selectFolder: () => Promise<SelectRepositoryResult>
+}
+
+type AppearanceApi = {
+  get: () => Promise<AppAppearance>
+  onChanged: (callback: (appearance: AppAppearance) => void) => () => void
+}
+
 type AppApi = {
   updater: UpdaterApi
+  repository: RepositoryApi
+  appearance: AppearanceApi
 }
 
 declare global {

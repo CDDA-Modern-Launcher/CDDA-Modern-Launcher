@@ -1,9 +1,13 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, nativeTheme } from 'electron'
 import { join } from 'path'
 import { appendFileSync, mkdirSync } from 'fs'
 import { autoUpdater, ProgressInfo, UpdateInfo } from 'electron-updater'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { setupAppearanceIpc } from './appearance/setupAppearanceIpc'
+import { LocalRepositoryService } from './repository/LocalRepositoryService'
+import { setupRepositoryIpc } from './repository/setupRepositoryIpc'
+import { LauncherSettingsStore } from './settings/LauncherSettingsStore'
 
 type UpdateState =
   | { status: 'idle' }
@@ -226,12 +230,14 @@ function setupAutoUpdater(): void {
 }
 
 function createWindow(): void {
-  // Create the browser window.
+  const isDark = nativeTheme.shouldUseDarkColors
+
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: 980,
+    height: 700,
     show: false,
     autoHideMenuBar: true,
+    backgroundColor: isDark ? '#141517' : '#f8f9fa',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -274,6 +280,11 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
+  const settingsStore = new LauncherSettingsStore()
+  const repositoryService = new LocalRepositoryService(settingsStore)
+
+  setupAppearanceIpc()
+  setupRepositoryIpc(repositoryService)
   setupUpdaterIpc()
   createWindow()
   setupAutoUpdater()

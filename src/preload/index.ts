@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { AppAppearance } from '../shared/appearance'
+import { RepositoryStatus, SelectRepositoryResult } from '../shared/repository'
 
 const updaterApi = {
   getState: () => ipcRenderer.invoke('updater:get-state'),
@@ -19,9 +21,29 @@ const updaterApi = {
   }
 }
 
+const repositoryApi = {
+  getStatus: (): Promise<RepositoryStatus> => ipcRenderer.invoke('repository:get-status'),
+  selectFolder: (): Promise<SelectRepositoryResult> => ipcRenderer.invoke('repository:select-folder')
+}
+
+const appearanceApi = {
+  get: (): Promise<AppAppearance> => ipcRenderer.invoke('appearance:get'),
+  onChanged: (callback: (appearance: AppAppearance) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, appearance: AppAppearance): void => callback(appearance)
+
+    ipcRenderer.on('appearance:changed', listener)
+
+    return () => {
+      ipcRenderer.removeListener('appearance:changed', listener)
+    }
+  }
+}
+
 // Custom APIs for renderer
 const api = {
-  updater: updaterApi
+  updater: updaterApi,
+  repository: repositoryApi,
+  appearance: appearanceApi
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
