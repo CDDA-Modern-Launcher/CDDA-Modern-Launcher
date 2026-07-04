@@ -1,9 +1,11 @@
 import { Alert, Button, Card, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import React, { useEffect, useState } from "react";
 
-import { RepositoryStatus } from "../../../shared/repository";
+import { REPOSITORY_CONFIG_FILE_NAME, RepositoryStatus } from "../../../shared/repository";
+import { useLocalization } from "../localization/LocalizationProvider";
 
 export function RepositoryGate(): React.JSX.Element {
+    const { t } = useLocalization();
     const [repository, setRepository] = useState<RepositoryStatus>({ status: "unconfigured" });
     const [isSelecting, setSelecting] = useState(false);
 
@@ -53,7 +55,7 @@ export function RepositoryGate(): React.JSX.Element {
                     setRepository({
                         status: "invalid",
                         path: repository.status === "invalid" ? repository.path : "",
-                        message: "Cannot select repository folder right now."
+                        message: t("repository.error.selectFailed")
                     });
                 });
             }}
@@ -68,19 +70,21 @@ type RepositorySetupProps = {
 };
 
 function RepositorySetup({ repository, isSelecting, onSelectRepository }: RepositorySetupProps): React.JSX.Element {
+    const { t } = useLocalization();
+
     return (
         <Card withBorder radius="lg" p="xl" className="repository-card">
             <Stack gap="lg">
                 <Stack gap={4}>
                     <Text size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow">
-                        Local repository
+                        {t("repository.setup.eyebrow")}
                     </Text>
-                    <Title order={1}>CDDA Launcher</Title>
-                    <Text c="dimmed">Select a folder where the launcher will keep game builds, mods, soundpacks, tilesets and its local repository metadata.</Text>
+                    <Title order={1}>{t("repository.setup.title")}</Title>
+                    <Text c="dimmed">{t("repository.setup.description")}</Text>
                 </Stack>
 
                 {repository.status === "invalid" && (
-                    <Alert color="red" title="Repository folder is not valid" variant="light">
+                    <Alert color="red" title={t("repository.setup.invalidTitle")} variant="light">
                         <Stack gap={6}>
                             {repository.path.length > 0 && <Text size="sm">{repository.path}</Text>}
                             <Text size="sm">{repository.message}</Text>
@@ -89,16 +93,16 @@ function RepositorySetup({ repository, isSelecting, onSelectRepository }: Reposi
                 )}
 
                 <Stack gap="xs" className="repository-rules">
-                    <Text size="sm">An empty folder will be initialized automatically.</Text>
+                    <Text size="sm">{t("repository.setup.rule.emptyFolder")}</Text>
                     <Text size="sm">
-                        A non-empty folder is accepted only when it already contains a valid <code>cdda.launcher.config.jsonc</code>.
+                        {t("repository.setup.rule.nonEmptyFolder.prefix")} <code>{REPOSITORY_CONFIG_FILE_NAME}</code>.
                     </Text>
-                    <Text size="sm">The selected path is stored in the launcher profile and survives app updates.</Text>
+                    <Text size="sm">{t("repository.setup.rule.persistedPath")}</Text>
                 </Stack>
 
                 <Group justify="flex-end">
                     <Button loading={isSelecting} onClick={onSelectRepository} size="md">
-                        Select repository folder
+                        {t("repository.setup.selectButton")}
                     </Button>
                 </Group>
             </Stack>
@@ -107,13 +111,15 @@ function RepositorySetup({ repository, isSelecting, onSelectRepository }: Reposi
 }
 
 function LoadingRepository({ path }: { path: string }): React.JSX.Element {
+    const { t } = useLocalization();
+
     return (
         <Card withBorder radius="lg" p="xl" className="repository-card">
             <Group gap="md" align="flex-start">
                 <Loader size="sm" />
                 <Stack gap={4}>
-                    <Title order={2}>Loading repository</Title>
-                    <Text c="dimmed">Reading and validating cdda.launcher.config.jsonc.</Text>
+                    <Title order={2}>{t("repository.loading.title")}</Title>
+                    <Text c="dimmed">{t("repository.loading.description", { fileName: REPOSITORY_CONFIG_FILE_NAME })}</Text>
                     <Text size="sm" c="dimmed">
                         {path}
                     </Text>
@@ -124,24 +130,26 @@ function LoadingRepository({ path }: { path: string }): React.JSX.Element {
 }
 
 function ReadyRepository({ path, createdAt }: { path: string; createdAt: string }): React.JSX.Element {
+    const { t } = useLocalization();
+
     return (
         <Card withBorder radius="lg" p="xl" className="repository-card">
             <Stack gap="lg">
                 <Stack gap={4}>
                     <Text size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow">
-                        Repository ready
+                        {t("repository.ready.eyebrow")}
                     </Text>
-                    <Title order={1}>CDDA Launcher</Title>
-                    <Text c="dimmed">Local repository has been validated. Version discovery can be connected next.</Text>
+                    <Title order={1}>{t("repository.ready.title")}</Title>
+                    <Text c="dimmed">{t("repository.ready.description")}</Text>
                 </Stack>
 
                 <Stack gap={4} className="repository-details">
                     <Text size="sm" c="dimmed">
-                        Path
+                        {t("repository.ready.path")}
                     </Text>
                     <Text className="path-text">{path}</Text>
                     <Text size="sm" c="dimmed" mt="xs">
-                        Created
+                        {t("repository.ready.created")}
                     </Text>
                     <Text>{createdAt}</Text>
                 </Stack>

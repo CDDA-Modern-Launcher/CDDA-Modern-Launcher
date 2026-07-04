@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
 import { AppAppearance } from '../shared/appearance'
+import { LocalizationBundle } from '../shared/localization'
 import { RepositoryStatus, SelectRepositoryResult } from '../shared/repository'
 
 type UpdateState =
@@ -11,7 +12,7 @@ type UpdateState =
   | { status: 'downloaded'; version: string }
   | { status: 'not-available'; version?: string }
   | { status: 'skipped'; version: string }
-  | { status: 'error'; message: string }
+  | { status: 'error'; message: string; messageKey?: string }
 
 type UpdaterApi = {
   getState: () => Promise<UpdateState>
@@ -28,6 +29,13 @@ type RepositoryApi = {
   selectFolder: () => Promise<SelectRepositoryResult>
 }
 
+
+type LocalizationApi = {
+  getBundle: () => Promise<LocalizationBundle>
+  setLocale: (locale: string) => Promise<LocalizationBundle>
+  onChanged: (callback: (bundle: LocalizationBundle) => void) => () => void
+}
+
 type AppearanceApi = {
   get: () => Promise<AppAppearance>
   onChanged: (callback: (appearance: AppAppearance) => void) => () => void
@@ -36,6 +44,7 @@ type AppearanceApi = {
 type AppApi = {
   updater: UpdaterApi
   repository: RepositoryApi
+  localization: LocalizationApi
   appearance: AppearanceApi
 }
 

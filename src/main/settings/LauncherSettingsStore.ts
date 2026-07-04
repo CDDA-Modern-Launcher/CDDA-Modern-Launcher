@@ -5,6 +5,7 @@ import { app } from "electron";
 
 type LauncherSettings = {
     repositoryPath?: string;
+    locale?: string;
 };
 
 export class LauncherSettingsStore {
@@ -18,6 +19,16 @@ export class LauncherSettingsStore {
     async setRepositoryPath(repositoryPath: string): Promise<void> {
         const settings = await this.readSettings();
         await this.writeSettings({ ...settings, repositoryPath });
+    }
+
+    async getLocale(): Promise<string | null> {
+        const settings = await this.readSettings();
+        return typeof settings.locale === "string" && settings.locale.trim().length > 0 ? settings.locale : null;
+    }
+
+    async setLocale(locale: string): Promise<void> {
+        const settings = await this.readSettings();
+        await this.writeSettings({ ...settings, locale });
     }
 
     private async readSettings(): Promise<LauncherSettings> {

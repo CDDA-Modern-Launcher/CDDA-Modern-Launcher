@@ -3,6 +3,7 @@ import type { IpcRendererEvent } from "electron";
 import { contextBridge, ipcRenderer } from "electron";
 
 import { AppAppearance } from "../shared/appearance";
+import { LocalizationBundle } from "../shared/localization";
 import { RepositoryStatus, SelectRepositoryResult } from "../shared/repository";
 
 const updaterApi = {
@@ -28,6 +29,21 @@ const repositoryApi = {
     selectFolder: (): Promise<SelectRepositoryResult> => ipcRenderer.invoke("repository:select-folder")
 };
 
+
+const localizationApi = {
+    getBundle: (): Promise<LocalizationBundle> => ipcRenderer.invoke("localization:get-bundle"),
+    setLocale: (locale: string): Promise<LocalizationBundle> => ipcRenderer.invoke("localization:set-locale", locale),
+    onChanged: (callback: (bundle: LocalizationBundle) => void) => {
+        const listener = (_event: IpcRendererEvent, bundle: LocalizationBundle): void => callback(bundle);
+
+        ipcRenderer.on("localization:changed", listener);
+
+        return () => {
+            ipcRenderer.removeListener("localization:changed", listener);
+        };
+    }
+};
+
 const appearanceApi = {
     get: (): Promise<AppAppearance> => ipcRenderer.invoke("appearance:get"),
     onChanged: (callback: (appearance: AppAppearance) => void) => {
@@ -45,6 +61,7 @@ const appearanceApi = {
 const api = {
     updater: updaterApi,
     repository: repositoryApi,
+    localization: localizationApi,
     appearance: appearanceApi
 };
 

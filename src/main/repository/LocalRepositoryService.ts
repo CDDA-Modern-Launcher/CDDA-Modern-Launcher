@@ -3,11 +3,15 @@ import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { REPOSITORY_CONFIG_FILE_NAME, RepositoryConfig, RepositoryStatus } from "../../shared/repository";
+import { LocalizationService } from "../localization/LocalizationService";
 import { LauncherSettingsStore } from "../settings/LauncherSettingsStore";
 import { parseRepositoryConfig } from "./parseRepositoryConfig";
 
 export class LocalRepositoryService {
-    constructor(private readonly settingsStore: LauncherSettingsStore) {}
+    constructor(
+        private readonly settingsStore: LauncherSettingsStore,
+        private readonly localizationService: LocalizationService
+    ) {}
 
     async getInitialStatus(): Promise<RepositoryStatus> {
         const repositoryPath = await this.settingsStore.getRepositoryPath();
@@ -24,6 +28,7 @@ export class LocalRepositoryService {
 
         if (status.status === "ready") {
             await this.settingsStore.setRepositoryPath(repositoryPath);
+            await this.localizationService.setRepositoryPath(repositoryPath);
         }
 
         return status;
@@ -33,11 +38,11 @@ export class LocalRepositoryService {
         const directoryState = await getDirectoryState(repositoryPath);
 
         if (directoryState.status === "missing") {
-            return { status: "invalid", path: repositoryPath, message: "Selected folder does not exist." };
+            return { status: "invalid", path: repositoryPath, message: this.localizationService.t("repository.error.selectedMissing") };
         }
 
         if (directoryState.status === "not-directory") {
-            return { status: "invalid", path: repositoryPath, message: "Selected path is not a folder." };
+            return { status: "invalid", path: repositoryPath, message: this.localizationService.t("repository.error.selectedNotDirectory") };
         }
 
         const configPath = join(repositoryPath, REPOSITORY_CONFIG_FILE_NAME);
@@ -51,7 +56,10 @@ export class LocalRepositoryService {
             return {
                 status: "invalid",
                 path: repositoryPath,
-                message: existingConfig.status === "missing" ? `Folder is not empty and ${REPOSITORY_CONFIG_FILE_NAME} was not found.` : `${REPOSITORY_CONFIG_FILE_NAME} exists but is not valid.`
+                message:
+                    existingConfig.status === "missing"
+                        ? this.localizationService.t("repository.error.nonEmptyWithoutConfig", { fileName: REPOSITORY_CONFIG_FILE_NAME })
+                        : this.localizationService.t("repository.error.invalidExistingConfig", { fileName: REPOSITORY_CONFIG_FILE_NAME })
             };
         }
 
@@ -71,7 +79,7 @@ export class LocalRepositoryService {
             return {
                 status: "invalid",
                 path: repositoryPath,
-                message: "Saved repository folder does not exist."
+                message: this.localizationService.t("repository.error.savedMissing")
             };
         }
 
@@ -79,7 +87,7 @@ export class LocalRepositoryService {
             return {
                 status: "invalid",
                 path: repositoryPath,
-                message: "Saved repository path is not a folder."
+                message: this.localizationService.t("repository.error.savedNotDirectory")
             };
         }
 
@@ -92,7 +100,10 @@ export class LocalRepositoryService {
         return {
             status: "invalid",
             path: repositoryPath,
-            message: config.status === "missing" ? `Saved repository folder does not contain ${REPOSITORY_CONFIG_FILE_NAME}.` : `Saved repository folder contains invalid ${REPOSITORY_CONFIG_FILE_NAME}.`
+            message:
+                config.status === "missing"
+                    ? this.localizationService.t("repository.error.savedWithoutConfig", { fileName: REPOSITORY_CONFIG_FILE_NAME })
+                    : this.localizationService.t("repository.error.savedInvalidConfig", { fileName: REPOSITORY_CONFIG_FILE_NAME })
         };
     }
 

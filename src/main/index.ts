@@ -6,6 +6,8 @@ import { join } from "path";
 
 import icon from "../../resources/icon.png?asset";
 import { setupAppearanceIpc } from "./appearance/setupAppearanceIpc";
+import { LocalizationService } from "./localization/LocalizationService";
+import { setupLocalizationIpc } from "./localization/setupLocalizationIpc";
 import { LocalRepositoryService } from "./repository/LocalRepositoryService";
 import { setupRepositoryIpc } from "./repository/setupRepositoryIpc";
 import { LauncherSettingsStore } from "./settings/LauncherSettingsStore";
@@ -18,7 +20,7 @@ type UpdateState =
     | { status: "downloaded"; version: string }
     | { status: "not-available"; version?: string }
     | { status: "skipped"; version: string }
-    | { status: "error"; message: string };
+    | { status: "error"; message: string; messageKey?: string };
 
 let updateState: UpdateState = { status: "idle" };
 let skippedVersion: string | null = null;
@@ -57,28 +59,29 @@ function shouldIgnoreVersion(version: string): boolean {
     return skippedVersion !== null && skippedVersion === version;
 }
 
-function getFriendlyUpdateErrorMessage(error: unknown): string {
+function getFriendlyUpdateErrorKey(error: unknown): string {
     const message = error instanceof Error ? error.message : String(error);
 
     if (message.includes("latest.yml") && message.includes("404")) {
-        return "Update metadata is missing in the latest GitHub release.";
+        return "updater.error.metadataMissing";
     }
 
-    if (message.includes("HttpError") || message.includes("ENOTFOUND") || message.includes("ECONNRESET") || message.includes("ETIMEDOUT")) {
-        return "Cannot check for updates right now. Please try again later.";
-    }
-
-    return "Cannot check for updates right now. Please try again later.";
+    return "updater.error.checkFailed";
 }
 
-function setupUpdaterIpc(): void {
+function getUpdateErrorState(messageKey: string, localizationService: LocalizationService): UpdateState {
+    return { status: "error", messageKey, message: localizationService.t(messageKey) };
+}
+
+function setupUpdaterIpc(localizationService: LocalizationService): void {
     ipcMain.handle("updater:get-state", () => updateState);
 
     ipcMain.handle("updater:check-now", async () => {
         if (is.dev || !app.isPackaged) {
             setUpdateState({
                 status: "error",
-                message: "Real update check is available only in packaged app."
+                messageKey: "updater.error.packagedOnly",
+                message: localizationService.t("updater.error.packagedOnly")
             });
             return updateState;
         }
@@ -89,7 +92,7 @@ function setupUpdaterIpc(): void {
 
     ipcMain.handle("updater:install-now", () => {
         if (updateState.status !== "downloaded") {
-            setUpdateState({ status: "error", message: "Update is not downloaded yet." });
+            setUpdateState(getUpdateErrorState("updater.error.notDownloaded", localizationService));
             return false;
         }
 
@@ -149,7 +152,7 @@ function simulateDownloadedUpdate(version = app.getVersion()): void {
     }, 500);
 }
 
-function setupAutoUpdater(): void {
+function setupAutoUpdater(localizationService: LocalizationService): void {
     if (is.dev || !app.isPackaged) {
         logUpdater("[updater] skipped in dev/unpackaged mode");
         return;
@@ -206,7 +209,7 @@ function setupAutoUpdater(): void {
             message: error.message,
             stack: error.stack
         });
-        setUpdateState({ status: "error", message: getFriendlyUpdateErrorMessage(error) });
+        setUpdateState(getUpdateErrorState(getFriendlyUpdateErrorKey(error), localizationService));
     });
 
     autoUpdater.checkForUpdates().catch((error) => {
@@ -215,10 +218,7 @@ function setupAutoUpdater(): void {
             message: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined
         });
-        setUpdateState({
-            status: "error",
-            message: getFriendlyUpdateErrorMessage(error)
-        });
+        setUpdateState(getUpdateErrorState(getFriendlyUpdateErrorKey(error), localizationService));
     });
 }
 
@@ -259,7 +259,7 @@ function createWindow(): void {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     // Set app user model id for windows
     electronApp.setAppUserModelId("io.github.relvl.cdda-launcher-electron");
 
@@ -274,13 +274,16 @@ app.whenReady().then(() => {
     ipcMain.on("ping", () => console.log("pong"));
 
     const settingsStore = new LauncherSettingsStore();
-    const repositoryService = new LocalRepositoryService(settingsStore);
+    const localizationService = new LocalizationService(settingsStore);
+    await localizationService.initialize();
+    const repositoryService = new LocalRepositoryService(settingsStore, localizationService);
 
     setupAppearanceIpc();
-    setupRepositoryIpc(repositoryService);
-    setupUpdaterIpc();
+    setupLocalizationIpc(localizationService);
+    setupRepositoryIpc(repositoryService, localizationService);
+    setupUpdaterIpc(localizationService);
     createWindow();
-    setupAutoUpdater();
+    setupAutoUpdater(localizationService);
 
     app.on("activate", function () {
         // On macOS it's common to re-create a window in the app when the

@@ -1,47 +1,51 @@
 import { Alert, Button, Group, Paper, Progress, Stack, Text } from "@mantine/core";
 import React, { useEffect, useMemo, useState } from "react";
 
+import { useLocalization } from "../localization/LocalizationProvider";
+
 type UpdateState = Awaited<ReturnType<typeof window.api.updater.getState>>;
+type Translate = ReturnType<typeof useLocalization>["t"];
 
 function isVisibleState(state: UpdateState): boolean {
     return state.status !== "idle" && state.status !== "not-available" && state.status !== "skipped";
 }
 
-function getTitle(state: UpdateState): string {
+function getTitle(state: UpdateState, t: Translate): string {
     switch (state.status) {
         case "checking":
-            return "Checking for updates";
+            return t("updater.title.checking");
         case "available":
-            return `Update ${state.version} found`;
+            return t("updater.title.available", { version: state.version });
         case "downloading":
-            return `Downloading update ${state.version}`;
+            return t("updater.title.downloading", { version: state.version });
         case "downloaded":
-            return `Update ${state.version} is ready`;
+            return t("updater.title.downloaded", { version: state.version });
         case "error":
-            return "Update check failed";
+            return t("updater.title.error");
         default:
             return "";
     }
 }
 
-function getDescription(state: UpdateState): string {
+function getDescription(state: UpdateState, t: Translate): string {
     switch (state.status) {
         case "checking":
-            return "Looking for a newer launcher version.";
+            return t("updater.description.checking");
         case "available":
-            return "The update will be downloaded automatically.";
+            return t("updater.description.available");
         case "downloading":
-            return `${state.percent}% downloaded.`;
+            return t("updater.description.downloading", { percent: state.percent });
         case "downloaded":
-            return "Restart the app to install it now, or continue working and install later.";
+            return t("updater.description.downloaded");
         case "error":
-            return state.message;
+            return state.messageKey === undefined ? state.message : t(state.messageKey);
         default:
             return "";
     }
 }
 
 export function UpdateFloatingCard(): React.JSX.Element | null {
+    const { t } = useLocalization();
     const [state, setState] = useState<UpdateState>({ status: "idle" });
 
     useEffect(() => {
@@ -73,8 +77,8 @@ export function UpdateFloatingCard(): React.JSX.Element | null {
         return () => window.clearTimeout(timer);
     }, [state]);
 
-    const title = useMemo(() => getTitle(state), [state]);
-    const description = useMemo(() => getDescription(state), [state]);
+    const title = useMemo(() => getTitle(state, t), [state, t]);
+    const description = useMemo(() => getDescription(state, t), [state, t]);
 
     if (!isVisibleState(state)) {
         return null;
@@ -113,13 +117,13 @@ export function UpdateFloatingCard(): React.JSX.Element | null {
                 {state.status === "downloaded" && (
                     <Group justify="flex-end" gap="xs">
                         <Button variant="subtle" size="xs" onClick={() => window.api.updater.skipVersion(state.version)}>
-                            Skip {state.version}
+                            {t("updater.action.skip", { version: state.version })}
                         </Button>
                         <Button variant="default" size="xs" onClick={() => window.api.updater.dismiss()}>
-                            Later
+                            {t("updater.action.later")}
                         </Button>
                         <Button size="xs" onClick={() => window.api.updater.installNow()}>
-                            Restart now
+                            {t("updater.action.restartNow")}
                         </Button>
                     </Group>
                 )}
@@ -127,7 +131,7 @@ export function UpdateFloatingCard(): React.JSX.Element | null {
                 {state.status === "error" && (
                     <Group justify="flex-end">
                         <Button variant="default" size="xs" onClick={() => window.api.updater.dismiss()}>
-                            Close
+                            {t("updater.action.close")}
                         </Button>
                     </Group>
                 )}
