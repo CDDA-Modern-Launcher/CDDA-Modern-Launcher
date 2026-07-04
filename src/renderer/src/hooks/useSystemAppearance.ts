@@ -1,25 +1,26 @@
-import { useEffect, useState } from 'react'
-import { AppAppearance } from '../../../shared/appearance'
+import { useEffect, useState } from "react";
+
+import { AppAppearance } from "../../../shared/appearance";
 
 export function useSystemAppearance(): AppAppearance {
-  const [appearance, setAppearance] = useState<AppAppearance>({ colorScheme: 'dark' })
+    const [appearance, setAppearance] = useState<AppAppearance>({ colorScheme: "dark" });
 
-  useEffect(() => {
-    let mounted = true
+    useEffect(() => {
+        let mounted = true;
 
-    window.api.appearance.get().then((initialAppearance) => {
-      if (mounted) {
-        setAppearance(initialAppearance)
-      }
-    })
+        window.api.appearance.get().then((initialAppearance) => {
+            if (mounted) {
+                setAppearance(initialAppearance);
+            }
+        });
 
-    const unsubscribe = window.api.appearance.onChanged(setAppearance)
+        const unsubscribe = window.api.appearance.onChanged(setAppearance);
 
-    return () => {
-      mounted = false
-      unsubscribe()
-    }
-  }, [])
+        return () => {
+            mounted = false;
+            unsubscribe();
+        };
+    }, []);
 
-  return appearance
+    return appearance;
 }

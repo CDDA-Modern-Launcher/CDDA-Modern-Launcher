@@ -1,4 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+
 import { AppAppearance } from '../shared/appearance'
 import { RepositoryStatus, SelectRepositoryResult } from '../shared/repository'
 

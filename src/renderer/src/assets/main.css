@@ -1,91 +1,91 @@
 @import './base.css';
 
 :root {
-  --app-code-background: var(--mantine-color-gray-1);
-  --app-shell-background: radial-gradient(circle at top left, rgba(64, 112, 244, 0.14), transparent 34rem),
-  radial-gradient(circle at bottom right, rgba(18, 184, 134, 0.12), transparent 32rem),
-  var(--mantine-color-gray-0);
-  --app-card-background: rgba(255, 255, 255, 0.86);
-  --app-panel-background: var(--mantine-color-gray-0);
+    --app-code-background: var(--mantine-color-gray-1);
+    --app-shell-background: radial-gradient(circle at top left, rgba(64, 112, 244, 0.14), transparent 34rem),
+    radial-gradient(circle at bottom right, rgba(18, 184, 134, 0.12), transparent 32rem),
+    var(--mantine-color-gray-0);
+    --app-card-background: rgba(255, 255, 255, 0.86);
+    --app-panel-background: var(--mantine-color-gray-0);
 }
 
 :root[data-mantine-color-scheme='dark'] {
-  --app-code-background: var(--mantine-color-dark-6);
-  --app-shell-background: radial-gradient(circle at top left, rgba(64, 112, 244, 0.2), transparent 34rem),
-  radial-gradient(circle at bottom right, rgba(18, 184, 134, 0.18), transparent 32rem),
-  var(--mantine-color-dark-8);
-  --app-card-background: rgba(26, 27, 30, 0.86);
-  --app-panel-background: var(--mantine-color-dark-7);
+    --app-code-background: var(--mantine-color-dark-6);
+    --app-shell-background: radial-gradient(circle at top left, rgba(64, 112, 244, 0.2), transparent 34rem),
+    radial-gradient(circle at bottom right, rgba(18, 184, 134, 0.18), transparent 32rem),
+    var(--mantine-color-dark-8);
+    --app-card-background: rgba(26, 27, 30, 0.86);
+    --app-panel-background: var(--mantine-color-dark-7);
 }
 
 body {
-  overflow: hidden;
-  user-select: none;
+    overflow: hidden;
+    user-select: none;
 }
 
 button,
 a {
-  user-select: none;
+    user-select: none;
 }
 
 code {
-  font-weight: 600;
-  padding: 2px 5px;
-  border-radius: 4px;
-  background-color: var(--app-code-background);
-  font-family: ui-monospace,
-  SFMono-Regular,
-  SF Mono,
-  Menlo,
-  Consolas,
-  Liberation Mono,
-  monospace;
-  font-size: 85%;
+    font-weight: 600;
+    padding: 2px 5px;
+    border-radius: 4px;
+    background-color: var(--app-code-background);
+    font-family: ui-monospace,
+    SFMono-Regular,
+    SF Mono,
+    Menlo,
+    Consolas,
+    Liberation Mono,
+    monospace;
+    font-size: 85%;
 }
 
 #root {
-  min-height: 100vh;
+    min-height: 100vh;
 }
 
 .app-shell {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 24px;
-  background: var(--app-shell-background);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    background: var(--app-shell-background);
 }
 
 .repository-card {
-  width: min(720px, 100%);
-  background-color: var(--app-card-background);
-  backdrop-filter: blur(20px);
+    width: min(720px, 100%);
+    background-color: var(--app-card-background);
+    backdrop-filter: blur(20px);
 }
 
 .eyebrow {
-  letter-spacing: 0.08em;
+    letter-spacing: 0.08em;
 }
 
 .repository-rules {
-  padding: 16px;
-  border-radius: var(--mantine-radius-md);
-  background-color: var(--app-panel-background);
+    padding: 16px;
+    border-radius: var(--mantine-radius-md);
+    background-color: var(--app-panel-background);
 }
 
 .repository-details {
-  padding: 16px;
-  border-radius: var(--mantine-radius-md);
-  background-color: var(--app-panel-background);
+    padding: 16px;
+    border-radius: var(--mantine-radius-md);
+    background-color: var(--app-panel-background);
 }
 
 .path-text {
-  user-select: text;
-  overflow-wrap: anywhere;
-  font-family: ui-monospace,
-  SFMono-Regular,
-  SF Mono,
-  Menlo,
-  Consolas,
-  Liberation Mono,
-  monospace;
+    user-select: text;
+    overflow-wrap: anywhere;
+    font-family: ui-monospace,
+    SFMono-Regular,
+    SF Mono,
+    Menlo,
+    Consolas,
+    Liberation Mono,
+    monospace;
 }
