@@ -1,8 +1,8 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'path'
 import { appendFileSync, mkdirSync } from 'fs'
-import { autoUpdater, UpdateInfo, ProgressInfo } from 'electron-updater'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { autoUpdater, ProgressInfo, UpdateInfo } from 'electron-updater'
+import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
 type UpdateState =
@@ -52,7 +52,6 @@ function shouldIgnoreVersion(version: string): boolean {
   return skippedVersion !== null && skippedVersion === version
 }
 
-
 function getFriendlyUpdateErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
 
@@ -60,7 +59,12 @@ function getFriendlyUpdateErrorMessage(error: unknown): string {
     return 'Update metadata is missing in the latest GitHub release.'
   }
 
-  if (message.includes('HttpError') || message.includes('ENOTFOUND') || message.includes('ECONNRESET') || message.includes('ETIMEDOUT')) {
+  if (
+    message.includes('HttpError') ||
+    message.includes('ENOTFOUND') ||
+    message.includes('ECONNRESET') ||
+    message.includes('ETIMEDOUT')
+  ) {
     return 'Cannot check for updates right now. Please try again later.'
   }
 
@@ -72,7 +76,10 @@ function setupUpdaterIpc(): void {
 
   ipcMain.handle('updater:check-now', async () => {
     if (is.dev || !app.isPackaged) {
-      setUpdateState({ status: 'error', message: 'Real update check is available only in packaged app.' })
+      setUpdateState({
+        status: 'error',
+        message: 'Real update check is available only in packaged app.'
+      })
       return updateState
     }
 
@@ -172,9 +179,10 @@ function setupAutoUpdater(): void {
   })
 
   autoUpdater.on('download-progress', (progress: ProgressInfo) => {
-    const version = updateState.status === 'available' || updateState.status === 'downloading'
-      ? updateState.version
-      : 'unknown'
+    const version =
+      updateState.status === 'available' || updateState.status === 'downloading'
+        ? updateState.version
+        : 'unknown'
 
     setUpdateState({
       status: 'downloading',

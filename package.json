@@ -20,7 +20,8 @@
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
     "publish": "npm version patch && git push --follow-tags",
-    "publish:minor": "npm version minor && git push --follow-tags"
+    "publish:minor": "npm version minor && git push --follow-tags",
+    "zip:source": "tsx scripts/zip-source.ts"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -35,10 +36,12 @@
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^2.0.0",
-    "@types/node": "^22.19.1",
+    "@types/archiver": "^7.0.0",
+    "@types/node": "^22.20.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "archiver": "^7.0.1",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
@@ -49,6 +52,7 @@
     "prettier": "^3.7.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "tsx": "^4.19.2",
     "typescript": "^5.9.3",
     "vite": "^7.2.6"
   }
