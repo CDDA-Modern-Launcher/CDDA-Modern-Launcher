@@ -1,9 +1,24 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { appendFileSync, mkdirSync } from 'fs'
-import { autoUpdater } from 'electron-updater'
+import { autoUpdater, UpdateInfo, ProgressInfo } from 'electron-updater'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+
+type UpdateState =
+  | { status: 'idle' }
+  | { status: 'checking' }
+  | { status: 'available'; version: string }
+  | { status: 'downloading'; version: string; percent: number }
+  | { status: 'downloaded'; version: string }
+  | { status: 'not-available'; version?: string }
+  | { status: 'skipped'; version: string }
+  | { status: 'error'; message: string }
+
+let updateState: UpdateState = { status: 'idle' }
+let skippedVersion: string | null = null
+let mockUpdateTimer: NodeJS.Timeout | null = null
+let hasMockDownloadedUpdate = false
 
 function logUpdater(message: string, data?: unknown): void {
   const text = data === undefined ? message : `${message} ${JSON.stringify(data)}`
@@ -20,6 +35,98 @@ function logUpdater(message: string, data?: unknown): void {
   }
 }
 
+function setUpdateState(state: UpdateState): void {
+  updateState = state
+  logUpdater('[updater] state changed', state)
+
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send('updater:state-changed', state)
+  }
+}
+
+function getUpdateVersion(info: UpdateInfo): string {
+  return info.version || 'unknown'
+}
+
+function shouldIgnoreVersion(version: string): boolean {
+  return skippedVersion !== null && skippedVersion === version
+}
+
+function setupUpdaterIpc(): void {
+  ipcMain.handle('updater:get-state', () => updateState)
+
+  ipcMain.handle('updater:check-now', async () => {
+    if (is.dev || !app.isPackaged) {
+      setUpdateState({ status: 'error', message: 'Real update check is available only in packaged app.' })
+      return updateState
+    }
+
+    await autoUpdater.checkForUpdates()
+    return updateState
+  })
+
+  ipcMain.handle('updater:install-now', () => {
+    if (updateState.status !== 'downloaded') {
+      setUpdateState({ status: 'error', message: 'Update is not downloaded yet.' })
+      return false
+    }
+
+    if (hasMockDownloadedUpdate) {
+      hasMockDownloadedUpdate = false
+      logUpdater('[updater] mock install requested; no real installer will be launched')
+      setUpdateState({ status: 'idle' })
+      return false
+    }
+
+    autoUpdater.quitAndInstall()
+    return true
+  })
+
+  ipcMain.handle('updater:dismiss', () => {
+    setUpdateState({ status: 'idle' })
+    return updateState
+  })
+
+  ipcMain.handle('updater:skip-version', (_event, version: string) => {
+    skippedVersion = version
+    setUpdateState({ status: 'skipped', version })
+    return updateState
+  })
+
+  ipcMain.handle('updater:mock-downloaded', (_event, version?: string) => {
+    simulateDownloadedUpdate(version)
+    return updateState
+  })
+}
+
+function simulateDownloadedUpdate(version = app.getVersion()): void {
+  if (mockUpdateTimer !== null) {
+    clearTimeout(mockUpdateTimer)
+    mockUpdateTimer = null
+  }
+
+  hasMockDownloadedUpdate = false
+  setUpdateState({ status: 'checking' })
+
+  mockUpdateTimer = setTimeout(() => {
+    setUpdateState({ status: 'available', version })
+
+    mockUpdateTimer = setTimeout(() => {
+      setUpdateState({ status: 'downloading', version, percent: 37 })
+
+      mockUpdateTimer = setTimeout(() => {
+        setUpdateState({ status: 'downloading', version, percent: 100 })
+
+        mockUpdateTimer = setTimeout(() => {
+          hasMockDownloadedUpdate = true
+          setUpdateState({ status: 'downloaded', version })
+          mockUpdateTimer = null
+        }, 400)
+      }, 700)
+    }, 700)
+  }, 500)
+}
+
 function setupAutoUpdater(): void {
   if (is.dev || !app.isPackaged) {
     logUpdater('[updater] skipped in dev/unpackaged mode')
@@ -27,34 +134,50 @@ function setupAutoUpdater(): void {
   }
 
   autoUpdater.autoDownload = true
-  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.autoInstallOnAppQuit = false
 
   autoUpdater.on('checking-for-update', () => {
-    logUpdater('[updater] checking for update')
+    setUpdateState({ status: 'checking' })
   })
 
   autoUpdater.on('update-available', (info) => {
-    logUpdater('[updater] update available', { version: info.version })
+    const version = getUpdateVersion(info)
+
+    if (shouldIgnoreVersion(version)) {
+      logUpdater('[updater] update ignored by user', { version })
+      setUpdateState({ status: 'skipped', version })
+      return
+    }
+
+    setUpdateState({ status: 'available', version })
   })
 
   autoUpdater.on('update-not-available', (info) => {
-    logUpdater('[updater] update not available', { version: info.version })
+    setUpdateState({ status: 'not-available', version: info.version })
   })
 
-  autoUpdater.on('download-progress', (progress) => {
-    logUpdater('[updater] download progress', {
-      percent: Math.round(progress.percent),
-      transferred: progress.transferred,
-      total: progress.total
+  autoUpdater.on('download-progress', (progress: ProgressInfo) => {
+    const version = updateState.status === 'available' || updateState.status === 'downloading'
+      ? updateState.version
+      : 'unknown'
+
+    setUpdateState({
+      status: 'downloading',
+      version,
+      percent: Math.max(0, Math.min(100, Math.round(progress.percent)))
     })
   })
 
   autoUpdater.on('update-downloaded', (info) => {
-    logUpdater('[updater] update downloaded', { version: info.version })
+    hasMockDownloadedUpdate = false
+    const version = getUpdateVersion(info)
 
-    // First-test behavior: install immediately after download.
-    // Later this should be replaced with an explicit restart/update dialog.
-    autoUpdater.quitAndInstall()
+    if (shouldIgnoreVersion(version)) {
+      setUpdateState({ status: 'skipped', version })
+      return
+    }
+
+    setUpdateState({ status: 'downloaded', version })
   })
 
   autoUpdater.on('error', (error) => {
@@ -63,6 +186,7 @@ function setupAutoUpdater(): void {
       message: error.message,
       stack: error.stack
     })
+    setUpdateState({ status: 'error', message: error.message })
   })
 
   autoUpdater.checkForUpdates().catch((error) => {
@@ -70,6 +194,10 @@ function setupAutoUpdater(): void {
       name: error instanceof Error ? error.name : undefined,
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined
+    })
+    setUpdateState({
+      status: 'error',
+      message: error instanceof Error ? error.message : String(error)
     })
   })
 }
@@ -123,6 +251,7 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
+  setupUpdaterIpc()
   createWindow()
   setupAutoUpdater()
 
