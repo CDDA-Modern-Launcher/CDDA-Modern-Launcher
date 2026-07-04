@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { REPOSITORY_CONFIG_FILE_NAME, RepositoryConfig, RepositoryStatus } from "../../shared/repository";
 import { LauncherSettingsStore } from "../settings/LauncherSettingsStore";
-import { parseJsonc } from "./jsonc";
+import { parseRepositoryConfig } from "./parseRepositoryConfig";
 
 export class LocalRepositoryService {
     constructor(private readonly settingsStore: LauncherSettingsStore) {}
@@ -51,10 +51,7 @@ export class LocalRepositoryService {
             return {
                 status: "invalid",
                 path: repositoryPath,
-                message:
-                    existingConfig.status === "missing"
-                        ? `Folder is not empty and ${REPOSITORY_CONFIG_FILE_NAME} was not found.`
-                        : `${REPOSITORY_CONFIG_FILE_NAME} exists but is not valid.`
+                message: existingConfig.status === "missing" ? `Folder is not empty and ${REPOSITORY_CONFIG_FILE_NAME} was not found.` : `${REPOSITORY_CONFIG_FILE_NAME} exists but is not valid.`
             };
         }
 
@@ -95,17 +92,14 @@ export class LocalRepositoryService {
         return {
             status: "invalid",
             path: repositoryPath,
-            message:
-                config.status === "missing"
-                    ? `Saved repository folder does not contain ${REPOSITORY_CONFIG_FILE_NAME}.`
-                    : `Saved repository folder contains invalid ${REPOSITORY_CONFIG_FILE_NAME}.`
+            message: config.status === "missing" ? `Saved repository folder does not contain ${REPOSITORY_CONFIG_FILE_NAME}.` : `Saved repository folder contains invalid ${REPOSITORY_CONFIG_FILE_NAME}.`
         };
     }
 
     private async readConfig(configPath: string): Promise<{ status: "ok"; config: RepositoryConfig } | { status: "missing" } | { status: "invalid" }> {
         try {
             const content = await readFile(configPath, "utf8");
-            const parsed = parseJsonc(content);
+            const parsed = parseRepositoryConfig(content, configPath);
 
             if (!isRepositoryConfig(parsed)) {
                 return { status: "invalid" };

@@ -10,7 +10,7 @@ const outputDir = path.join(projectRoot, ".snapshots");
 const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\./g, "-");
 const outputFile = path.join(outputDir, `source-${timestamp}.zip`);
 
-const excludedDirs = new Set([".git", ".idea", ".vscode", "node_modules", "build", "dist", "out", "coverage", ".snapshots", ".turbo", ".next", ".cache", ".parcel-cache"]);
+const excludedDirs = new Set([".git", ".idea", ".vscode", "node_modules", "build", "dist", "out", "coverage", ".snapshots", ".turbo", ".next", ".cache", ".parcel-cache", "workspace"]);
 
 const excludedFiles = new Set([".DS_Store", "Thumbs.db", "npm-debug.log", "yarn-error.log", "pnpm-debug.log"]);
 
