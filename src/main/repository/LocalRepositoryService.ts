@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { DEFAULT_GAME_CHANNEL_ID, GameChannelDefinition, getEffectiveGameChannels } from "../../shared/gameChannels";
 import { REPOSITORY_CONFIG_FILE_NAME, RepositoryConfig, RepositoryStatus } from "../../shared/repository";
 import { LocalizationService } from "../localization/LocalizationService";
 import { LauncherSettingsStore } from "../settings/LauncherSettingsStore";
@@ -34,6 +35,21 @@ export class LocalRepositoryService {
         return status;
     }
 
+    async setSelectedChannel(channelId: string): Promise<RepositoryStatus> {
+        const currentStatus = await this.getInitialStatus();
+
+        if (currentStatus.status !== "ready") {
+            return currentStatus;
+        }
+
+        const channels = getEffectiveGameChannels(currentStatus.config.customChannels);
+        const selectedChannelId = channels.some((channel) => channel.id === channelId) ? channelId : DEFAULT_GAME_CHANNEL_ID;
+        const config = normalizeRepositoryConfig({ ...currentStatus.config, selectedChannelId });
+
+        await this.writeConfig(currentStatus.path, config);
+        return { status: "ready", path: currentStatus.path, config };
+    }
+
     private async prepare(repositoryPath: string): Promise<RepositoryStatus> {
         const directoryState = await getDirectoryState(repositoryPath);
 
@@ -49,7 +65,9 @@ export class LocalRepositoryService {
         const existingConfig = await this.readConfig(configPath);
 
         if (existingConfig.status === "ok") {
-            return { status: "ready", path: repositoryPath, config: existingConfig.config };
+            const config = normalizeRepositoryConfig(existingConfig.config);
+            await this.writeConfig(repositoryPath, config);
+            return { status: "ready", path: repositoryPath, config };
         }
 
         if (!directoryState.isEmpty) {
@@ -63,12 +81,14 @@ export class LocalRepositoryService {
             };
         }
 
-        const config: RepositoryConfig = {
+        const config: RepositoryConfig = normalizeRepositoryConfig({
             schemaVersion: 1,
-            createdAt: new Date().toISOString()
-        };
+            createdAt: new Date().toISOString(),
+            selectedChannelId: DEFAULT_GAME_CHANNEL_ID,
+            customChannels: []
+        });
 
-        await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+        await this.writeConfig(repositoryPath, config);
         return { status: "ready", path: repositoryPath, config };
     }
 
@@ -94,7 +114,9 @@ export class LocalRepositoryService {
         const config = await this.readConfig(join(repositoryPath, REPOSITORY_CONFIG_FILE_NAME));
 
         if (config.status === "ok") {
-            return { status: "ready", path: repositoryPath, config: config.config };
+            const normalizedConfig = normalizeRepositoryConfig(config.config);
+            await this.writeConfig(repositoryPath, normalizedConfig);
+            return { status: "ready", path: repositoryPath, config: normalizedConfig };
         }
 
         return {
@@ -125,6 +147,10 @@ export class LocalRepositoryService {
             console.error("[repository] failed to read repository config", error);
             return { status: "invalid" };
         }
+    }
+
+    private async writeConfig(repositoryPath: string, config: RepositoryConfig): Promise<void> {
+        await writeFile(join(repositoryPath, REPOSITORY_CONFIG_FILE_NAME), `${JSON.stringify(config, null, 2)}\n`, "utf8");
     }
 }
 
@@ -163,13 +189,62 @@ async function getDirectoryState(path: string): Promise<DirectoryState> {
     }
 }
 
+function normalizeRepositoryConfig(config: RepositoryConfig): RepositoryConfig {
+    const customChannels = Array.isArray(config.customChannels) ? config.customChannels.map(normalizeCustomChannel).filter((channel) => channel !== null) : [];
+    const channels = getEffectiveGameChannels(customChannels);
+    const selectedChannelId = channels.some((channel) => channel.id === config.selectedChannelId) ? config.selectedChannelId : DEFAULT_GAME_CHANNEL_ID;
+
+    return {
+        schemaVersion: 1,
+        createdAt: config.createdAt,
+        selectedChannelId,
+        customChannels
+    };
+}
+
+function normalizeCustomChannel(channel: unknown): GameChannelDefinition | null {
+    if (typeof channel !== "object" || channel === null) {
+        return null;
+    }
+
+    const candidate = channel as Partial<GameChannelDefinition>;
+
+    if (candidate.source !== "custom" || typeof candidate.id !== "string") {
+        return null;
+    }
+
+    return {
+        id: candidate.id,
+        gameId: typeof candidate.gameId === "string" ? candidate.gameId : candidate.id,
+        channelId: typeof candidate.channelId === "string" ? candidate.channelId : "custom",
+        gameName: typeof candidate.gameName === "string" ? candidate.gameName : candidate.id,
+        shortName: typeof candidate.shortName === "string" ? candidate.shortName : candidate.id,
+        channelName: typeof candidate.channelName === "string" ? candidate.channelName : "Custom",
+        githubOwner: typeof candidate.githubOwner === "string" ? candidate.githubOwner : "",
+        githubRepo: typeof candidate.githubRepo === "string" ? candidate.githubRepo : "",
+        githubBranch: typeof candidate.githubBranch === "string" && candidate.githubBranch.length > 0 ? candidate.githubBranch : "master",
+        releasesUrl: typeof candidate.releasesUrl === "string" ? candidate.releasesUrl : "",
+        assetNameIncludes: {
+            windows: typeof candidate.assetNameIncludes?.windows === "string" ? candidate.assetNameIncludes.windows : "",
+            linux: typeof candidate.assetNameIncludes?.linux === "string" ? candidate.assetNameIncludes.linux : ""
+        },
+        kind: candidate.kind === "stable" ? "stable" : "experimental",
+        source: "custom"
+    };
+}
+
 function isRepositoryConfig(value: unknown): value is RepositoryConfig {
     if (typeof value !== "object" || value === null) {
         return false;
     }
 
     const candidate = value as Partial<RepositoryConfig>;
-    return candidate.schemaVersion === 1 && typeof candidate.createdAt === "string";
+    return (
+        candidate.schemaVersion === 1 &&
+        typeof candidate.createdAt === "string" &&
+        (candidate.selectedChannelId === undefined || typeof candidate.selectedChannelId === "string") &&
+        (candidate.customChannels === undefined || Array.isArray(candidate.customChannels))
+    );
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

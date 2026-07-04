@@ -1,48 +1,23 @@
-import { Alert, Button, Card, Group, Loader, Stack, Text, Title } from "@mantine/core";
-import React, { useEffect, useState } from "react";
+import { Alert, Badge, Button, Card, Divider, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import React from "react";
 
+import { findGameChannel, getEffectiveGameChannels, getGameChannelRepositoryUrl } from "../../../shared/gameChannels";
 import { REPOSITORY_CONFIG_FILE_NAME, RepositoryStatus } from "../../../shared/repository";
 import { useLocalization } from "../localization/LocalizationContext";
 
-export function RepositoryGate(): React.JSX.Element {
-    const { t } = useLocalization();
-    const [repository, setRepository] = useState<RepositoryStatus>({ status: "unconfigured" });
-    const [isSelecting, setSelecting] = useState(false);
+export type RepositoryGateProps = {
+    repository: RepositoryStatus;
+    isSelecting: boolean;
+    onSelectRepository: () => void;
+};
 
-    useEffect(() => {
-        let mounted = true;
-
-        window.api.repository.getStatus().then((status) => {
-            if (mounted) {
-                setRepository(status);
-            }
-        });
-
-        return () => {
-            mounted = false;
-        };
-    }, []);
-
-    const selectRepository = async (): Promise<void> => {
-        setSelecting(true);
-
-        try {
-            const result = await window.api.repository.selectFolder();
-
-            if (result.status === "selected") {
-                setRepository(result.repository);
-            }
-        } finally {
-            setSelecting(false);
-        }
-    };
-
+export function RepositoryGate({ repository, isSelecting, onSelectRepository }: RepositoryGateProps): React.JSX.Element {
     if (repository.status === "loading") {
         return <LoadingRepository path={repository.path} />;
     }
 
     if (repository.status === "ready") {
-        return <ReadyRepository path={repository.path} createdAt={repository.config.createdAt} />;
+        return <ReadyRepository repository={repository} />;
     }
 
     return (
@@ -50,14 +25,11 @@ export function RepositoryGate(): React.JSX.Element {
             repository={repository}
             isSelecting={isSelecting}
             onSelectRepository={() => {
-                selectRepository().catch((error) => {
+                try {
+                    onSelectRepository();
+                } catch (error) {
                     console.error("Failed to select repository", error);
-                    setRepository({
-                        status: "invalid",
-                        path: repository.status === "invalid" ? repository.path : "",
-                        message: t("repository.error.selectFailed")
-                    });
-                });
+                }
             }}
         />
     );
@@ -101,7 +73,7 @@ function RepositorySetup({ repository, isSelecting, onSelectRepository }: Reposi
                 </Stack>
 
                 <Group justify="flex-end">
-                    <Button loading={isSelecting} onClick={onSelectRepository} size="md">
+                    <Button loading={isSelecting} onClick={onSelectRepository}>
                         {t("repository.setup.selectButton")}
                     </Button>
                 </Group>
@@ -115,12 +87,12 @@ function LoadingRepository({ path }: { path: string }): React.JSX.Element {
 
     return (
         <Card withBorder radius="lg" p="xl" className="repository-card">
-            <Group gap="md" align="flex-start">
-                <Loader size="sm" />
-                <Stack gap={4}>
+            <Group gap="lg" wrap="nowrap">
+                <Loader />
+                <Stack gap={2}>
                     <Title order={2}>{t("repository.loading.title")}</Title>
                     <Text c="dimmed">{t("repository.loading.description", { fileName: REPOSITORY_CONFIG_FILE_NAME })}</Text>
-                    <Text size="sm" c="dimmed">
+                    <Text size="sm" className="path-text">
                         {path}
                     </Text>
                 </Stack>
@@ -129,30 +101,105 @@ function LoadingRepository({ path }: { path: string }): React.JSX.Element {
     );
 }
 
-function ReadyRepository({ path, createdAt }: { path: string; createdAt: string }): React.JSX.Element {
+function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus, { status: "ready" }> }): React.JSX.Element {
     const { t } = useLocalization();
+    const channels = getEffectiveGameChannels(repository.config.customChannels);
+    const selectedChannel = findGameChannel(channels, repository.config.selectedChannelId);
 
     return (
-        <Card withBorder radius="lg" p="xl" className="repository-card">
-            <Stack gap="lg">
-                <Stack gap={4}>
-                    <Text size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow">
-                        {t("repository.ready.eyebrow")}
-                    </Text>
-                    <Title order={1}>{t("repository.ready.title")}</Title>
-                    <Text c="dimmed">{t("repository.ready.description")}</Text>
-                </Stack>
+        <Stack className="home-dashboard" gap="lg">
+            <Card withBorder radius="lg" p="xl" className="repository-card home-hero-card">
+                <Stack gap="lg">
+                    <Group justify="space-between" align="flex-start" wrap="nowrap">
+                        <Stack gap={4}>
+                            <Text size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow">
+                                {t("home.eyebrow")}
+                            </Text>
+                            <Title order={1}>{selectedChannel.gameName}</Title>
+                            <Group gap="xs">
+                                <Badge variant="light">{selectedChannel.channelName}</Badge>
+                                <Badge
+                                    component="button"
+                                    variant="outline"
+                                    className="home-repository-badge"
+                                    onClick={() => {
+                                        void window.api.shell.openExternal(getGameChannelRepositoryUrl(selectedChannel));
+                                    }}
+                                >
+                                    {selectedChannel.githubOwner}/{selectedChannel.githubRepo}
+                                </Badge>
+                            </Group>
+                        </Stack>
+                        <Badge color="gray" variant="light" size="lg">
+                            {t("home.status.notInstalled")}
+                        </Badge>
+                    </Group>
 
-                <Stack gap={4} className="repository-details">
-                    <Text size="sm" c="dimmed">
-                        {t("repository.ready.path")}
-                    </Text>
-                    <Text className="path-text">{path}</Text>
-                    <Text size="sm" c="dimmed" mt="xs">
-                        {t("repository.ready.created")}
-                    </Text>
-                    <Text>{createdAt}</Text>
+                    <Text c="dimmed">{t("home.description")}</Text>
+
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                        <Button size="md" disabled>
+                            {t("home.action.play")}
+                        </Button>
+                        <Button size="md" variant="light" disabled>
+                            {t("home.action.continue")}
+                        </Button>
+                    </SimpleGrid>
+
+                    <Alert variant="light" color="blue" title={t("home.install.title")}>
+                        <Stack gap="sm">
+                            <Text size="sm">{t("home.install.description")}</Text>
+                            <Group gap="xs">
+                                <Button size="xs" disabled>
+                                    {t("home.action.install")}
+                                </Button>
+                                <Button size="xs" variant="subtle" disabled>
+                                    {t("home.action.openReleases")}
+                                </Button>
+                            </Group>
+                        </Stack>
+                    </Alert>
                 </Stack>
+            </Card>
+
+            <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md" className="home-secondary-grid">
+                <HomeInfoCard title={t("home.card.installation.title")} description={t("home.card.installation.description")} value={t("home.status.notInstalled")} />
+                <HomeInfoCard title={t("home.card.world.title")} description={t("home.card.world.description")} value={t("home.status.unavailable")} />
+                <HomeInfoCard title={t("home.card.backups.title")} description={t("home.card.backups.description")} value={t("home.status.uiOnly")} />
+            </SimpleGrid>
+
+            <Card withBorder radius="lg" p="md" className="repository-card repository-details">
+                <Stack gap="xs">
+                    <Group justify="space-between" wrap="nowrap">
+                        <Text size="sm" c="dimmed">
+                            {t("repository.ready.path")}
+                        </Text>
+                        <Text size="sm" className="path-text">
+                            {repository.path}
+                        </Text>
+                    </Group>
+                    <Divider />
+                    <Group justify="space-between" wrap="nowrap">
+                        <Text size="sm" c="dimmed">
+                            {t("repository.ready.created")}
+                        </Text>
+                        <Text size="sm">{repository.config.createdAt}</Text>
+                    </Group>
+                </Stack>
+            </Card>
+        </Stack>
+    );
+}
+
+function HomeInfoCard({ title, description, value }: { title: string; description: string; value: string }): React.JSX.Element {
+    return (
+        <Card withBorder radius="lg" p="md" className="home-info-card">
+            <Stack gap="xs">
+                <Text fw={700}>{title}</Text>
+                <Text size="sm" c="dimmed">
+                    {description}
+                </Text>
+                <Text size="sm">{value}</Text>
             </Stack>
         </Card>
     );

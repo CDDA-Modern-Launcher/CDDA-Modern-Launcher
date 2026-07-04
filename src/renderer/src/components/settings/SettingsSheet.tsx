@@ -2,20 +2,26 @@ import { Button, Divider, Drawer, Group, Select, Stack, Switch, Text, Title } fr
 import React from "react";
 
 import { AppTheme } from "../../../../shared/appearance";
+import { findGameChannel, getEffectiveGameChannels } from "../../../../shared/gameChannels";
+import { RepositoryStatus } from "../../../../shared/repository";
 import { useSystemAppearance } from "../../hooks/useSystemAppearance";
 import { LocaleSelector } from "../../localization/LocaleSelector";
 import { useLocalization } from "../../localization/LocalizationContext";
 
 type SettingsSheetProps = {
+    repository: RepositoryStatus;
     opened: boolean;
     onClose: () => void;
+    onSelectChannel: (channelId: string) => Promise<void>;
 };
 
-export function SettingsSheet({ opened, onClose }: SettingsSheetProps): React.JSX.Element {
+export function SettingsSheet({ repository, opened, onClose, onSelectChannel }: SettingsSheetProps): React.JSX.Element {
     const { t } = useLocalization();
     const appearance = useSystemAppearance();
     const themeOptions = getThemeOptions(t);
     const currentTheme = themeOptions.find((option) => option.value === appearance.theme);
+    const channels = repository.status === "ready" ? getEffectiveGameChannels(repository.config.customChannels) : [];
+    const selectedChannel = repository.status === "ready" ? findGameChannel(channels, repository.config.selectedChannelId) : null;
 
     return (
         <Drawer opened={opened} onClose={onClose} position="right" size={420} title={<Title order={3}>{t("settings.title")}</Title>}>
@@ -46,7 +52,22 @@ export function SettingsSheet({ opened, onClose }: SettingsSheetProps): React.JS
                 </SettingsSection>
 
                 <SettingsSection title={t("settings.game.title")} description={t("settings.game.description")}>
-                    <Select label={t("settings.game.fork")} value="cdda" data={[{ value: "cdda", label: "CDDA" }]} disabled allowDeselect={false} />
+                    <Select
+                        label={t("settings.game.channel")}
+                        value={selectedChannel?.id ?? null}
+                        data={channels.map((channel) => ({ value: channel.id, label: `${channel.gameName} · ${channel.channelName}` }))}
+                        disabled={repository.status !== "ready"}
+                        placeholder={t("settings.game.channelUnavailable")}
+                        allowDeselect={false}
+                        onChange={(value) => {
+                            if (value !== null) {
+                                onSelectChannel(value).catch((error) => console.error("Failed to select game channel", error));
+                            }
+                        }}
+                    />
+                    <Button variant="light" disabled>
+                        {t("settings.game.addCustomChannel")}
+                    </Button>
                     <Button variant="light" disabled>
                         {t("settings.game.repository")}
                     </Button>

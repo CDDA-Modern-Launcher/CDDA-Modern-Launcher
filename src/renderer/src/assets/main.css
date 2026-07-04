@@ -43,15 +43,17 @@ code {
 }
 
 #root {
-    min-height: 100vh;
+    height: 100vh;
 }
 
 .app-shell {
-    min-height: 100vh;
+    height: 100vh;
+    min-height: 0;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    padding: 48px 24px 96px;
+    overflow-y: auto;
+    padding: 48px 24px 112px;
     background: var(--app-shell-background);
 }
 
@@ -171,4 +173,53 @@ code {
     .launcher-dock__status {
         display: none;
     }
+}
+
+.home-dashboard {
+    width: min(980px, 100%);
+}
+
+.home-hero-card {
+    width: 100%;
+}
+
+.home-secondary-grid {
+    width: 100%;
+}
+
+.home-info-card {
+    background-color: var(--app-card-background);
+    backdrop-filter: blur(20px);
+}
+
+.launcher-dock__game-button {
+    max-width: min(360px, 42vw);
+}
+
+.launcher-dock__menu-label {
+    display: block;
+    min-width: 0;
+}
+
+.launcher-dock__status-dot--draft {
+    background-color: var(--mantine-color-blue-6);
+    box-shadow: 0 0 0 4px rgba(34, 139, 230, 0.12);
+}
+
+.launcher-dock__status-dot--missing {
+    background-color: var(--mantine-color-gray-6);
+    box-shadow: 0 0 0 4px rgba(134, 142, 150, 0.12);
+}
+
+.launcher-dock__status-dot--error {
+    background-color: var(--mantine-color-red-6);
+    box-shadow: 0 0 0 4px rgba(250, 82, 82, 0.12);
+}
+
+.home-repository-badge {
+    cursor: pointer;
+}
+
+.home-repository-badge:hover {
+    text-decoration: underline;
 }

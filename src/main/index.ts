@@ -222,6 +222,25 @@ function setupAutoUpdater(localizationService: LocalizationService): void {
     });
 }
 
+function setupShellIpc(): void {
+    ipcMain.handle("shell:open-external", async (_event, url: string) => {
+        let parsed: URL;
+
+        try {
+            parsed = new URL(url);
+        } catch {
+            return false;
+        }
+
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+            return false;
+        }
+
+        await shell.openExternal(parsed.toString());
+        return true;
+    });
+}
+
 function createWindow(): void {
     const isDark = nativeTheme.shouldUseDarkColors;
 
@@ -282,6 +301,7 @@ app.whenReady().then(async () => {
     setupLocalizationIpc(localizationService);
     setupRepositoryIpc(repositoryService, localizationService);
     setupUpdaterIpc(localizationService);
+    setupShellIpc();
     createWindow();
     setupAutoUpdater(localizationService);
 

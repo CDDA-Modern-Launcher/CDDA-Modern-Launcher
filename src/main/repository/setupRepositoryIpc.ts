@@ -6,6 +6,7 @@ import { LocalRepositoryService } from "./LocalRepositoryService";
 
 export function setupRepositoryIpc(repositoryService: LocalRepositoryService, localizationService: LocalizationService): void {
     ipcMain.handle("repository:get-status", () => repositoryService.getInitialStatus());
+    ipcMain.handle("repository:set-selected-channel", (_event, channelId: string) => repositoryService.setSelectedChannel(channelId));
 
     ipcMain.handle("repository:select-folder", async (event): Promise<SelectRepositoryResult> => {
         const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined;

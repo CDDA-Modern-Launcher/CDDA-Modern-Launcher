@@ -1,29 +1,58 @@
-import { Button, Group, Paper, Text, Tooltip } from "@mantine/core";
+import { Button, Group, Menu, Paper, Text, Tooltip } from "@mantine/core";
 import React from "react";
 
+import { findGameChannel, getEffectiveGameChannels } from "../../../../shared/gameChannels";
+import { RepositoryStatus } from "../../../../shared/repository";
 import { useLocalization } from "../../localization/LocalizationContext";
 
 type LauncherDockProps = {
+    repository: RepositoryStatus;
+    onSelectChannel: (channelId: string) => Promise<void>;
     onOpenSettings: () => void;
     onOpenMods: () => void;
     onOpenSoundpack: () => void;
     onOpenTileset: () => void;
 };
 
-export function LauncherDock({ onOpenSettings, onOpenMods, onOpenSoundpack, onOpenTileset }: LauncherDockProps): React.JSX.Element {
+export function LauncherDock({ repository, onSelectChannel, onOpenSettings, onOpenMods, onOpenSoundpack, onOpenTileset }: LauncherDockProps): React.JSX.Element {
     const { t } = useLocalization();
+    const isReady = repository.status === "ready";
+    const channels = isReady ? getEffectiveGameChannels(repository.config.customChannels) : [];
+    const selectedChannel = isReady ? findGameChannel(channels, repository.config.selectedChannelId) : null;
 
     return (
         <Paper withBorder radius="lg" shadow="xl" className="launcher-dock">
             <Group justify="space-between" gap="md" wrap="nowrap">
                 <Group gap="xs" wrap="nowrap" className="launcher-dock__section">
-                    <Button variant="subtle" size="xs" radius="md" disabled className="launcher-dock__button">
-                        {t("dock.fork.placeholder")}
-                    </Button>
-                    <Text size="xs" c="dimmed" className="launcher-dock__status">
-                        <span className="launcher-dock__status-dot" />
-                        {t("dock.status.uiOnly")}
-                    </Text>
+                    <Menu shadow="md" width={310} position="top-start" disabled={!isReady}>
+                        <Menu.Target>
+                            <Button variant="subtle" size="xs" radius="md" disabled={!isReady} className="launcher-dock__button launcher-dock__game-button">
+                                {selectedChannel === null ? t("dock.game.unavailable") : `${selectedChannel.shortName} · ${selectedChannel.channelName}`}
+                            </Button>
+                        </Menu.Target>
+                        <Menu.Dropdown>
+                            <Menu.Label>{t("dock.game.menuTitle")}</Menu.Label>
+                            {channels.map((channel) => (
+                                <Menu.Item
+                                    key={channel.id}
+                                    onClick={() => {
+                                        onSelectChannel(channel.id).catch((error) => console.error("Failed to select game channel", error));
+                                    }}
+                                    rightSection={channel.id === selectedChannel?.id ? "✓" : undefined}
+                                >
+                                    <StackedMenuLabel title={`${channel.shortName} · ${channel.channelName}`} description={`${channel.githubOwner}/${channel.githubRepo}`} />
+                                </Menu.Item>
+                            ))}
+                            <Menu.Divider />
+                            <Menu.Item disabled>{t("dock.game.addCustom")}</Menu.Item>
+                        </Menu.Dropdown>
+                    </Menu>
+                    <Tooltip label={getDockStatusTooltip(t, repository)} position="top">
+                        <Text size="xs" c="dimmed" className="launcher-dock__status">
+                            <span className={getDockStatusDotClassName(repository)} />
+                            {getDockStatusText(t, repository)}
+                        </Text>
+                    </Tooltip>
                 </Group>
 
                 <Group gap="xs" wrap="nowrap" className="launcher-dock__section launcher-dock__section--right">
@@ -49,4 +78,44 @@ export function LauncherDock({ onOpenSettings, onOpenMods, onOpenSoundpack, onOp
             </Group>
         </Paper>
     );
+}
+
+function StackedMenuLabel({ title, description }: { title: string; description: string }): React.JSX.Element {
+    return (
+        <span className="launcher-dock__menu-label">
+            <Text size="sm">{title}</Text>
+            <Text size="xs" c="dimmed">
+                {description}
+            </Text>
+        </span>
+    );
+}
+
+function getDockStatusText(t: (key: string) => string, repository: RepositoryStatus): string {
+    if (repository.status === "ready") {
+        return t("dock.status.uiOnly");
+    }
+
+    if (repository.status === "invalid") {
+        return t("dock.status.repositoryInvalid");
+    }
+
+    return t("dock.status.repositoryMissing");
+}
+
+function getDockStatusTooltip(t: (key: string) => string, repository: RepositoryStatus): string {
+    if (repository.status === "ready") {
+        return t("dock.status.tooltip.uiOnly");
+    }
+
+    if (repository.status === "invalid") {
+        return repository.message;
+    }
+
+    return t("dock.status.tooltip.repositoryMissing");
+}
+
+function getDockStatusDotClassName(repository: RepositoryStatus): string {
+    const modifier = repository.status === "ready" ? "draft" : repository.status === "invalid" ? "error" : "missing";
+    return `launcher-dock__status-dot launcher-dock__status-dot--${modifier}`;
 }

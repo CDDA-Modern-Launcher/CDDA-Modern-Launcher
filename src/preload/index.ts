@@ -26,7 +26,8 @@ const updaterApi = {
 
 const repositoryApi = {
     getStatus: (): Promise<RepositoryStatus> => ipcRenderer.invoke("repository:get-status"),
-    selectFolder: (): Promise<SelectRepositoryResult> => ipcRenderer.invoke("repository:select-folder")
+    selectFolder: (): Promise<SelectRepositoryResult> => ipcRenderer.invoke("repository:select-folder"),
+    setSelectedChannel: (channelId: string): Promise<RepositoryStatus> => ipcRenderer.invoke("repository:set-selected-channel", channelId)
 };
 
 const localizationApi = {
@@ -58,12 +59,17 @@ const appearanceApi = {
     }
 };
 
+const shellApi = {
+    openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke("shell:open-external", url)
+};
+
 // Custom APIs for renderer
 const api = {
     updater: updaterApi,
     repository: repositoryApi,
     localization: localizationApi,
-    appearance: appearanceApi
+    appearance: appearanceApi,
+    shell: shellApi
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to
