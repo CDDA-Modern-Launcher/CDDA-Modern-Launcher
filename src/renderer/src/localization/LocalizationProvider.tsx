@@ -1,23 +1,7 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { DEFAULT_LOCALE, LocalizationBundle } from "../../../shared/localization";
-
-type MessageVariables = Record<string, string | number>;
-
-type LocalizationContextValue = LocalizationBundle & {
-    t: (key: string, variables?: MessageVariables) => string;
-    setLocale: (locale: string) => Promise<void>;
-};
-
-const INITIAL_BUNDLE: LocalizationBundle = {
-    selectedLocale: DEFAULT_LOCALE,
-    effectiveLocale: DEFAULT_LOCALE,
-    fallbackLocale: DEFAULT_LOCALE,
-    options: [],
-    messages: {}
-};
-
-const LocalizationContext = createContext<LocalizationContextValue | null>(null);
+import { LocalizationBundle } from "../../../shared/localization";
+import { INITIAL_BUNDLE, LocalizationContext, LocalizationContextValue, MessageVariables } from "./LocalizationContext";
 
 export function LocalizationProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
     const [bundle, setBundle] = useState<LocalizationBundle>(INITIAL_BUNDLE);
@@ -57,14 +41,4 @@ export function LocalizationProvider({ children }: { children: React.ReactNode }
     const value = useMemo<LocalizationContextValue>(() => ({ ...bundle, t, setLocale }), [bundle, setLocale, t]);
 
     return <LocalizationContext.Provider value={value}>{children}</LocalizationContext.Provider>;
-}
-
-export function useLocalization(): LocalizationContextValue {
-    const value = useContext(LocalizationContext);
-
-    if (value === null) {
-        throw new Error("useLocalization must be used inside LocalizationProvider");
-    }
-
-    return value;
 }

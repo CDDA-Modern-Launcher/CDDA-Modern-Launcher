@@ -2,7 +2,7 @@ import { Group, Image, Select, Text } from "@mantine/core";
 import React, { useMemo } from "react";
 
 import { LocaleOption } from "../../../shared/localization";
-import { useLocalization } from "./LocalizationProvider";
+import { useLocalization } from "./LocalizationContext";
 
 export function LocaleSelector(): React.JSX.Element | null {
     const { selectedLocale, effectiveLocale, options, setLocale, t } = useLocalization();

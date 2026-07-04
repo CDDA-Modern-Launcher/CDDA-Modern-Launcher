@@ -2,7 +2,7 @@ import { Alert, Button, Card, Group, Loader, Stack, Text, Title } from "@mantine
 import React, { useEffect, useState } from "react";
 
 import { REPOSITORY_CONFIG_FILE_NAME, RepositoryStatus } from "../../../shared/repository";
-import { useLocalization } from "../localization/LocalizationProvider";
+import { useLocalization } from "../localization/LocalizationContext";
 
 export function RepositoryGate(): React.JSX.Element {
     const { t } = useLocalization();
