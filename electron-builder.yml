@@ -40,3 +40,4 @@ publish:
   provider: github
   owner: Relvl
   repo: cdda-launcher-electron
+  releaseType: release

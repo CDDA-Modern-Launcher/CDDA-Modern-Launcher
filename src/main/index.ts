@@ -1,7 +1,78 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { appendFileSync, mkdirSync } from 'fs'
+import { autoUpdater } from 'electron-updater'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+
+function logUpdater(message: string, data?: unknown): void {
+  const text = data === undefined ? message : `${message} ${JSON.stringify(data)}`
+  const line = `[${new Date().toISOString()}] ${text}\n`
+
+  console.log(line.trimEnd())
+
+  try {
+    const logDir = join(app.getPath('userData'), 'logs')
+    mkdirSync(logDir, { recursive: true })
+    appendFileSync(join(logDir, 'updater.log'), line, 'utf8')
+  } catch (error) {
+    console.error('[updater] failed to write log', error)
+  }
+}
+
+function setupAutoUpdater(): void {
+  if (is.dev || !app.isPackaged) {
+    logUpdater('[updater] skipped in dev/unpackaged mode')
+    return
+  }
+
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+
+  autoUpdater.on('checking-for-update', () => {
+    logUpdater('[updater] checking for update')
+  })
+
+  autoUpdater.on('update-available', (info) => {
+    logUpdater('[updater] update available', { version: info.version })
+  })
+
+  autoUpdater.on('update-not-available', (info) => {
+    logUpdater('[updater] update not available', { version: info.version })
+  })
+
+  autoUpdater.on('download-progress', (progress) => {
+    logUpdater('[updater] download progress', {
+      percent: Math.round(progress.percent),
+      transferred: progress.transferred,
+      total: progress.total
+    })
+  })
+
+  autoUpdater.on('update-downloaded', (info) => {
+    logUpdater('[updater] update downloaded', { version: info.version })
+
+    // First-test behavior: install immediately after download.
+    // Later this should be replaced with an explicit restart/update dialog.
+    autoUpdater.quitAndInstall()
+  })
+
+  autoUpdater.on('error', (error) => {
+    logUpdater('[updater] error', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    })
+  })
+
+  autoUpdater.checkForUpdates().catch((error) => {
+    logUpdater('[updater] check failed', {
+      name: error instanceof Error ? error.name : undefined,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    })
+  })
+}
 
 function createWindow(): void {
   // Create the browser window.
@@ -40,7 +111,7 @@ function createWindow(): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('io.github.relvl.cdda-launcher-electron')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -53,6 +124,7 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'))
 
   createWindow()
+  setupAutoUpdater()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
