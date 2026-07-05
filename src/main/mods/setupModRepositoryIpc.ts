@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 
-import { UpdateModOptions } from "../../shared/modRepository";
 import { ModRepositoryService } from "./ModRepositoryService";
+import { UpdateModOptions } from "../../shared/mods/UpdateModOptions";
 
 export function setupModRepositoryIpc(modRepositoryService: ModRepositoryService): void {
     ipcMain.handle("mods:get-state", () => modRepositoryService.getState());

@@ -1,36 +1,40 @@
-import { BrowserWindow, shell } from "electron";
-import git from "isomorphic-git";
-import http from "isomorphic-git/http/node";
 import * as fs from "node:fs";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
-import {
-    CheckModsResult,
-    InstallModResult,
-    InstalledMod,
-    MOD_REPOSITORY_REGISTRY_FILE_NAME,
-    MOD_REPOSITORY_SCHEMA_VERSION,
-    ModRegistry,
-    ModRepositoryChangedEvent,
-    ModRepositoryItem,
-    ModRepositoryNoticeEvent,
-    ModRepositoryState,
-    OpenModFolderResult,
-    RemoveModResult,
-    UpdateModOptions,
-    UpdateModResult
-} from "../../shared/modRepository";
-import { RepositoryStatus } from "../../shared/repository";
+import { BrowserWindow, shell } from "electron";
+import git from "isomorphic-git";
+import http from "isomorphic-git/http/node";
+
+import type { LocalizationService } from "../localization/LocalizationService";
 import { LocalRepositoryService } from "../repository/LocalRepositoryService";
 import { normalizeModDisplayName, readValidatedModInfo } from "./modInfo";
 import { getChannelModRepositoryPath, getChannelModsPath, getChannelModTempPath, getModPath } from "./modRepositoryPaths";
 import { parseModSourceUrl } from "./modSourceUrl";
+import { WorkspaceStatus } from "../../shared/workspace/WorkspaceStatus";
+import { MOD_REPOSITORY_REGISTRY_FILE_NAME, MOD_REPOSITORY_SCHEMA_VERSION } from "../../shared/Const";
+import { ModInfo } from "../../shared/mods/ModInfo";
+import { ModRegistry } from "../../shared/mods/ModRegistry";
+import { ModInstanceInfo } from "../../shared/mods/ModInstanceInfo";
+import { ModRepositoryState } from "../../shared/mods/ModRepositoryState";
+import { EModInstallResult } from "../../shared/mods/EModInstallResult";
+import { EModsCheckResult } from "../../shared/mods/EModsCheckResult";
+import { UpdateModOptions } from "../../shared/mods/UpdateModOptions";
+import { EModUpdateResult } from "../../shared/mods/EModUpdateResult";
+import { EModDeleteResult } from "../../shared/mods/EModDeleteResult";
+import { EModOpenFolderResult } from "../../shared/mods/EModOpenFolderResult";
+import { ModRepositoryChangedEvent } from "../../shared/mods/ModRepositoryChangedEvent";
+import { ModRepositoryNoticeEvent } from "../../shared/mods/ModRepositoryNoticeEvent";
 
 export class ModRepositoryService {
     private checking = false;
 
-    constructor(private readonly repositoryService: LocalRepositoryService) {}
+    constructor(
+        private readonly repositoryService: LocalRepositoryService,
+        private readonly localizationService: LocalizationService
+    ) {}
+
+    private readonly t = (key: string, variables?: Record<string, string | number>): string => this.localizationService.t(key, variables);
 
     async getState(): Promise<ModRepositoryState> {
         return this.buildState();
@@ -42,7 +46,7 @@ export class ModRepositoryService {
         });
     }
 
-    async installFromUrl(sourceUrl: string): Promise<InstallModResult> {
+    async installFromUrl(sourceUrl: string): Promise<EModInstallResult> {
         const context = await this.getReadyContext();
 
         if (context.status !== "ready") {
@@ -53,7 +57,7 @@ export class ModRepositoryService {
         let parsedSource: ReturnType<typeof parseModSourceUrl>;
 
         try {
-            parsedSource = parseModSourceUrl(sourceUrl);
+            parsedSource = parseModSourceUrl(sourceUrl, this.t);
         } catch (error) {
             const state = await this.buildState();
             return { status: "error", message: getErrorMessage(error), state };
@@ -75,13 +79,13 @@ export class ModRepositoryService {
                 depth: 1
             });
 
-            const modInfo = await readValidatedModInfo(tempDir);
+            const modInfo = await readValidatedModInfo(tempDir, this.t);
             const safeModId = getSafeModDirectoryName(modInfo.id);
             const targetDir = getModPath(context.repositoryPath, context.channelId, safeModId);
             const registry = await this.readRegistry(context.repositoryPath, context.channelId);
 
             if (registry.mods[modInfo.id] !== undefined || (await exists(targetDir))) {
-                throw new Error(`Мод ${modInfo.id} уже добавлен в локальный репозиторий.`);
+                throw new Error(this.t("mods.error.alreadyInstalled", { id: modInfo.id }));
             }
 
             const branch = (await git.currentBranch({ fs, dir: tempDir, fullname: false })) ?? "master";
@@ -90,7 +94,7 @@ export class ModRepositoryService {
             await fs.promises.rename(tempDir, targetDir);
 
             const now = new Date().toISOString();
-            const installedMod: InstalledMod = {
+            const installedMod: ModInfo = {
                 schemaVersion: 1,
                 id: modInfo.id,
                 displayName: modInfo.name,
@@ -123,7 +127,7 @@ export class ModRepositoryService {
         }
     }
 
-    async checkAll(): Promise<CheckModsResult> {
+    async checkAll(): Promise<EModsCheckResult> {
         if (this.checking) {
             return { status: "checked", state: await this.buildState() };
         }
@@ -185,7 +189,7 @@ export class ModRepositoryService {
         return { status: "checked", state };
     }
 
-    async update(modId: string, options: UpdateModOptions = {}): Promise<UpdateModResult> {
+    async update(modId: string, options: UpdateModOptions = {}): Promise<EModUpdateResult> {
         const context = await this.getReadyContext();
 
         if (context.status !== "ready") {
@@ -198,7 +202,7 @@ export class ModRepositoryService {
             const mod = registry.mods[modId];
 
             if (mod === undefined) {
-                throw new Error("Мод не найден в реестре.");
+                throw new Error(this.t("mods.error.notFoundInRegistry"));
             }
 
             const modDir = this.getModDir(context.repositoryPath, context.channelId, mod);
@@ -217,10 +221,10 @@ export class ModRepositoryService {
             await rm(tempDir, { recursive: true, force: true });
             await mkdir(tempDir, { recursive: true });
             await git.clone({ fs, http, dir: tempDir, url: mod.sourceUrl, ref: mod.defaultBranch, singleBranch: true, depth: 1 });
-            const modInfo = await readValidatedModInfo(tempDir);
+            const modInfo = await readValidatedModInfo(tempDir, this.t);
 
             if (modInfo.id !== mod.id) {
-                throw new Error(`После обновления modinfo.json содержит id ${modInfo.id}, ожидался ${mod.id}.`);
+                throw new Error(this.t("mods.error.updatedIdMismatch", { actual: modInfo.id, expected: mod.id }));
             }
 
             const nextCommit = await git.resolveRef({ fs, dir: tempDir, ref: "HEAD" });
@@ -229,7 +233,7 @@ export class ModRepositoryService {
             await fs.promises.rename(tempDir, modDir);
 
             const now = new Date().toISOString();
-            const updatedMod: InstalledMod = {
+            const updatedMod: ModInfo = {
                 ...mod,
                 displayName: modInfo.name,
                 installedCommit: nextCommit,
@@ -252,7 +256,7 @@ export class ModRepositoryService {
         }
     }
 
-    async remove(modId: string): Promise<RemoveModResult> {
+    async remove(modId: string): Promise<EModDeleteResult> {
         const context = await this.getReadyContext();
 
         if (context.status !== "ready") {
@@ -279,7 +283,7 @@ export class ModRepositoryService {
         }
     }
 
-    async openFolder(modId?: string): Promise<OpenModFolderResult> {
+    async openFolder(modId?: string): Promise<EModOpenFolderResult> {
         const context = await this.getReadyContext();
 
         if (context.status !== "ready") {
@@ -287,10 +291,15 @@ export class ModRepositoryService {
         }
 
         const registry = await this.readRegistry(context.repositoryPath, context.channelId);
-        const target = modId === undefined ? getChannelModRepositoryPath(context.repositoryPath, context.channelId) : registry.mods[modId] === undefined ? null : this.getModDir(context.repositoryPath, context.channelId, registry.mods[modId]);
+        const target =
+            modId === undefined
+                ? getChannelModRepositoryPath(context.repositoryPath, context.channelId)
+                : registry.mods[modId] === undefined
+                  ? null
+                  : this.getModDir(context.repositoryPath, context.channelId, registry.mods[modId]);
 
         if (target === null) {
-            return { status: "error", message: "Мод не найден в реестре." };
+            return { status: "error", message: this.t("mods.error.notFoundInRegistry") };
         }
 
         await mkdir(target, { recursive: true });
@@ -298,7 +307,7 @@ export class ModRepositoryService {
         return { status: "opened" };
     }
 
-    private async checkOne(repositoryPath: string, channelId: string, mod: InstalledMod): Promise<InstalledMod> {
+    private async checkOne(repositoryPath: string, channelId: string, mod: ModInfo): Promise<ModInfo> {
         const modDir = this.getModDir(repositoryPath, channelId, mod);
         const now = new Date().toISOString();
 
@@ -308,7 +317,7 @@ export class ModRepositoryService {
         }
 
         try {
-            const modInfo = await readValidatedModInfo(modDir);
+            const modInfo = await readValidatedModInfo(modDir, this.t);
             const hasLocalChanges = await this.hasLocalChanges(modDir);
 
             if (modInfo.id !== mod.id) {
@@ -339,17 +348,17 @@ export class ModRepositoryService {
         }
     }
 
-    private async restoreMissingMod(repositoryPath: string, channelId: string, mod: InstalledMod): Promise<InstalledMod> {
+    private async restoreMissingMod(repositoryPath: string, channelId: string, mod: ModInfo): Promise<ModInfo> {
         const modDir = this.getModDir(repositoryPath, channelId, mod);
         const tempDir = join(getChannelModTempPath(repositoryPath, channelId), `restore-${getSafeModDirectoryName(mod.id)}-${Date.now()}`);
 
         try {
             await mkdir(tempDir, { recursive: true });
             await git.clone({ fs, http, dir: tempDir, url: mod.sourceUrl, ref: mod.defaultBranch, singleBranch: true, depth: 1 });
-            const modInfo = await readValidatedModInfo(tempDir);
+            const modInfo = await readValidatedModInfo(tempDir, this.t);
 
             if (modInfo.id !== mod.id) {
-                throw new Error(`Восстановленный modinfo.json содержит id ${modInfo.id}, ожидался ${mod.id}.`);
+                throw new Error(this.t("mods.error.restoredIdMismatch", { actual: modInfo.id, expected: mod.id }));
             }
 
             const commit = await git.resolveRef({ fs, dir: tempDir, ref: "HEAD" });
@@ -404,7 +413,7 @@ export class ModRepositoryService {
         }
     }
 
-    private async buildItem(repositoryPath: string, channelId: string, mod: InstalledMod): Promise<ModRepositoryItem> {
+    private async buildItem(repositoryPath: string, channelId: string, mod: ModInfo): Promise<ModInstanceInfo> {
         const modDir = this.getModDir(repositoryPath, channelId, mod);
 
         if (!(await exists(modDir))) {
@@ -412,10 +421,10 @@ export class ModRepositoryService {
         }
 
         try {
-            const modInfo = await readValidatedModInfo(modDir);
+            const modInfo = await readValidatedModInfo(modDir, this.t);
 
             if (modInfo.id !== mod.id) {
-                return this.toItem(repositoryPath, channelId, mod, "invalid-local-copy", `modinfo.json содержит id ${modInfo.id}, ожидался ${mod.id}.`);
+                return this.toItem(repositoryPath, channelId, mod, "invalid-local-copy", this.t("mods.error.localCopyIdMismatch", { actual: modInfo.id, expected: mod.id }));
             }
         } catch (error) {
             return this.toItem(repositoryPath, channelId, mod, "invalid-local-copy", getErrorMessage(error));
@@ -432,7 +441,7 @@ export class ModRepositoryService {
         return this.toItem(repositoryPath, channelId, mod, "installed");
     }
 
-    private toItem(repositoryPath: string, channelId: string, mod: InstalledMod, status: ModRepositoryItem["status"], error?: string): ModRepositoryItem {
+    private toItem(repositoryPath: string, channelId: string, mod: ModInfo, status: ModInstanceInfo["status"], error?: string): ModInstanceInfo {
         return {
             ...mod,
             status,
@@ -464,7 +473,7 @@ export class ModRepositoryService {
                 return empty;
             }
 
-            throw new Error("mods.json повреждён или содержит некорректный JSON.");
+            throw new Error(this.t("mods.error.registryInvalid"));
         }
     }
 
@@ -478,18 +487,15 @@ export class ModRepositoryService {
         return join(getChannelModRepositoryPath(repositoryPath, channelId), MOD_REPOSITORY_REGISTRY_FILE_NAME);
     }
 
-    private getModDir(repositoryPath: string, channelId: string, mod: InstalledMod): string {
+    private getModDir(repositoryPath: string, channelId: string, mod: ModInfo): string {
         return join(getChannelModRepositoryPath(repositoryPath, channelId), mod.relativePath);
     }
 
-    private async getReadyContext(): Promise<
-        | { status: "ready"; repositoryPath: string; channelId: string }
-        | { status: "unavailable"; kind: "unconfigured" | "error"; message: string }
-    > {
+    private async getReadyContext(): Promise<{ status: "ready"; repositoryPath: string; channelId: string } | { status: "unavailable"; kind: "unconfigured" | "error"; message: string }> {
         const repository = await this.repositoryService.getInitialStatus();
 
         if (repository.status !== "ready") {
-            return { status: "unavailable", kind: repository.status === "unconfigured" ? "unconfigured" : "error", message: getRepositoryUnavailableMessage(repository) };
+            return { status: "unavailable", kind: repository.status === "unconfigured" ? "unconfigured" : "error", message: getRepositoryUnavailableMessage(repository, this.localizationService) };
         }
 
         return { status: "ready", repositoryPath: repository.path, channelId: repository.config.selectedChannelId };
@@ -520,7 +526,7 @@ function normalizeRegistry(value: unknown): ModRegistry {
     }
 
     const candidate = value as Partial<ModRegistry>;
-    const mods: Record<string, InstalledMod> = {};
+    const mods: Record<string, ModInfo> = {};
 
     if (typeof candidate.mods === "object" && candidate.mods !== null && !Array.isArray(candidate.mods)) {
         for (const value of Object.values(candidate.mods)) {
@@ -535,12 +541,12 @@ function normalizeRegistry(value: unknown): ModRegistry {
     return { schemaVersion: MOD_REPOSITORY_SCHEMA_VERSION, mods };
 }
 
-function normalizeInstalledMod(value: unknown): InstalledMod | null {
+function normalizeInstalledMod(value: unknown): ModInfo | null {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
         return null;
     }
 
-    const candidate = value as Partial<InstalledMod>;
+    const candidate = value as Partial<ModInfo>;
 
     if (typeof candidate.id !== "string" || candidate.id.length === 0 || typeof candidate.sourceUrl !== "string" || typeof candidate.relativePath !== "string") {
         return null;
@@ -577,12 +583,12 @@ function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
-function getRepositoryUnavailableMessage(repository: RepositoryStatus): string {
+function getRepositoryUnavailableMessage(repository: WorkspaceStatus, localizationService: LocalizationService): string {
     if (repository.status === "invalid") {
         return repository.message;
     }
 
-    return "Локальный репозиторий лаунчера ещё не выбран.";
+    return localizationService.t("mods.error.repositoryUnavailable");
 }
 
 async function exists(path: string): Promise<boolean> {

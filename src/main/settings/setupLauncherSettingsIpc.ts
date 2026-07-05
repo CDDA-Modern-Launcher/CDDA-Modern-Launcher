@@ -1,55 +1,53 @@
 import { BrowserWindow, ipcMain } from "electron";
 
-import { type AutoBackupCooldown, type AutoBackupLimit, type BackupRotationLimit, isAutoBackupCooldown, isAutoBackupLimit, isBackupRotationLimit } from "../../shared/backups";
-import { type GameAssetVariant, isGameAssetVariant, type LauncherUserSettings } from "../../shared/gameAssetVariants";
-import { LauncherSettingsStore } from "./LauncherSettingsStore";
+import { LocalRepositoryService } from "../repository/LocalRepositoryService";
+import { TBackupRotationLimit } from "../../shared/backups/types/TBackupRotationLimit";
+import { TAutoBackupLimit } from "../../shared/backups/types/TAutoBackupLimit";
+import { TAutoBackupCooldown } from "../../shared/backups/types/TAutoBackupCooldown";
+import { isAutoBackupLimit } from "../../shared/backups/isAutoBackupLimit";
+import { isBackupRotationLimit } from "../../shared/backups/isBackupRotationLimit";
+import { isAutoBackupCooldown } from "../../shared/backups/isAutoBackupCooldown";
+import { TReleaseAssetVariant } from "../../shared/release-asset/TReleaseAssetVariant";
+import { SettingsIPC } from "../../shared/SettingsIPC";
+import { isReleaseAssetVariant } from "../../shared/release-asset/isReleaseAssetVariant";
 
-export function setupLauncherSettingsIpc(settingsStore: LauncherSettingsStore): void {
-    ipcMain.handle("settings:get", () => settingsStore.getUserSettings());
-    ipcMain.handle("settings:set-game-asset-variant", async (_event, gameAssetVariant: GameAssetVariant): Promise<LauncherUserSettings> => {
-        if (!isGameAssetVariant(gameAssetVariant)) {
+export function setupLauncherSettingsIpc(repositoryService: LocalRepositoryService): void {
+    repositoryService.onUserSettingsChanged((settings) => emitSettingsChanged(settings));
+
+    ipcMain.handle("settings:get", () => repositoryService.getUserSettings());
+    ipcMain.handle("settings:set-game-asset-variant", async (_event, gameAssetVariant: TReleaseAssetVariant): Promise<SettingsIPC> => {
+        if (!isReleaseAssetVariant(gameAssetVariant)) {
             throw new Error(`Unsupported game asset variant: ${String(gameAssetVariant)}`);
         }
 
-        await settingsStore.setGameAssetVariant(gameAssetVariant);
-        return emitSettingsChanged(settingsStore);
+        return repositoryService.setGameAssetVariant(gameAssetVariant);
     });
-    ipcMain.handle("settings:set-backups-enabled", async (_event, backupsEnabled: boolean): Promise<LauncherUserSettings> => {
-        await settingsStore.setBackupsEnabled(backupsEnabled);
-        return emitSettingsChanged(settingsStore);
-    });
-    ipcMain.handle("settings:set-auto-backup-limit", async (_event, autoBackupLimit: AutoBackupLimit): Promise<LauncherUserSettings> => {
+    ipcMain.handle("settings:set-backups-enabled", async (_event, backupsEnabled: boolean): Promise<SettingsIPC> => repositoryService.setBackupsEnabled(backupsEnabled));
+    ipcMain.handle("settings:set-auto-backup-limit", async (_event, autoBackupLimit: TAutoBackupLimit): Promise<SettingsIPC> => {
         if (!isAutoBackupLimit(autoBackupLimit)) {
             throw new Error(`Unsupported auto backup limit: ${String(autoBackupLimit)}`);
         }
 
-        await settingsStore.setAutoBackupLimit(autoBackupLimit);
-        return emitSettingsChanged(settingsStore);
+        return repositoryService.setAutoBackupLimit(autoBackupLimit);
     });
-    ipcMain.handle("settings:set-auto-backup-cooldown", async (_event, autoBackupCooldown: AutoBackupCooldown): Promise<LauncherUserSettings> => {
+    ipcMain.handle("settings:set-auto-backup-cooldown", async (_event, autoBackupCooldown: TAutoBackupCooldown): Promise<SettingsIPC> => {
         if (!isAutoBackupCooldown(autoBackupCooldown)) {
             throw new Error(`Unsupported auto backup cooldown: ${String(autoBackupCooldown)}`);
         }
 
-        await settingsStore.setAutoBackupCooldown(autoBackupCooldown);
-        return emitSettingsChanged(settingsStore);
+        return repositoryService.setAutoBackupCooldown(autoBackupCooldown);
     });
-    ipcMain.handle("settings:set-manual-backup-rotation-limit", async (_event, manualBackupRotationLimit: BackupRotationLimit): Promise<LauncherUserSettings> => {
+    ipcMain.handle("settings:set-manual-backup-rotation-limit", async (_event, manualBackupRotationLimit: TBackupRotationLimit): Promise<SettingsIPC> => {
         if (!isBackupRotationLimit(manualBackupRotationLimit)) {
             throw new Error(`Unsupported manual backup rotation limit: ${String(manualBackupRotationLimit)}`);
         }
 
-        await settingsStore.setManualBackupRotationLimit(manualBackupRotationLimit);
-        return emitSettingsChanged(settingsStore);
+        return repositoryService.setManualBackupRotationLimit(manualBackupRotationLimit);
     });
 }
 
-async function emitSettingsChanged(settingsStore: LauncherSettingsStore): Promise<LauncherUserSettings> {
-    const settings = await settingsStore.getUserSettings();
-
+function emitSettingsChanged(settings: SettingsIPC): void {
     for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send("settings:changed", settings);
     }
-
-    return settings;
 }

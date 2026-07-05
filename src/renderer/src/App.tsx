@@ -1,17 +1,18 @@
 import { useDisclosure } from "@mantine/hooks";
 import React, { useEffect, useState } from "react";
 
-import { RepositoryStatus } from "../../shared/repository";
-import { RepositoryGate } from "./components/RepositoryGate";
-import { ContentSheet, type ContentSheetKind } from "./components/settings/ContentSheet";
+import { WorkspaceView } from "./components/WorkspaceView";
+import { ContentSheet } from "./components/settings/ContentSheet";
 import { SettingsSheet } from "./components/settings/SettingsSheet";
 import { LauncherDock } from "./components/shell/LauncherDock";
 import { UpdateFloatingCard } from "./components/UpdateFloatingCard";
+import { WorkspaceStatus } from "../../shared/workspace/WorkspaceStatus";
+import { TContentSheetKind } from "@renderer/types/TContentSheetKind";
 
 export default function App(): React.JSX.Element {
     const [settingsOpened, settings] = useDisclosure(false);
-    const [contentKind, setContentKind] = useState<ContentSheetKind | null>(null);
-    const [repository, setRepository] = useState<RepositoryStatus>({ status: "unconfigured" });
+    const [contentKind, setContentKind] = useState<TContentSheetKind | null>(null);
+    const [repository, setRepository] = useState<WorkspaceStatus>({ status: "unconfigured" });
     const [isSelectingRepository, setSelectingRepository] = useState(false);
 
     useEffect(() => {
@@ -48,7 +49,7 @@ export default function App(): React.JSX.Element {
         window.api.mods.checkUpdates().catch((error) => console.error("Failed to check mods after channel change", error));
     };
 
-    const openContent = (kind: ContentSheetKind): void => {
+    const openContent = (kind: TContentSheetKind): void => {
         settings.close();
         setContentKind(kind);
     };
@@ -65,7 +66,7 @@ export default function App(): React.JSX.Element {
             <ContentSheet repository={repository} kind={contentKind} onClose={() => setContentKind(null)} />
 
             <main className="app-shell">
-                <RepositoryGate repository={repository} isSelecting={isSelectingRepository} onSelectRepository={selectRepository} />
+                <WorkspaceView repository={repository} isSelecting={isSelectingRepository} onSelectRepository={selectRepository} />
             </main>
 
             <LauncherDock

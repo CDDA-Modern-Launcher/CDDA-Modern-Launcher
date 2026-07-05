@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { LocalizationBundle } from "../../../shared/localization";
 import { INITIAL_BUNDLE, LocalizationContext, LocalizationContextValue, MessageVariables } from "./LocalizationContext";
+import { LocalizationBundle } from "../../../shared/localization/types/LocalizationBundle";
+import { formatMessage } from "../../../shared/formatMessage";
 
 export function LocalizationProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
     const [bundle, setBundle] = useState<LocalizationBundle>(INITIAL_BUNDLE);
@@ -25,11 +26,7 @@ export function LocalizationProvider({ children }: { children: React.ReactNode }
 
     const t = useCallback(
         (key: string, variables: MessageVariables = {}) => {
-            const template = bundle.messages[key] ?? key;
-            return template.replace(/\{([a-zA-Z0-9_.-]+)}/g, (match, variableName: string) => {
-                const value = variables[variableName];
-                return value === undefined ? match : String(value);
-            });
+            return formatMessage(bundle.messages[key] ?? key, variables);
         },
         [bundle.messages]
     );

@@ -1,29 +1,29 @@
-import { ModSourceProvider } from "../../shared/modRepository";
+import { TModSourceProvider } from "../../shared/mods/TModSourceProvider";
 
 export type ParsedModSourceUrl = {
-    provider: ModSourceProvider;
+    provider: TModSourceProvider;
     normalizedUrl: string;
 };
 
-export function parseModSourceUrl(input: string): ParsedModSourceUrl {
+export function parseModSourceUrl(input: string, t: (key: string, variables?: Record<string, string | number>) => string): ParsedModSourceUrl {
     let parsed: URL;
 
     try {
         parsed = new URL(input.trim());
     } catch {
-        throw new Error("Введите корректную HTTPS-ссылку на публичный git-репозиторий.");
+        throw new Error(t("mods.error.sourceUrlInvalid"));
     }
 
     if (parsed.protocol !== "https:") {
-        throw new Error("Поддерживаются только HTTPS-ссылки на публичные git-репозитории.");
+        throw new Error(t("mods.error.sourceUrlHttpsOnly"));
     }
 
     if (parsed.username.length > 0 || parsed.password.length > 0) {
-        throw new Error("Ссылка не должна содержать логин, пароль или токен доступа.");
+        throw new Error(t("mods.error.sourceUrlCredentials"));
     }
 
     if (!parsed.pathname.endsWith(".git")) {
-        throw new Error("Ссылка должна вести на .git репозиторий, например https://github.com/user/repo.git.");
+        throw new Error(t("mods.error.sourceUrlGitSuffix"));
     }
 
     const provider = getProvider(parsed.hostname);
@@ -34,7 +34,7 @@ export function parseModSourceUrl(input: string): ParsedModSourceUrl {
     };
 }
 
-function getProvider(hostname: string): ModSourceProvider {
+function getProvider(hostname: string): TModSourceProvider {
     const normalized = hostname.toLowerCase();
 
     if (normalized === "github.com") {

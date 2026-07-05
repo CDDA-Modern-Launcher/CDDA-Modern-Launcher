@@ -6,7 +6,7 @@ export type ValidatedModInfo = {
     name: string;
 };
 
-export async function readValidatedModInfo(modDir: string): Promise<ValidatedModInfo> {
+export async function readValidatedModInfo(modDir: string, t: (key: string, variables?: Record<string, string | number>) => string): Promise<ValidatedModInfo> {
     const modInfoPath = join(modDir, "modinfo.json");
     let parsed: unknown;
 
@@ -14,17 +14,17 @@ export async function readValidatedModInfo(modDir: string): Promise<ValidatedMod
         parsed = JSON.parse(await readFile(modInfoPath, "utf8"));
     } catch (error) {
         if (isNodeError(error) && error.code === "ENOENT") {
-            throw new Error("В репозитории не найден modinfo.json.");
+            throw new Error(t("mods.error.modInfoMissing"));
         }
 
-        throw new Error("modinfo.json найден, но его не удалось прочитать как JSON.");
+        throw new Error(t("mods.error.modInfoInvalidJson"));
     }
 
     const entries = Array.isArray(parsed) ? parsed : [parsed];
     const modInfo = entries.find(isModInfoEntry);
 
     if (modInfo === undefined) {
-        throw new Error("modinfo.json найден, но в нём нет объекта MOD_INFO с полем id.");
+        throw new Error(t("mods.error.modInfoMissingId"));
     }
 
     const id = modInfo.id.trim();

@@ -1,82 +1,70 @@
-import { ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { access, cp, mkdir, readdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
 import { Readable } from "node:stream";
 import { finished } from "node:stream/promises";
 
 import extractZip from "extract-zip";
 
-import {
-    type CreateGameBackupResult,
-    type DeleteGameBackupResult,
-    type GameBackupProgress,
-    type GameBackupSummaryUpdate,
-    type RenameGameBackupResult,
-    type RestoreGameBackupResult,
-    toAutoBackupCooldownMs
-} from "../../shared/backups";
-import { type GameAssetVariant, getGameAssetVariantFallbackOrder } from "../../shared/gameAssetVariants";
-import { DEFAULT_GAME_CHANNEL_ID, findGameChannel, type GameChannelDefinition, getEffectiveGameChannels } from "../../shared/gameChannels";
-import {
-    CreateManualBackupOptions,
-    DeleteGameInstallOptions,
-    DeleteGameInstallResult,
-    DOWNLOADS_DIRECTORY_NAME,
-    GameInstall,
-    GameInstallManifest,
-    GameInstallProgress,
-    GameInstallState,
-    GameRelease,
-    GameRuntimeState,
-    GameSaveActivityUpdate,
-    GameSaveSummary,
-    GameSaveSummaryUpdate,
-    GameWorldInfo,
-    INSTALL_MANIFEST_FILE_NAME,
-    InstallGameOptions,
-    InstallGameResult,
-    INSTALLS_DIRECTORY_NAME,
-    KEEP_DOWNLOADED_DISTRIBUTIVES,
-    LaunchGameOptions,
-    LaunchGameResult,
-    SetActiveGameInstallResult,
-    StopGameResult,
-    USERDATA_DIRECTORY_NAME
-} from "../../shared/gameInstallations";
-import { RepositoryConfig } from "../../shared/repository";
+import { RepositoryConfig } from "../../shared/RepositoryConfig";
+import type { LocalizationService } from "../localization/LocalizationService";
 import { GitHubNetworkManager } from "../network/GitHubNetworkManager";
 import { LocalRepositoryService } from "../repository/LocalRepositoryService";
-import type { LauncherSettingsStore } from "../settings/LauncherSettingsStore";
 import { type GameBackupContext, GameBackupService } from "./GameBackupService";
 import { GameSaveMonitor, type GameSaveSettledActivity } from "./GameSaveMonitor";
+import {
+    copyDirectoryContents,
+    findExecutable,
+    findUserdataSource,
+    getSelectedChannel,
+    isGameInstallManifest,
+    isGitHubUrl,
+    isNodeError,
+    pathExists,
+    resolveUserdataPath,
+    runCommand,
+    safePathSegment
+} from "./install/installUtils";
+import { getReleaseCacheKey, matchesChannelKind, toGameRelease, withGitHubPageSize } from "./releases/releaseSelection";
+import { getAutoBackupTimerKey, getChangedWorldFolderNames, isAutoBackupInCooldown, readSaveSummary } from "./saves/saveSummary";
+import { BackupProgress } from "../../shared/backups/types/BackupProgress";
+import { BackupSummaryUpdate } from "../../shared/backups/types/BackupSummaryUpdate";
+import { EBackupCreateResult } from "../../shared/backups/types/EBackupCreateResult";
+import { EBackupDeleteResult } from "../../shared/backups/types/EBackupDeleteResult";
+import { toAutoBackupCooldownMs } from "../../shared/backups/toAutoBackupCooldownMs";
+import { EBackupRestoreResult } from "../../shared/backups/types/EBackupRestoreResult";
 
-const WINDOWS_EXECUTABLE_CANDIDATES = ["cataclysm-tiles.exe", "cataclysm.exe", "cataclysm-launcher.exe"];
-const POSIX_EXECUTABLE_CANDIDATES = ["cataclysm-tiles", "cataclysm"];
-type GitHubReleaseDto = {
-    id?: number;
-    name?: string | null;
-    tag_name?: string;
-    published_at?: string;
-    html_url?: string;
-    body?: string | null;
-    draft?: boolean;
-    assets?: GitHubAssetDto[];
-};
-type GitHubAssetDto = {
-    name?: string;
-    size?: number;
-    browser_download_url?: string;
-};
+import { EBackupRenameResult } from "../../shared/backups/types/EBackupRenameResult";
+import { TReleaseAssetVariant } from "../../shared/release-asset/TReleaseAssetVariant";
+import { GameChannelDefinition } from "../../shared/game-channel/GameChannelDefinition";
+import { DOWNLOADS_DIRECTORY_NAME, INSTALL_MANIFEST_FILE_NAME, INSTALLS_DIRECTORY_NAME, KEEP_DOWNLOADED_DISTRIBUTIVES, USERDATA_DIRECTORY_NAME } from "../../shared/Const";
+import { GithubRelease } from "../../shared/GithubRelease";
+import { DistributiveInfo } from "../../shared/distributive/DistributiveInfo";
+import { Distributive } from "../../shared/distributive/Distributive";
+import { GameSaveSummaryUpdate } from "../../shared/GameSaveSummaryUpdate";
+import { GameSaveActivityUpdate } from "../../shared/GameSaveActivityUpdate";
+import { GameRuntimeState } from "../../shared/GameRuntimeState";
+import { GameLaunchOptions } from "../../shared/launch/GameLaunchOptions";
+import { CreateManualBackupOptions } from "../../shared/backups/types/CreateManualBackupOptions";
+import { DistributiveState } from "../../shared/distributive/DistributiveState";
+import { InstallDistributiveOptions } from "../../shared/distributive/InstallDistributiveOptions";
+import { DistributiveDeleteOptions } from "../../shared/distributive/DistributiveDeleteOptions";
+import { EInstallDistributiveResult } from "../../shared/distributive/EInstallDistributiveResult";
+import { EDistributiveSetActiveResult } from "../../shared/distributive/EDistributiveSetActiveResult";
+import { EDistributiveDeleteResult } from "../../shared/distributive/EDistributiveDeleteResult";
+import { EGameLaunchResult } from "../../shared/launch/EGameLaunchResult";
+import { EGameStopResult } from "../../shared/launch/EGameStopResult";
+import { InstallDistributiveProgress } from "../../shared/distributive/InstallDistributiveProgress";
 
 export class GameInstallationService {
-    private progress: GameInstallProgress = { status: "idle" };
-    private runtime: GameRuntimeState = { status: "idle" };
+    private progress: InstallDistributiveProgress = { status: "idle" };
+    private runtimeState: GameRuntimeState = { status: "idle" };
     private gameProcess: ChildProcess | null = null;
     private readonly gitHubNetwork = new GitHubNetworkManager();
     private readonly backupService: GameBackupService;
     private runtimeListeners = new Set<(runtime: GameRuntimeState) => void>();
-    private progressListeners = new Set<(progress: GameInstallProgress) => void>();
+    private progressListeners = new Set<(progress: InstallDistributiveProgress) => void>();
     private saveSummaryListeners = new Set<(update: GameSaveSummaryUpdate) => void>();
     private saveActivityListeners = new Set<(update: GameSaveActivityUpdate) => void>();
     private activeSaveMonitor: GameSaveMonitor | null = null;
@@ -87,12 +75,16 @@ export class GameInstallationService {
 
     constructor(
         private readonly repositoryService: LocalRepositoryService,
-        private readonly settingsStore: LauncherSettingsStore
+        private readonly localizationService: LocalizationService
     ) {
-        this.backupService = new GameBackupService(settingsStore);
+        this.backupService = new GameBackupService(repositoryService, localizationService);
     }
 
-    onProgress(listener: (progress: GameInstallProgress) => void): () => void {
+    private t(key: string): string {
+        return this.localizationService.t(key);
+    }
+
+    onProgress(listener: (progress: InstallDistributiveProgress) => void): () => void {
         this.progressListeners.add(listener);
         listener(this.progress);
         return () => this.progressListeners.delete(listener);
@@ -100,7 +92,7 @@ export class GameInstallationService {
 
     onRuntimeChanged(listener: (runtime: GameRuntimeState) => void): () => void {
         this.runtimeListeners.add(listener);
-        listener(this.runtime);
+        listener(this.runtimeState);
         return () => this.runtimeListeners.delete(listener);
     }
 
@@ -114,21 +106,21 @@ export class GameInstallationService {
         return () => this.saveActivityListeners.delete(listener);
     }
 
-    onBackupProgress(listener: (progress: GameBackupProgress) => void): () => void {
+    onBackupProgress(listener: (progress: BackupProgress) => void): () => void {
         return this.backupService.onProgress(listener);
     }
 
-    onBackupSummaryChanged(listener: (update: GameBackupSummaryUpdate) => void): () => void {
+    onBackupSummaryChanged(listener: (update: BackupSummaryUpdate) => void): () => void {
         return this.backupService.onSummaryChanged(listener);
     }
 
-    async getState(refreshLatest = false, forceRefresh = false): Promise<GameInstallState> {
+    async getState(refreshLatest = false, forceRefresh = false): Promise<DistributiveState> {
         const repository = await this.repositoryService.getInitialStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: "Repository is not ready." };
+        if (repository.status !== "ready") return { status: "unavailable", message: this.t("game.error.repositoryNotReady") };
         const channel = getSelectedChannel(repository.config);
         const { installs } = await this.readInstallsAndRepairConfig(repository.path, repository.config, channel.id);
         const activeInstall = installs.find((install) => install.isActive) ?? null;
-        let latestRelease: GameRelease | null = null;
+        let latestRelease: GithubRelease | null = null;
         let latestReleaseError: string | null = null;
 
         if (refreshLatest) {
@@ -146,29 +138,29 @@ export class GameInstallationService {
             status: "ready",
             repositoryPath: repository.path,
             channel,
-            activeInstall,
-            installs,
+            distributive: activeInstall,
+            distributives: installs,
             latestRelease,
             latestReleaseError,
             updateAvailable: latestRelease !== null && activeInstall !== null && latestRelease.id !== activeInstall.id,
             saves: activeInstall === null ? null : await readSaveSummary(activeInstall.userdataPath, this.preferredWorldByInstallId.get(activeInstall.id) ?? null),
             backups: await this.backupService.getSummary(activeInstall),
-            runtime: this.runtime,
+            runtimeState: this.runtimeState,
             savesStable: activeInstall === null || activeInstall.id !== this.activeSaveMonitorInstallId ? true : this.activeSaveStable
         };
     }
 
-    async getReleases(forceRefresh = false): Promise<GameRelease[]> {
+    async getReleases(forceRefresh = false): Promise<GithubRelease[]> {
         const repository = await this.repositoryService.getInitialStatus();
         return repository.status === "ready" ? this.fetchReleases(getSelectedChannel(repository.config), forceRefresh) : [];
     }
 
-    async setActiveInstall(installId: string): Promise<SetActiveGameInstallResult> {
+    async setActiveInstall(installId: string): Promise<EDistributiveSetActiveResult> {
         const repository = await this.repositoryService.getInitialStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: "Repository is not ready." };
+        if (repository.status !== "ready") return { status: "unavailable", message: this.t("game.error.repositoryNotReady") };
         const channel = getSelectedChannel(repository.config);
         const installs = await this.readInstalls(repository.path, repository.config, channel.id);
-        if (!installs.some((install) => install.id === installId)) return { status: "error", message: "Selected install does not exist." };
+        if (!installs.some((install) => install.id === installId)) return { status: "error", message: this.t("game.error.installMissing") };
         await this.repositoryService.saveConfig(repository.path, {
             ...repository.config,
             activeInstallByChannel: {
@@ -184,27 +176,27 @@ export class GameInstallationService {
         }
     }
 
-    async deleteInstall(installId: string, options: DeleteGameInstallOptions): Promise<DeleteGameInstallResult> {
+    async deleteInstall(installId: string, options: DistributiveDeleteOptions): Promise<EDistributiveDeleteResult> {
         const repository = await this.repositoryService.getInitialStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: "Repository is not ready." };
+        if (repository.status !== "ready") return { status: "unavailable", message: this.t("game.error.repositoryNotReady") };
         const channel = getSelectedChannel(repository.config);
         const installs = await this.readInstalls(repository.path, repository.config, channel.id);
         const install = installs.find((candidate) => candidate.id === installId);
-        if (install === undefined) return { status: "error", message: "Selected install does not exist." };
+        if (install === undefined) return { status: "error", message: this.t("game.error.installMissing") };
         if (install.isActive)
             return {
                 status: "blocked",
-                message: "Active install cannot be deleted. Select another version first."
+                message: this.t("game.error.activeInstallDeleteBlocked")
             };
         await rm(install.path, { recursive: true, force: true });
         if (options.deleteUserdata) await rm(install.userdataPath, { recursive: true, force: true });
         return { status: "deleted", state: await this.getState(false) };
     }
 
-    async installLatest(options: InstallGameOptions): Promise<InstallGameResult> {
+    async installLatest(options: InstallDistributiveOptions): Promise<EInstallDistributiveResult> {
         this.setProgress({ status: "resolving-release" });
         const repository = await this.repositoryService.getInitialStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: "Repository is not ready." };
+        if (repository.status !== "ready") return { status: "unavailable", message: this.t("game.error.repositoryNotReady") };
         try {
             const channel = getSelectedChannel(repository.config);
             const releases = await this.fetchReleases(channel, false);
@@ -213,7 +205,7 @@ export class GameInstallationService {
                 this.setProgress({ status: "idle" });
                 return {
                     status: "error",
-                    message: "No compatible release asset was found for the selected source."
+                    message: this.t("game.error.noCompatibleReleaseAsset")
                 };
             }
             const installsBefore = await this.readInstalls(repository.path, repository.config, channel.id);
@@ -253,71 +245,71 @@ export class GameInstallationService {
         }
     }
 
-    async launchActiveInstall(options: LaunchGameOptions = {}): Promise<LaunchGameResult> {
+    async launchActiveInstall(options: GameLaunchOptions = {}): Promise<EGameLaunchResult> {
         return this.launchActiveInstallAsync(options);
     }
 
-    stopGame(): StopGameResult {
-        if (this.gameProcess === null || this.runtime.status !== "running") return { status: "not-running", runtime: this.runtime };
+    stopGame(): EGameStopResult {
+        if (this.gameProcess === null || this.runtimeState.status !== "running") return { status: "not-running", runtime: this.runtimeState };
         try {
             this.gameProcess.kill();
             const runtime = this.setRuntime({ status: "idle" });
             this.gameProcess = null;
             return { status: "stopped", runtime };
         } catch (error) {
-            return { status: "error", message: error instanceof Error ? error.message : String(error), runtime: this.runtime };
+            return { status: "error", message: error instanceof Error ? error.message : String(error), runtime: this.runtimeState };
         }
     }
 
     getRuntimeState(): GameRuntimeState {
-        return this.runtime;
+        return this.runtimeState;
     }
 
     async getInstallFolder(installId: string): Promise<string | null> {
         const state = await this.getState(false);
         if (state.status !== "ready") return null;
-        return state.installs.find((install) => install.id === installId)?.path ?? null;
+        return state.distributives.find((install) => install.id === installId)?.path ?? null;
     }
 
     async getSavesFolder(installId: string): Promise<string | null> {
         const state = await this.getState(false);
         if (state.status !== "ready") return null;
-        const path = state.installs.find((install) => install.id === installId)?.userdataPath ?? null;
+        const path = state.distributives.find((install) => install.id === installId)?.userdataPath ?? null;
         if (path !== null) await mkdir(path, { recursive: true });
         return path;
     }
 
-    async createManualBackup(options: CreateManualBackupOptions = {}): Promise<CreateGameBackupResult> {
+    async createManualBackup(options: CreateManualBackupOptions = {}): Promise<EBackupCreateResult> {
         const context = await this.getBackupContext(options.worldName);
-        if (context === null) return { status: "unavailable", message: "Game is not installed." };
+        if (context === null) return { status: "unavailable", message: this.t("game.error.notInstalled") };
         const result = await this.backupService.createManualBackup(context);
         if (result.status === "created") this.touchAutoBackupCooldown(context.install.id, result.backup.worldFolderName);
         return result;
     }
 
-    async restoreBackup(backupId: string): Promise<RestoreGameBackupResult> {
+    async restoreBackup(backupId: string): Promise<EBackupRestoreResult> {
         const context = await this.getBackupContext();
-        if (context === null) return { status: "unavailable", message: "Game is not installed." };
+        if (context === null) return { status: "unavailable", message: this.t("game.error.notInstalled") };
         return this.backupService.restoreBackup(context, backupId);
     }
 
-    async deleteBackup(backupId: string): Promise<DeleteGameBackupResult> {
+    async deleteBackup(backupId: string): Promise<EBackupDeleteResult> {
         const context = await this.getBackupContext();
         return this.backupService.deleteBackup(context?.install ?? null, backupId);
     }
 
-    async renameBackup(backupId: string, comment: string): Promise<RenameGameBackupResult> {
+    async renameBackup(backupId: string, comment: string): Promise<EBackupRenameResult> {
         const context = await this.getBackupContext();
         return this.backupService.renameBackup(context?.install ?? null, backupId, comment);
     }
 
-    private setProgress(progress: GameInstallProgress): void {
+    private setProgress(progress: InstallDistributiveProgress): void {
         this.progress = progress;
         for (const listener of this.progressListeners) listener(progress);
     }
 
     private setRuntime(runtime: GameRuntimeState): GameRuntimeState {
-        this.runtime = runtime;
+        this.runtimeState = runtime;
         for (const listener of this.runtimeListeners) listener(runtime);
         return runtime;
     }
@@ -330,7 +322,7 @@ export class GameInstallationService {
         for (const listener of this.saveActivityListeners) listener(update);
     }
 
-    private async updateActiveSaveMonitor(activeInstall: GameInstall | null): Promise<void> {
+    private async updateActiveSaveMonitor(activeInstall: Distributive | null): Promise<void> {
         if (activeInstall === null) {
             this.stopActiveSaveMonitor();
             this.activeSaveStable = true;
@@ -349,7 +341,7 @@ export class GameInstallationService {
             onSettled: (activity) => this.processSettledSaveActivity(installId, activity),
             onStabilityChanged: (stable) => {
                 this.activeSaveStable = stable;
-                this.emitSaveActivityChanged({ installId, stable });
+                this.emitSaveActivityChanged({ distributiveId: installId, stable });
             }
         });
         this.activeSaveMonitor = monitor;
@@ -373,7 +365,7 @@ export class GameInstallationService {
         console.info(`[game-save] refresh save summary installId=${installId} events=${activity.eventCount} changedPaths=${activity.changedPaths.length}`);
         const changedWorldFolderNames = getChangedWorldFolderNames(activity);
         const state = await this.getState(false);
-        if (state.status !== "ready" || state.activeInstall?.id !== installId || state.saves === null) return;
+        if (state.status !== "ready" || state.distributive?.id !== installId || state.saves === null) return;
         const update: GameSaveSummaryUpdate = { installId, saves: state.saves };
         this.emitSaveSummaryChanged(update);
         this.queuePostSaveTasks(update, changedWorldFolderNames);
@@ -384,14 +376,14 @@ export class GameInstallationService {
     }
 
     private queueAutoBackupAfterSave(update: GameSaveSummaryUpdate, changedWorldFolderNames: string[]): void {
-        if (this.runtime.status !== "running") return;
+        if (this.runtimeState.status !== "running") return;
         for (const worldFolderName of changedWorldFolderNames) {
             void this.createAutoBackupAfterSave(update, worldFolderName);
         }
     }
 
     private async createAutoBackupAfterSave(update: GameSaveSummaryUpdate, worldFolderName: string): Promise<void> {
-        const settings = await this.settingsStore.getUserSettings();
+        const settings = await this.repositoryService.getUserSettings();
         if (isAutoBackupInCooldown(this.latestBackupAtByWorld.get(getAutoBackupTimerKey(update.installId, worldFolderName)) ?? null, toAutoBackupCooldownMs(settings.autoBackupCooldown))) return;
         const context = await this.getBackupContext(worldFolderName);
         if (context === null || context.install.id !== update.installId) return;
@@ -405,50 +397,50 @@ export class GameInstallationService {
 
     private async getBackupContext(worldName?: string): Promise<GameBackupContext | null> {
         const state = await this.getState(false);
-        if (state.status !== "ready" || state.activeInstall === null) return null;
+        if (state.status !== "ready" || state.distributive === null) return null;
         const preferredWorldName = worldName?.trim();
-        const saves = preferredWorldName === undefined || preferredWorldName.length === 0 ? state.saves : await readSaveSummary(state.activeInstall.userdataPath, preferredWorldName);
+        const saves = preferredWorldName === undefined || preferredWorldName.length === 0 ? state.saves : await readSaveSummary(state.distributive.userdataPath, preferredWorldName);
         return {
-            install: state.activeInstall,
+            install: state.distributive,
             saves,
-            gameRunning: this.runtime.status === "running",
-            savesStable: state.activeInstall.id !== this.activeSaveMonitorInstallId ? true : this.activeSaveStable
+            gameRunning: this.runtimeState.status === "running",
+            savesStable: state.distributive.id !== this.activeSaveMonitorInstallId ? true : this.activeSaveStable
         };
     }
 
-    private async getStateWithLatestRelease(latestRelease: GameRelease | null): Promise<GameInstallState> {
+    private async getStateWithLatestRelease(latestRelease: GithubRelease | null): Promise<DistributiveState> {
         const state = await this.getState(false);
         if (state.status !== "ready") return state;
         return {
             ...state,
             latestRelease,
             latestReleaseError: null,
-            updateAvailable: latestRelease !== null && state.activeInstall !== null && latestRelease.id !== state.activeInstall.id
+            updateAvailable: latestRelease !== null && state.distributive !== null && latestRelease.id !== state.distributive.id
         };
     }
 
-    private async launchActiveInstallAsync(options: LaunchGameOptions): Promise<LaunchGameResult> {
-        if (this.runtime.status === "running") return { status: "already-running", runtime: this.runtime };
+    private async launchActiveInstallAsync(options: GameLaunchOptions): Promise<EGameLaunchResult> {
+        if (this.runtimeState.status === "running") return { status: "already-running", runtime: this.runtimeState };
         const state = await this.getState(false);
-        if (state.status !== "ready") return { status: "unavailable", message: "Repository is not ready." };
-        if (state.activeInstall === null) return { status: "unavailable", message: "Game is not installed." };
+        if (state.status !== "ready") return { status: "unavailable", message: this.t("game.error.repositoryNotReady") };
+        if (state.distributive === null) return { status: "unavailable", message: this.t("game.error.notInstalled") };
 
-        const executablePath = await this.resolveExecutablePath(state.activeInstall);
+        const executablePath = await this.resolveExecutablePath(state.distributive);
         if (executablePath === null)
             return {
                 status: "unavailable",
-                message: "Game executable was not found. The install may have been removed or damaged."
+                message: this.t("game.error.executableMissing")
             };
 
-        await mkdir(state.activeInstall.userdataPath, { recursive: true });
-        const args = ["--userdir", state.activeInstall.userdataPath];
+        await mkdir(state.distributive.userdataPath, { recursive: true });
+        const args = ["--userdir", state.distributive.userdataPath];
         const worldName = options.worldName?.trim();
         if (worldName !== undefined && worldName.length > 0) args.push("--world", worldName);
         const child = spawn(executablePath, args, { cwd: dirname(executablePath), stdio: "ignore" });
         this.gameProcess = child;
-        this.preferredWorldByInstallId.set(state.activeInstall.id, worldName ?? null);
-        await this.updateActiveSaveMonitor(state.activeInstall);
-        const runtime = this.setRuntime({ status: "running", pid: child.pid ?? 0, installId: state.activeInstall.id, worldName: worldName ?? null });
+        this.preferredWorldByInstallId.set(state.distributive.id, worldName ?? null);
+        await this.updateActiveSaveMonitor(state.distributive);
+        const runtime = this.setRuntime({ status: "running", pid: child.pid ?? 0, installId: state.distributive.id, worldName: worldName ?? null });
         child.once("exit", () => {
             if (this.gameProcess === child) {
                 this.gameProcess = null;
@@ -464,13 +456,13 @@ export class GameInstallationService {
         return { status: "launched", runtime };
     }
 
-    private async resolveExecutablePath(install: GameInstall): Promise<string | null> {
+    private async resolveExecutablePath(install: Distributive): Promise<string | null> {
         const manifestExecutablePath = install.manifest.executablePath;
         if (manifestExecutablePath !== null && (await pathExists(manifestExecutablePath))) return manifestExecutablePath;
         return findExecutable(install.path);
     }
 
-    private async installRelease(repositoryPath: string, config: RepositoryConfig, channel: GameChannelDefinition, release: GameRelease, options: InstallGameOptions, installsBefore: GameInstall[]): Promise<GameInstall> {
+    private async installRelease(repositoryPath: string, config: RepositoryConfig, channel: GameChannelDefinition, release: GithubRelease, options: InstallDistributiveOptions, installsBefore: Distributive[]): Promise<Distributive> {
         const installPath = join(repositoryPath, INSTALLS_DIRECTORY_NAME, channel.id, safePathSegment(release.id));
         const userdataPath = join(repositoryPath, USERDATA_DIRECTORY_NAME, channel.id, safePathSegment(release.id));
         const tempPath = `${installPath}.tmp-${Date.now()}`;
@@ -486,7 +478,7 @@ export class GameInstallationService {
         this.setProgress({ status: "preparing-saves", releaseName: release.name });
         await mkdir(userdataPath, { recursive: true });
         if (sourceUserdata !== null && (await pathExists(sourceUserdata.userdataPath))) await copyDirectoryContents(sourceUserdata.userdataPath, userdataPath);
-        const manifest: GameInstallManifest = {
+        const manifest: DistributiveInfo = {
             schemaVersion: 1,
             channelId: channel.id,
             releaseId: release.id,
@@ -518,7 +510,7 @@ export class GameInstallationService {
         };
     }
 
-    private async readInstallsAndRepairConfig(repositoryPath: string, config: RepositoryConfig, channelId: string): Promise<{ config: RepositoryConfig; installs: GameInstall[] }> {
+    private async readInstallsAndRepairConfig(repositoryPath: string, config: RepositoryConfig, channelId: string): Promise<{ config: RepositoryConfig; installs: Distributive[] }> {
         const installs = await this.readInstalls(repositoryPath, config, channelId);
         const activeInstallId = config.activeInstallByChannel[channelId] ?? null;
         const activeInstallExists = activeInstallId !== null && installs.some((install) => install.id === activeInstallId);
@@ -535,7 +527,7 @@ export class GameInstallationService {
         };
     }
 
-    private async readInstalls(repositoryPath: string, config: RepositoryConfig, channelId: string): Promise<GameInstall[]> {
+    private async readInstalls(repositoryPath: string, config: RepositoryConfig, channelId: string): Promise<Distributive[]> {
         const channelInstallsPath = join(repositoryPath, INSTALLS_DIRECTORY_NAME, channelId);
         const activeInstallId = config.activeInstallByChannel[channelId] ?? null;
         let entries: string[];
@@ -545,7 +537,7 @@ export class GameInstallationService {
             if (isNodeError(error) && error.code === "ENOENT") return [];
             throw error;
         }
-        const installs: GameInstall[] = [];
+        const installs: Distributive[] = [];
         for (const entry of entries) {
             const installPath = join(channelInstallsPath, entry);
             try {
@@ -568,25 +560,25 @@ export class GameInstallationService {
         return installs.sort((a, b) => b.manifest.publishedAt.localeCompare(a.manifest.publishedAt));
     }
 
-    private async findLatestRelease(channel: GameChannelDefinition, forceRefresh: boolean): Promise<GameRelease | null> {
+    private async findLatestRelease(channel: GameChannelDefinition, forceRefresh: boolean): Promise<GithubRelease | null> {
         return (await this.fetchReleases(channel, forceRefresh))[0] ?? null;
     }
 
-    private async fetchReleases(channel: GameChannelDefinition, forceRefresh: boolean): Promise<GameRelease[]> {
-        const gameAssetVariant = await this.settingsStore.getGameAssetVariant();
+    private async fetchReleases(channel: GameChannelDefinition, forceRefresh: boolean): Promise<GithubRelease[]> {
+        const gameAssetVariant = (await this.repositoryService.getUserSettings()).releaseAssetVariant;
         return this.gitHubNetwork.getCached(getReleaseCacheKey(channel, gameAssetVariant), () => this.fetchReleasesFromGitHub(channel, forceRefresh, gameAssetVariant), { forceRefresh });
     }
 
-    private async fetchReleasesFromGitHub(channel: GameChannelDefinition, forceRefresh: boolean, gameAssetVariant: GameAssetVariant): Promise<GameRelease[]> {
+    private async fetchReleasesFromGitHub(channel: GameChannelDefinition, forceRefresh: boolean, gameAssetVariant: TReleaseAssetVariant): Promise<GithubRelease[]> {
         const pageCount = channel.kind === "stable" ? 5 : 1;
-        const releases: GameRelease[] = [];
+        const releases: GithubRelease[] = [];
         for (let page = 1; page <= pageCount; page += 1) {
             const value = await this.fetchReleasePage(channel, page, forceRefresh);
             if (!Array.isArray(value) || value.length === 0) break;
             releases.push(
                 ...value
                     .map((item) => toGameRelease(item, channel, gameAssetVariant))
-                    .filter((item): item is GameRelease => item !== null)
+                    .filter((item): item is GithubRelease => item !== null)
                     .filter((item) => matchesChannelKind(item, channel))
             );
             if (channel.kind === "stable" && releases.length > 0) break;
@@ -716,292 +708,5 @@ async function getReusableArchive(path: string, expectedBytes: number): Promise<
     } catch (error) {
         if (isNodeError(error) && error.code === "ENOENT") return null;
         throw error;
-    }
-}
-
-function resolveUserdataPath(repositoryPath: string, channelId: string, manifest: GameInstallManifest): string {
-    if (manifest.userdataPath.length > 0) return manifest.userdataPath;
-    return join(repositoryPath, USERDATA_DIRECTORY_NAME, channelId, safePathSegment(manifest.releaseId));
-}
-
-function getSelectedChannel(config: RepositoryConfig): GameChannelDefinition {
-    return findGameChannel(getEffectiveGameChannels(config.customChannels), config.selectedChannelId || DEFAULT_GAME_CHANNEL_ID);
-}
-
-function getReleaseCacheKey(channel: GameChannelDefinition, gameAssetVariant: GameAssetVariant): string {
-    const platformKey = process.platform === "win32" ? "windows" : "linux";
-    return `${channel.id}:${platformKey}:${gameAssetVariant}:${channel.releasesUrl}`;
-}
-
-function isGitHubUrl(url: string): boolean {
-    try {
-        const host = new URL(url).hostname.toLowerCase();
-        return host === "github.com" || host.endsWith(".github.com") || host === "githubusercontent.com" || host.endsWith(".githubusercontent.com");
-    } catch {
-        return false;
-    }
-}
-
-function withGitHubPageSize(url: string, page: number): string {
-    try {
-        const value = new URL(url);
-        if (value.hostname === "api.github.com") {
-            if (!value.searchParams.has("per_page")) value.searchParams.set("per_page", "50");
-            value.searchParams.set("page", page.toString());
-        }
-        return value.toString();
-    } catch {
-        return url;
-    }
-}
-function matchesChannelKind(release: GameRelease, channel: GameChannelDefinition): boolean {
-    const value = `${release.id} ${release.name}`.toLowerCase();
-    const isExperimentalRelease = value.includes("experimental");
-    return channel.kind === "experimental" ? isExperimentalRelease : !isExperimentalRelease;
-}
-function toAssetNameParts(value: string | string[]): string[] {
-    return Array.isArray(value) ? value : [value];
-}
-
-function toGameRelease(value: unknown, channel: GameChannelDefinition, gameAssetVariant: GameAssetVariant): GameRelease | null {
-    if (typeof value !== "object" || value === null) return null;
-    const release = value as GitHubReleaseDto;
-    if (release.draft === true || typeof release.tag_name !== "string" || typeof release.published_at !== "string") return null;
-    const asset = selectReleaseAsset(release.assets, channel, gameAssetVariant);
-    if (asset?.name === undefined || asset.browser_download_url === undefined) return null;
-    return {
-        id: release.tag_name,
-        name: release.name ?? release.tag_name,
-        tagName: release.tag_name,
-        publishedAt: release.published_at,
-        htmlUrl: release.html_url ?? `https://github.com/${channel.githubOwner}/${channel.githubRepo}/releases/tag/${encodeURIComponent(release.tag_name)}`,
-        body: release.body ?? "",
-        asset: {
-            name: asset.name,
-            size: typeof asset.size === "number" ? asset.size : 0,
-            downloadUrl: asset.browser_download_url
-        }
-    };
-}
-function selectReleaseAsset(assets: GitHubAssetDto[] | undefined, channel: GameChannelDefinition, gameAssetVariant: GameAssetVariant): GitHubAssetDto | null {
-    const compatibleAssets = assets?.filter((candidate) => isCompatibleAsset(candidate, channel)) ?? [];
-    const fallbackOrder = getGameAssetVariantFallbackOrder(gameAssetVariant);
-
-    for (const variant of fallbackOrder) {
-        const asset = compatibleAssets.find((candidate) => getAssetVariant(candidate) === variant);
-        if (asset !== undefined) return asset;
-    }
-
-    return compatibleAssets[0] ?? null;
-}
-
-function getAssetVariant(asset: GitHubAssetDto): GameAssetVariant {
-    const assetName = asset.name?.toLowerCase() ?? "";
-
-    if (assetName.includes("with-graphics-and-sounds") || assetName.includes("with-sounds")) return "graphics-and-sounds";
-    if (assetName.includes("with-graphics")) return "graphics";
-    return "tiles";
-}
-
-function isCompatibleAsset(asset: GitHubAssetDto, channel: GameChannelDefinition): boolean {
-    if (typeof asset.name !== "string" || typeof asset.browser_download_url !== "string") return false;
-    const platformKey = process.platform === "win32" ? "windows" : "linux";
-    const requiredNameParts = toAssetNameParts(channel.assetNameIncludes[platformKey]);
-    const assetName = asset.name.toLowerCase();
-    const isSupportedArchive = assetName.endsWith(".zip") || assetName.endsWith(".tar.gz") || assetName.endsWith(".tgz");
-    return isSupportedArchive && requiredNameParts.some((part) => part.length > 0 && assetName.includes(part.toLowerCase()));
-}
-function isGameInstallManifest(value: unknown): value is GameInstallManifest {
-    if (typeof value !== "object" || value === null) return false;
-    const candidate = value as Partial<GameInstallManifest>;
-    return (
-        candidate.schemaVersion === 1 &&
-        typeof candidate.channelId === "string" &&
-        typeof candidate.releaseId === "string" &&
-        typeof candidate.releaseName === "string" &&
-        typeof candidate.tagName === "string" &&
-        typeof candidate.publishedAt === "string" &&
-        typeof candidate.htmlUrl === "string" &&
-        typeof candidate.assetName === "string" &&
-        typeof candidate.installedAt === "string" &&
-        (candidate.executablePath === null || typeof candidate.executablePath === "string") &&
-        typeof candidate.userdataPath === "string"
-    );
-}
-function safePathSegment(value: string): string {
-    return (
-        value
-            .split("")
-            .map((char) => (/[<>:"/\\|?*]/.test(char) || char.charCodeAt(0) < 32 ? "_" : char))
-            .join("")
-            .trim() || "release"
-    );
-}
-async function findExecutable(rootPath: string): Promise<string | null> {
-    const candidates = process.platform === "win32" ? WINDOWS_EXECUTABLE_CANDIDATES : POSIX_EXECUTABLE_CANDIDATES;
-    const queue = [rootPath];
-    while (queue.length > 0) {
-        const directory = queue.shift()!;
-        const entries = await readdir(directory, { withFileTypes: true });
-        for (const entry of entries) {
-            const path = join(directory, entry.name);
-            if (entry.isDirectory()) queue.push(path);
-            else if (entry.isFile() && candidates.includes(entry.name)) return path;
-        }
-    }
-    return null;
-}
-function findUserdataSource(installs: GameInstall[], activeInstallId: string | undefined): GameInstall | null {
-    return (activeInstallId === undefined ? undefined : installs.find((install) => install.id === activeInstallId)) ?? installs[0] ?? null;
-}
-async function copyDirectoryContents(sourcePath: string, targetPath: string): Promise<void> {
-    await mkdir(targetPath, { recursive: true });
-    await Promise.all(
-        (await readdir(sourcePath)).map((entry) =>
-            cp(join(sourcePath, entry), join(targetPath, entry), {
-                recursive: true,
-                force: true
-            })
-        )
-    );
-}
-async function pathExists(path: string): Promise<boolean> {
-    try {
-        await access(path);
-        return true;
-    } catch {
-        return false;
-    }
-}
-async function runCommand(command: string, args: string[]): Promise<void> {
-    await new Promise<void>((resolve, reject) => {
-        const child = spawn(command, args, { stdio: "ignore" });
-        child.on("error", reject);
-        child.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`${command} exited with code ${code ?? "unknown"}.`))));
-    });
-}
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error && "code" in error;
-}
-
-function getAutoBackupTimerKey(installId: string, worldFolderName: string): string {
-    return `${installId}:${worldFolderName}`;
-}
-
-function isAutoBackupInCooldown(latestBackupAt: number | null, cooldownMs: number): boolean {
-    return cooldownMs > 0 && latestBackupAt !== null && Date.now() - latestBackupAt < cooldownMs;
-}
-
-function getChangedWorldFolderNames(activity: GameSaveSettledActivity): string[] {
-    const folders = new Set<string>();
-    for (const changedPath of activity.keyChangedPaths) {
-        const normalized = changedPath.split("\\").join("/");
-        const match = /(?:^|\/)save\/([^/]+)\/[^/]+$/.exec(normalized);
-        if (match !== null) folders.add(match[1]);
-    }
-    return [...folders];
-}
-
-async function readSaveSummary(userdataPath: string, preferredWorldName: string | null = null): Promise<GameSaveSummary> {
-    const savePath = join(userdataPath, "save");
-    let entries: string[];
-    try {
-        entries = await readdir(savePath);
-    } catch (error) {
-        if (isNodeError(error) && error.code === "ENOENT") return { worlds: [], currentWorld: null };
-        throw error;
-    }
-
-    const worlds = (
-        await Promise.all(
-            entries.map(async (entry): Promise<GameWorldInfo | null> => {
-                const worldPath = join(savePath, entry);
-                try {
-                    if (!(await stat(worldPath)).isDirectory()) return null;
-                    const character = await readFirstCharacter(worldPath);
-                    return {
-                        name: decodeWorldFolderName(entry),
-                        folderName: entry,
-                        characterName: character?.name ?? null
-                    };
-                } catch (error) {
-                    if (isNodeError(error) && error.code === "ENOENT") return null;
-                    console.error(`[game-install] failed to read world: ${worldPath}`, error);
-                    return null;
-                }
-            })
-        )
-    )
-        .filter((world): world is GameWorldInfo => world !== null)
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-
-    const preferredWorld = preferredWorldName === null ? null : (worlds.find((world) => world.name === preferredWorldName || world.folderName === preferredWorldName) ?? null);
-    return { worlds, currentWorld: preferredWorld ?? (worlds.length === 1 ? worlds[0] : null) };
-}
-
-type CharacterSaveInfo = {
-    name: string;
-};
-
-async function readFirstCharacter(worldPath: string): Promise<CharacterSaveInfo | null> {
-    let entries: Array<{ isFile(): boolean; name: string }>;
-    try {
-        entries = await readdir(worldPath, { withFileTypes: true });
-    } catch (error) {
-        if (isNodeError(error) && error.code === "ENOENT") return null;
-        throw error;
-    }
-
-    const saves = await Promise.all(
-        entries
-            .filter((entry) => entry.isFile() && /^#.+\.sav\.zzip$/i.test(entry.name))
-            .map(async (entry) => {
-                return {
-                    characterName: decodeCharacterName(entry.name)
-                };
-            })
-    );
-    const firstSave = saves.sort((a, b) => a.characterName.localeCompare(b.characterName, undefined, { sensitivity: "base" }))[0];
-    if (firstSave === undefined) return null;
-    return {
-        name: firstSave.characterName
-    };
-}
-
-function decodeWorldFolderName(folderName: string): string {
-    const unicodeDecoded = decodeUnicodeEscapedPathSegment(folderName);
-    return unicodeDecoded ?? folderName;
-}
-
-function decodeUnicodeEscapedPathSegment(value: string): string | null {
-    if (!/^#U[0-9a-fA-F]{4}/.test(value)) return null;
-    const decoded = value.replace(/#U([0-9a-fA-F]{4})/g, (_match, code: string) => String.fromCharCode(parseInt(code, 16))).trim();
-    return decoded.length > 0 ? decoded : null;
-}
-
-function decodeCharacterName(fileName: string): string {
-    const encoded = fileName.replace(/^#/, "").replace(/\.sav\.zzip$/i, "");
-    const decoded = decodeCddaSaveFileName(encoded);
-    return decoded ?? encoded;
-}
-
-function decodeCddaSaveFileName(encoded: string): string | null {
-    const candidates = [encoded.replace(/-/g, "/").replace(/_/g, "/"), encoded.replace(/-/g, "+").replace(/_/g, "/"), encoded];
-
-    for (const candidate of candidates) {
-        const decoded = decodeBase64Utf8(candidate);
-        if (decoded !== null && !decoded.includes("�")) return decoded;
-    }
-
-    return null;
-}
-
-function decodeBase64Utf8(value: string): string | null {
-    try {
-        const padded = value.padEnd(value.length + ((4 - (value.length % 4)) % 4), "=");
-        const decoded = Buffer.from(padded, "base64").toString("utf8").replace(/\0/g, "").trim();
-        return decoded.length > 0 ? decoded : null;
-    } catch {
-        return null;
     }
 }

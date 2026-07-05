@@ -1,14 +1,16 @@
 import { Button, Group, Menu, Paper, Text, Tooltip } from "@mantine/core";
 import React, { useEffect, useState } from "react";
 
-import { findGameChannel, getEffectiveGameChannels } from "../../../../shared/gameChannels";
-import { GameInstallProgress } from "../../../../shared/gameInstallations";
-import { type ModRepositoryState } from "../../../../shared/modRepository";
-import { RepositoryStatus } from "../../../../shared/repository";
+import { localizeChannelName } from "../../localization/channelLabels";
 import { useLocalization } from "../../localization/LocalizationContext";
+import { WorkspaceStatus } from "../../../../shared/workspace/WorkspaceStatus";
+import { getEffectiveGameChannels } from "../../../../shared/game-channel/getEffectiveGameChannels";
+import { findGameChannel } from "../../../../shared/game-channel/findGameChannel";
+import { InstallDistributiveProgress } from "../../../../shared/distributive/InstallDistributiveProgress";
+import { ModRepositoryState } from "../../../../shared/mods/ModRepositoryState";
 
 type LauncherDockProps = {
-    repository: RepositoryStatus;
+    repository: WorkspaceStatus;
     onSelectChannel: (channelId: string) => Promise<void>;
     onOpenSettings: () => void;
     onOpenMods: () => void;
@@ -21,7 +23,7 @@ export function LauncherDock({ repository, onSelectChannel, onOpenSettings, onOp
     const isReady = repository.status === "ready";
     const channels = isReady ? getEffectiveGameChannels(repository.config.customChannels) : [];
     const selectedChannel = isReady ? findGameChannel(channels, repository.config.selectedChannelId) : null;
-    const [installProgress, setInstallProgress] = useState<GameInstallProgress>({ status: "idle" });
+    const [installProgress, setInstallProgress] = useState<InstallDistributiveProgress>({ status: "idle" });
     const [modRepositoryState, setModRepositoryState] = useState<ModRepositoryState>({ status: "unconfigured", mods: [], checking: false });
     const isInstallingGame = isInstallBlockingProgress(installProgress);
     const modIndicatorState = getModIndicatorState(modRepositoryState);
@@ -61,7 +63,7 @@ export function LauncherDock({ repository, onSelectChannel, onOpenSettings, onOp
                     <Menu shadow="md" width={310} position="top-start" disabled={!isReady || isInstallingGame}>
                         <Menu.Target>
                             <Button variant="subtle" size="xs" radius="md" disabled={!isReady || isInstallingGame} className="launcher-dock__button launcher-dock__game-button">
-                                {selectedChannel === null ? t("dock.game.unavailable") : `${selectedChannel.shortName} · ${selectedChannel.channelName}`}
+                                {selectedChannel === null ? t("dock.game.unavailable") : `${selectedChannel.shortName} · ${localizeChannelName(selectedChannel.channelName, t)}`}
                             </Button>
                         </Menu.Target>
                         <Menu.Dropdown>
@@ -74,7 +76,7 @@ export function LauncherDock({ repository, onSelectChannel, onOpenSettings, onOp
                                     }}
                                     rightSection={channel.id === selectedChannel?.id ? "✓" : undefined}
                                 >
-                                    <StackedMenuLabel title={`${channel.shortName} · ${channel.channelName}`} description={`${channel.githubOwner}/${channel.githubRepo}`} />
+                                    <StackedMenuLabel title={`${channel.shortName} · ${localizeChannelName(channel.channelName, t)}`} description={`${channel.githubOwner}/${channel.githubRepo}`} />
                                 </Menu.Item>
                             ))}
                             <Menu.Divider />
@@ -115,7 +117,7 @@ export function LauncherDock({ repository, onSelectChannel, onOpenSettings, onOp
     );
 }
 
-function isInstallBlockingProgress(progress: GameInstallProgress): boolean {
+function isInstallBlockingProgress(progress: InstallDistributiveProgress): boolean {
     return progress.status === "resolving-release" || progress.status === "downloading" || progress.status === "extracting" || progress.status === "preparing-saves" || progress.status === "finalizing";
 }
 
@@ -130,7 +132,7 @@ function StackedMenuLabel({ title, description }: { title: string; description: 
     );
 }
 
-function getDockStatusText(t: (key: string) => string, repository: RepositoryStatus): string {
+function getDockStatusText(t: (key: string) => string, repository: WorkspaceStatus): string {
     if (repository.status === "ready") {
         return t("dock.status.uiOnly");
     }
@@ -142,7 +144,7 @@ function getDockStatusText(t: (key: string) => string, repository: RepositorySta
     return t("dock.status.repositoryMissing");
 }
 
-function getDockStatusTooltip(t: (key: string) => string, repository: RepositoryStatus): string {
+function getDockStatusTooltip(t: (key: string) => string, repository: WorkspaceStatus): string {
     if (repository.status === "ready") {
         return t("dock.status.tooltip.uiOnly");
     }
@@ -154,7 +156,7 @@ function getDockStatusTooltip(t: (key: string) => string, repository: Repository
     return t("dock.status.tooltip.repositoryMissing");
 }
 
-function getDockStatusDotClassName(repository: RepositoryStatus): string {
+function getDockStatusDotClassName(repository: WorkspaceStatus): string {
     const modifier = repository.status === "ready" ? "draft" : repository.status === "invalid" ? "error" : "missing";
     return `launcher-dock__status-dot launcher-dock__status-dot--${modifier}`;
 }

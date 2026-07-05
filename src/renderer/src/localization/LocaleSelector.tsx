@@ -1,24 +1,13 @@
 import { Group, Image, Select, Text } from "@mantine/core";
 import React, { useMemo } from "react";
 
-import { LocaleOption } from "../../../shared/localization";
 import { useLocalization } from "./LocalizationContext";
+import { LocaleOption } from "../../../shared/localization/types/LocaleOption";
 
-type LocaleSelectorProps = {
-    variant?: "settings" | "dock";
-};
-
-export function LocaleSelector({ variant = "settings" }: LocaleSelectorProps): React.JSX.Element | null {
+export function LocaleSelector(): React.JSX.Element | null {
     const { selectedLocale, effectiveLocale, options, setLocale, t } = useLocalization();
 
-    const data = useMemo(
-        () =>
-            options.map((option) => ({
-                value: option.locale,
-                label: option.nativeName
-            })),
-        [options]
-    );
+    const data = useMemo(() => options.map((option) => ({ value: option.locale, label: option.nativeName })), [options]);
 
     if (options.length === 0) {
         return null;
@@ -26,12 +15,11 @@ export function LocaleSelector({ variant = "settings" }: LocaleSelectorProps): R
 
     const currentValue = options.some((option) => option.locale === selectedLocale) ? selectedLocale : effectiveLocale;
     const currentOption = options.find((option) => option.locale === currentValue);
-    const isDock = variant === "dock";
 
     return (
         <Select
             aria-label={t("locale.label")}
-            label={isDock ? undefined : t("locale.label")}
+            label={t("locale.label")}
             data={data}
             value={currentValue}
             onChange={(value) => {
@@ -41,8 +29,6 @@ export function LocaleSelector({ variant = "settings" }: LocaleSelectorProps): R
             }}
             allowDeselect={false}
             size="xs"
-            w={isDock ? 132 : undefined}
-            className={isDock ? "locale-selector locale-selector--dock" : "locale-selector"}
             renderOption={({ option }) => <LocaleOptionRow option={options.find((locale) => locale.locale === option.value)} />}
             leftSection={<LocaleIcon option={currentOption} />}
         />

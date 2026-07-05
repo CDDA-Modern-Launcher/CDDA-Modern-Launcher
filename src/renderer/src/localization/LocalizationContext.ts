@@ -1,8 +1,10 @@
 import { createContext, useContext } from "react";
 
-import { DEFAULT_LOCALE, LocalizationBundle } from "../../../shared/localization";
+import { DEFAULT_LOCALE } from "../../../shared/Const";
+import { LocalizationBundle } from "../../../shared/localization/types/LocalizationBundle";
+import { FormatArgs } from "../../../shared/FormatArgs";
 
-export type MessageVariables = Record<string, string | number>;
+export type MessageVariables = FormatArgs;
 
 export type LocalizationContextValue = LocalizationBundle & {
     t: (key: string, variables?: MessageVariables) => string;
@@ -21,10 +23,6 @@ export const LocalizationContext = createContext<LocalizationContextValue | null
 
 export function useLocalization(): LocalizationContextValue {
     const value = useContext(LocalizationContext);
-
-    if (value === null) {
-        throw new Error("useLocalization must be used inside LocalizationProvider");
-    }
-
+    if (value === null) throw new Error("useLocalization must be used inside LocalizationProvider");
     return value;
 }

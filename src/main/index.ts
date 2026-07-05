@@ -301,14 +301,14 @@ app.whenReady().then(async () => {
     const localizationService = new LocalizationService(settingsStore);
     await localizationService.initialize();
     const repositoryService = new LocalRepositoryService(settingsStore, localizationService);
-    const gameInstallationService = new GameInstallationService(repositoryService, settingsStore);
-    const modRepositoryService = new ModRepositoryService(repositoryService);
+    const gameInstallationService = new GameInstallationService(repositoryService, localizationService);
+    const modRepositoryService = new ModRepositoryService(repositoryService, localizationService);
 
     await setupAppearanceIpc(settingsStore);
     setupLocalizationIpc(localizationService);
-    setupLauncherSettingsIpc(settingsStore);
+    setupLauncherSettingsIpc(repositoryService);
     setupRepositoryIpc(repositoryService, localizationService);
-    setupGameInstallationIpc(gameInstallationService);
+    setupGameInstallationIpc(gameInstallationService, localizationService);
     setupModRepositoryIpc(modRepositoryService);
     setupUpdaterIpc(localizationService);
     setupShellIpc();

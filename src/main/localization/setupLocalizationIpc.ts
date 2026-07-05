@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 
-import { LocalizationBundle } from "../../shared/localization";
 import { LocalizationService } from "./LocalizationService";
+import {LocalizationBundle} from "../../shared/localization/types/LocalizationBundle";
 
 export function setupLocalizationIpc(localizationService: LocalizationService): void {
     ipcMain.handle("localization:get-bundle", (): LocalizationBundle => localizationService.getBundle());

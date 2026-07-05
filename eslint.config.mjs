@@ -4,7 +4,6 @@ import eslintConfigPrettier from "@electron-toolkit/eslint-config-prettier";
 import eslintPluginReact from "eslint-plugin-react";
 import eslintPluginReactHooks from "eslint-plugin-react-hooks";
 import eslintPluginReactRefresh from "eslint-plugin-react-refresh";
-import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 
 export default defineConfig(
@@ -23,14 +22,11 @@ export default defineConfig(
         files: ["**/*.{ts,tsx}"],
         plugins: {
             "react-hooks": eslintPluginReactHooks,
-            "react-refresh": eslintPluginReactRefresh,
-            "simple-import-sort": simpleImportSort
+            "react-refresh": eslintPluginReactRefresh
         },
         rules: {
             ...eslintPluginReactHooks.configs.recommended.rules,
             ...eslintPluginReactRefresh.configs.vite.rules,
-            "simple-import-sort/imports": "error",
-            "simple-import-sort/exports": "error",
             "no-undef": "error"
         }
     },

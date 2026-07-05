@@ -1,0 +1,47 @@
+import { GameStateRequest } from "./types/GameStateRequest";
+import { BackupProgress } from "../backups/types/BackupProgress";
+import { BackupSummaryUpdate } from "../backups/types/BackupSummaryUpdate";
+import { EBackupCreateResult } from "../backups/types/EBackupCreateResult";
+import { EBackupDeleteResult } from "../backups/types/EBackupDeleteResult";
+import { EBackupRestoreResult } from "../backups/types/EBackupRestoreResult";
+
+import { EBackupRenameResult } from "../backups/types/EBackupRenameResult";
+import { GithubRelease } from "../GithubRelease";
+import { GameSaveSummaryUpdate } from "../GameSaveSummaryUpdate";
+import { GameSaveActivityUpdate } from "../GameSaveActivityUpdate";
+import { GameRuntimeState } from "../GameRuntimeState";
+import { GameLaunchOptions } from "../launch/GameLaunchOptions";
+import { CreateManualBackupOptions } from "../backups/types/CreateManualBackupOptions";
+import { DistributiveState } from "../distributive/DistributiveState";
+import { InstallDistributiveOptions } from "../distributive/InstallDistributiveOptions";
+import { DistributiveDeleteOptions } from "../distributive/DistributiveDeleteOptions";
+import { EInstallDistributiveResult } from "../distributive/EInstallDistributiveResult";
+import { EDistributiveSetActiveResult } from "../distributive/EDistributiveSetActiveResult";
+import { EDistributiveDeleteResult } from "../distributive/EDistributiveDeleteResult";
+import { EGameLaunchResult } from "../launch/EGameLaunchResult";
+import { EGameStopResult } from "../launch/EGameStopResult";
+import { InstallDistributiveProgress } from "../distributive/InstallDistributiveProgress";
+import { EGameFolderOpenResult } from "../EGameFolderOpenResult";
+
+export type GameApi = {
+    getState: (options?: GameStateRequest) => Promise<DistributiveState>;
+    getReleases: (forceRefresh?: boolean) => Promise<GithubRelease[]>;
+    installLatest: (options: InstallDistributiveOptions) => Promise<EInstallDistributiveResult>;
+    setActiveInstall: (installId: string) => Promise<EDistributiveSetActiveResult>;
+    deleteInstall: (installId: string, options: DistributiveDeleteOptions) => Promise<EDistributiveDeleteResult>;
+    getRuntimeState: () => Promise<GameRuntimeState>;
+    launchActiveInstall: (options?: GameLaunchOptions) => Promise<EGameLaunchResult>;
+    stop: () => Promise<EGameStopResult>;
+    openInstallFolder: (installId: string) => Promise<EGameFolderOpenResult>;
+    openSavesFolder: (installId: string) => Promise<EGameFolderOpenResult>;
+    createManualBackup: (options?: CreateManualBackupOptions) => Promise<EBackupCreateResult>;
+    restoreBackup: (backupId: string) => Promise<EBackupRestoreResult>;
+    deleteBackup: (backupId: string) => Promise<EBackupDeleteResult>;
+    renameBackup: (backupId: string, comment: string) => Promise<EBackupRenameResult>;
+    onInstallProgress: (callback: (progress: InstallDistributiveProgress) => void) => () => void;
+    onRuntimeChanged: (callback: (runtime: GameRuntimeState) => void) => () => void;
+    onSaveSummaryChanged: (callback: (update: GameSaveSummaryUpdate) => void) => () => void;
+    onSaveActivityChanged: (callback: (update: GameSaveActivityUpdate) => void) => () => void;
+    onBackupProgress: (callback: (progress: BackupProgress) => void) => () => void;
+    onBackupSummaryChanged: (callback: (update: BackupSummaryUpdate) => void) => () => void;
+};

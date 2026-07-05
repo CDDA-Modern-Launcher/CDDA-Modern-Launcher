@@ -3,19 +3,15 @@ import { dirname, join } from "node:path";
 
 import { app } from "electron";
 
-import { AppTheme } from "../../shared/appearance";
-import { type AutoBackupCooldown, type AutoBackupLimit, type BackupRotationLimit, DEFAULT_BACKUP_SETTINGS, isAutoBackupCooldown, isAutoBackupLimit, isBackupRotationLimit } from "../../shared/backups";
-import { DEFAULT_GAME_ASSET_VARIANT, type GameAssetVariant, isGameAssetVariant, type LauncherUserSettings } from "../../shared/gameAssetVariants";
+import { AppTheme } from "../../shared/appearance/AppTheme";
+import { isAppTheme } from "../../shared/appearance/isAppTheme";
 
+// Keep only application-level settings that are required before a repository is ready.
+// Repository-specific settings belong to cdda.launcher.config.jsonc inside the selected repository.
 type LauncherSettings = {
     repositoryPath?: string;
     locale?: string;
     theme?: AppTheme;
-    gameAssetVariant?: GameAssetVariant;
-    backupsEnabled?: boolean;
-    autoBackupLimit?: AutoBackupLimit;
-    manualBackupRotationLimit?: BackupRotationLimit;
-    autoBackupCooldown?: AutoBackupCooldown;
 };
 
 export class LauncherSettingsStore {
@@ -51,66 +47,6 @@ export class LauncherSettingsStore {
         await this.writeSettings({ ...settings, theme });
     }
 
-    async getGameAssetVariant(): Promise<GameAssetVariant> {
-        const settings = await this.readSettings();
-        return isGameAssetVariant(settings.gameAssetVariant) ? settings.gameAssetVariant : DEFAULT_GAME_ASSET_VARIANT;
-    }
-
-    async setGameAssetVariant(gameAssetVariant: GameAssetVariant): Promise<void> {
-        const settings = await this.readSettings();
-        await this.writeSettings({ ...settings, gameAssetVariant });
-    }
-
-    async getBackupsEnabled(): Promise<boolean> {
-        const settings = await this.readSettings();
-        return typeof settings.backupsEnabled === "boolean" ? settings.backupsEnabled : DEFAULT_BACKUP_SETTINGS.backupsEnabled;
-    }
-
-    async setBackupsEnabled(backupsEnabled: boolean): Promise<void> {
-        const settings = await this.readSettings();
-        await this.writeSettings({ ...settings, backupsEnabled });
-    }
-
-    async getAutoBackupLimit(): Promise<AutoBackupLimit> {
-        const settings = await this.readSettings();
-        return isAutoBackupLimit(settings.autoBackupLimit) ? settings.autoBackupLimit : DEFAULT_BACKUP_SETTINGS.autoBackupLimit;
-    }
-
-    async setAutoBackupLimit(autoBackupLimit: AutoBackupLimit): Promise<void> {
-        const settings = await this.readSettings();
-        await this.writeSettings({ ...settings, autoBackupLimit });
-    }
-
-    async getAutoBackupCooldown(): Promise<AutoBackupCooldown> {
-        const settings = await this.readSettings();
-        return isAutoBackupCooldown(settings.autoBackupCooldown) ? settings.autoBackupCooldown : DEFAULT_BACKUP_SETTINGS.autoBackupCooldown;
-    }
-
-    async setAutoBackupCooldown(autoBackupCooldown: AutoBackupCooldown): Promise<void> {
-        const settings = await this.readSettings();
-        await this.writeSettings({ ...settings, autoBackupCooldown });
-    }
-
-    async getManualBackupRotationLimit(): Promise<BackupRotationLimit> {
-        const settings = await this.readSettings();
-        return isBackupRotationLimit(settings.manualBackupRotationLimit) ? settings.manualBackupRotationLimit : DEFAULT_BACKUP_SETTINGS.manualBackupRotationLimit;
-    }
-
-    async setManualBackupRotationLimit(manualBackupRotationLimit: BackupRotationLimit): Promise<void> {
-        const settings = await this.readSettings();
-        await this.writeSettings({ ...settings, manualBackupRotationLimit });
-    }
-
-    async getUserSettings(): Promise<LauncherUserSettings> {
-        return {
-            gameAssetVariant: await this.getGameAssetVariant(),
-            backupsEnabled: await this.getBackupsEnabled(),
-            autoBackupLimit: await this.getAutoBackupLimit(),
-            manualBackupRotationLimit: await this.getManualBackupRotationLimit(),
-            autoBackupCooldown: await this.getAutoBackupCooldown()
-        };
-    }
-
     private async readSettings(): Promise<LauncherSettings> {
         try {
             const content = await readFile(this.filePath, "utf8");
@@ -139,10 +75,6 @@ export class LauncherSettingsStore {
 
 function isLauncherSettings(value: unknown): value is LauncherSettings {
     return typeof value === "object" && value !== null;
-}
-
-function isAppTheme(value: unknown): value is AppTheme {
-    return value === "system" || value === "dark" || value === "light";
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

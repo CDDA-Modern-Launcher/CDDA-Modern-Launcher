@@ -1,7 +1,8 @@
 import { BrowserWindow, ipcMain, nativeTheme } from "electron";
 
-import { AppAppearance, AppTheme } from "../../shared/appearance";
 import { LauncherSettingsStore } from "../settings/LauncherSettingsStore";
+import { AppTheme } from "../../shared/appearance/AppTheme";
+import { AppAppearance } from "../../shared/appearance/AppAppearance";
 
 export async function setupAppearanceIpc(settingsStore: LauncherSettingsStore): Promise<void> {
     nativeTheme.themeSource = await settingsStore.getTheme();

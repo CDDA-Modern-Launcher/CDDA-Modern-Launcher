@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { AppAppearance, AppTheme } from "../../../shared/appearance";
+import { AppTheme } from "../../../shared/appearance/AppTheme";
+import { AppAppearance } from "../../../shared/appearance/AppAppearance";
 
 export type SystemAppearanceState = AppAppearance & {
     setTheme: (theme: AppTheme) => Promise<void>;

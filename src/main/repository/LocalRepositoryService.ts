@@ -2,21 +2,36 @@ import { constants } from "node:fs";
 import { access, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { DEFAULT_GAME_CHANNEL_ID, GameChannelDefinition, getEffectiveGameChannels } from "../../shared/gameChannels";
-import { REPOSITORY_CONFIG_FILE_NAME, RepositoryConfig, RepositoryStatus } from "../../shared/repository";
 import { LocalizationService } from "../localization/LocalizationService";
 import { LauncherSettingsStore } from "../settings/LauncherSettingsStore";
 import { parseRepositoryConfig } from "./parseRepositoryConfig";
+import { DEFAULT_GAME_CHANNEL_ID, REPOSITORY_CONFIG_FILE_NAME } from "../../shared/Const";
+import { RepositoryConfig } from "../../shared/RepositoryConfig";
+import { WorkspaceStatus } from "../../shared/workspace/WorkspaceStatus";
+import { TBackupRotationLimit } from "../../shared/backups/types/TBackupRotationLimit";
+import { TAutoBackupLimit } from "../../shared/backups/types/TAutoBackupLimit";
+import { TAutoBackupCooldown } from "../../shared/backups/types/TAutoBackupCooldown";
+import { DEFAULT_BACKUP_SETTINGS } from "../../shared/backups/DEFAULT_BACKUP_SETTINGS";
+import { isAutoBackupLimit } from "../../shared/backups/isAutoBackupLimit";
+import { isBackupRotationLimit } from "../../shared/backups/isBackupRotationLimit";
+import { isAutoBackupCooldown } from "../../shared/backups/isAutoBackupCooldown";
+import { TReleaseAssetVariant } from "../../shared/release-asset/TReleaseAssetVariant";
+import { DEFAULT_RELEASE_ASSET_VARIANT } from "../../shared/release-asset/DEFAULT_RELEASE_ASSET_VARIANT";
+import { SettingsIPC } from "../../shared/SettingsIPC";
+import { isReleaseAssetVariant } from "../../shared/release-asset/isReleaseAssetVariant";
+import { GameChannelDefinition } from "../../shared/game-channel/GameChannelDefinition";
+import { getEffectiveGameChannels } from "../../shared/game-channel/getEffectiveGameChannels";
 
 export class LocalRepositoryService {
     private configIoQueue: Promise<void> = Promise.resolve();
+    private readonly userSettingsListeners = new Set<(settings: SettingsIPC) => void>();
 
     constructor(
         private readonly settingsStore: LauncherSettingsStore,
         private readonly localizationService: LocalizationService
     ) {}
 
-    async getInitialStatus(): Promise<RepositoryStatus> {
+    async getInitialStatus(): Promise<WorkspaceStatus> {
         const repositoryPath = await this.settingsStore.getRepositoryPath();
 
         if (repositoryPath === null) {
@@ -26,7 +41,7 @@ export class LocalRepositoryService {
         return this.validate(repositoryPath);
     }
 
-    async useRepository(repositoryPath: string): Promise<RepositoryStatus> {
+    async useRepository(repositoryPath: string): Promise<WorkspaceStatus> {
         const status = await this.prepare(repositoryPath);
 
         if (status.status === "ready") {
@@ -39,16 +54,47 @@ export class LocalRepositoryService {
 
     async saveConfig(repositoryPath: string, config: RepositoryConfig): Promise<void> {
         await this.writeConfig(repositoryPath, normalizeRepositoryConfig(config));
+        this.emitUserSettingsChanged(configToUserSettings(normalizeRepositoryConfig(config)));
     }
 
-    async setSelectedChannel(channelId: string): Promise<RepositoryStatus> {
+    onUserSettingsChanged(listener: (settings: SettingsIPC) => void): () => void {
+        this.userSettingsListeners.add(listener);
+        return () => this.userSettingsListeners.delete(listener);
+    }
+
+    async getUserSettings(): Promise<SettingsIPC> {
+        const status = await this.getInitialStatus();
+        return status.status === "ready" ? configToUserSettings(status.config) : DEFAULT_REPOSITORY_USER_SETTINGS;
+    }
+
+    async setGameAssetVariant(gameAssetVariant: TReleaseAssetVariant): Promise<SettingsIPC> {
+        return this.updateUserSettings({ releaseAssetVariant: gameAssetVariant });
+    }
+
+    async setBackupsEnabled(backupsEnabled: boolean): Promise<SettingsIPC> {
+        return this.updateUserSettings({ backupsEnabled });
+    }
+
+    async setAutoBackupLimit(autoBackupLimit: TAutoBackupLimit): Promise<SettingsIPC> {
+        return this.updateUserSettings({ autoBackupLimit });
+    }
+
+    async setAutoBackupCooldown(autoBackupCooldown: TAutoBackupCooldown): Promise<SettingsIPC> {
+        return this.updateUserSettings({ autoBackupCooldown });
+    }
+
+    async setManualBackupRotationLimit(manualBackupRotationLimit: TBackupRotationLimit): Promise<SettingsIPC> {
+        return this.updateUserSettings({ manualBackupRotationLimit });
+    }
+
+    async setSelectedChannel(channelId: string): Promise<WorkspaceStatus> {
         const currentStatus = await this.getInitialStatus();
 
         if (currentStatus.status !== "ready") {
             return currentStatus;
         }
 
-        const channels = getEffectiveGameChannels(currentStatus.config.customChannels);
+        const channels = getEffectiveGameChannels(currentStatus.config.customGameChannels);
         const selectedChannelId = channels.some((channel) => channel.id === channelId) ? channelId : DEFAULT_GAME_CHANNEL_ID;
         const config = normalizeRepositoryConfig({ ...currentStatus.config, selectedChannelId });
 
@@ -56,7 +102,27 @@ export class LocalRepositoryService {
         return { status: "ready", path: currentStatus.path, config };
     }
 
-    private async prepare(repositoryPath: string): Promise<RepositoryStatus> {
+    private async updateUserSettings(patch: Partial<SettingsIPC>): Promise<SettingsIPC> {
+        const currentStatus = await this.getInitialStatus();
+
+        if (currentStatus.status !== "ready") {
+            throw new Error("Repository is not ready");
+        }
+
+        const config = normalizeRepositoryConfig({ ...currentStatus.config, ...patch });
+        await this.writeConfig(currentStatus.path, config);
+        const settings = configToUserSettings(config);
+        this.emitUserSettingsChanged(settings);
+        return settings;
+    }
+
+    private emitUserSettingsChanged(settings: SettingsIPC): void {
+        for (const listener of this.userSettingsListeners) {
+            listener(settings);
+        }
+    }
+
+    private async prepare(repositoryPath: string): Promise<WorkspaceStatus> {
         const directoryState = await getDirectoryState(repositoryPath);
 
         if (directoryState.status === "missing") {
@@ -77,7 +143,9 @@ export class LocalRepositoryService {
                 await this.writeConfig(repositoryPath, config);
             }
 
-            return { status: "ready", path: repositoryPath, config };
+            const status: WorkspaceStatus = { status: "ready", path: repositoryPath, config };
+            this.emitUserSettingsChanged(configToUserSettings(config));
+            return status;
         }
 
         if (!directoryState.isEmpty) {
@@ -95,16 +163,18 @@ export class LocalRepositoryService {
             schemaVersion: 1,
             createdAt: new Date().toISOString(),
             selectedChannelId: DEFAULT_GAME_CHANNEL_ID,
-            customChannels: [],
+            customGameChannels: [],
             activeInstallByChannel: {},
             lastSeenReleaseByChannel: {}
         });
 
         await this.writeConfig(repositoryPath, config);
-        return { status: "ready", path: repositoryPath, config };
+        const status: WorkspaceStatus = { status: "ready", path: repositoryPath, config };
+        this.emitUserSettingsChanged(configToUserSettings(config));
+        return status;
     }
 
-    private async validate(repositoryPath: string): Promise<RepositoryStatus> {
+    private async validate(repositoryPath: string): Promise<WorkspaceStatus> {
         const directoryState = await getDirectoryState(repositoryPath);
 
         if (directoryState.status === "missing") {
@@ -226,18 +296,41 @@ async function getDirectoryState(path: string): Promise<DirectoryState> {
     }
 }
 
-function normalizeRepositoryConfig(config: RepositoryConfig): RepositoryConfig {
-    const customChannels = Array.isArray(config.customChannels) ? config.customChannels.map(normalizeCustomChannel).filter((channel) => channel !== null) : [];
+function normalizeRepositoryConfig(config: Partial<RepositoryConfig>): RepositoryConfig {
+    const customChannels = Array.isArray(config.customGameChannels) ? config.customGameChannels.map(normalizeCustomChannel).filter((channel) => channel !== null) : [];
     const channels = getEffectiveGameChannels(customChannels);
-    const selectedChannelId = channels.some((channel) => channel.id === config.selectedChannelId) ? config.selectedChannelId : DEFAULT_GAME_CHANNEL_ID;
+    const selectedChannelId = typeof config.selectedChannelId === "string" && channels.some((channel) => channel.id === config.selectedChannelId) ? config.selectedChannelId : DEFAULT_GAME_CHANNEL_ID;
 
     return {
         schemaVersion: 1,
-        createdAt: config.createdAt,
+        createdAt: typeof config.createdAt === "string" ? config.createdAt : new Date().toISOString(),
         selectedChannelId,
-        customChannels,
+        customGameChannels: customChannels,
         activeInstallByChannel: normalizeStringRecord(config.activeInstallByChannel),
-        lastSeenReleaseByChannel: normalizeStringRecord(config.lastSeenReleaseByChannel)
+        lastSeenReleaseByChannel: normalizeStringRecord(config.lastSeenReleaseByChannel),
+        releaseAssetVeriant: isReleaseAssetVariant(config.releaseAssetVeriant) ? config.releaseAssetVeriant : DEFAULT_RELEASE_ASSET_VARIANT,
+        backupsEnabled: typeof config.backupsEnabled === "boolean" ? config.backupsEnabled : DEFAULT_BACKUP_SETTINGS.backupsEnabled,
+        autoBackupLimit: isAutoBackupLimit(config.autoBackupLimit) ? config.autoBackupLimit : DEFAULT_BACKUP_SETTINGS.autoBackupLimit,
+        manualBackupRotationLimit: isBackupRotationLimit(config.manualBackupRotationLimit) ? config.manualBackupRotationLimit : DEFAULT_BACKUP_SETTINGS.manualBackupRotationLimit,
+        autoBackupCooldown: isAutoBackupCooldown(config.autoBackupCooldown) ? config.autoBackupCooldown : DEFAULT_BACKUP_SETTINGS.autoBackupCooldown
+    };
+}
+
+const DEFAULT_REPOSITORY_USER_SETTINGS: SettingsIPC = {
+    releaseAssetVariant: DEFAULT_RELEASE_ASSET_VARIANT,
+    backupsEnabled: DEFAULT_BACKUP_SETTINGS.backupsEnabled,
+    autoBackupLimit: DEFAULT_BACKUP_SETTINGS.autoBackupLimit,
+    manualBackupRotationLimit: DEFAULT_BACKUP_SETTINGS.manualBackupRotationLimit,
+    autoBackupCooldown: DEFAULT_BACKUP_SETTINGS.autoBackupCooldown
+};
+
+function configToUserSettings(config: RepositoryConfig): SettingsIPC {
+    return {
+        releaseAssetVariant: config.releaseAssetVeriant,
+        backupsEnabled: config.backupsEnabled,
+        autoBackupLimit: config.autoBackupLimit,
+        manualBackupRotationLimit: config.manualBackupRotationLimit,
+        autoBackupCooldown: config.autoBackupCooldown
     };
 }
 
@@ -291,7 +384,7 @@ function isRepositoryConfig(value: unknown): value is RepositoryConfig {
         candidate.schemaVersion === 1 &&
         typeof candidate.createdAt === "string" &&
         (candidate.selectedChannelId === undefined || typeof candidate.selectedChannelId === "string") &&
-        (candidate.customChannels === undefined || Array.isArray(candidate.customChannels))
+        (candidate.customGameChannels === undefined || Array.isArray(candidate.customGameChannels))
     );
 }
 
