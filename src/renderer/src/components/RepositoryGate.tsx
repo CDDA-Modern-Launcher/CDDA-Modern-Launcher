@@ -4,9 +4,17 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { type GameBackup, type GameBackupProgress, type GameBackupSummary, type GameBackupSummaryUpdate } from "../../../shared/backups";
 import { findGameChannel, getEffectiveGameChannels, getGameChannelRepositoryUrl } from "../../../shared/gameChannels";
 import { GameInstall, GameInstallProgress, GameInstallState, GameRelease, GameRuntimeState, GameSaveSummaryUpdate, GameWorldInfo, InstallGameOptions } from "../../../shared/gameInstallations";
-import { REPOSITORY_CONFIG_FILE_NAME, RepositoryStatus } from "../../../shared/repository";
+import { REPOSITORY_CONFIG_FILE_NAME, type RepositoryStatus } from "../../../shared/repository";
 import { useLauncherSettings } from "../hooks/useLauncherSettings";
 import { useLocalization } from "../localization/LocalizationContext";
+
+const APP_MODAL_PROPS = {
+    centered: true,
+    radius: "lg",
+    zIndex: 3000,
+    overlayProps: { backgroundOpacity: 0.45, blur: 8 },
+    transitionProps: { transition: "pop", duration: 180 }
+} as const;
 
 export type RepositoryGateProps = { repository: RepositoryStatus; isSelecting: boolean; onSelectRepository: () => void };
 
@@ -713,7 +721,7 @@ function BackupStrip(props: {
 function DeleteBackupModal({ backup, onCancel, onConfirm }: { backup: GameBackup | null; onCancel: () => void; onConfirm: (backupId: string) => void }): React.JSX.Element {
     const { t } = useLocalization();
     return (
-        <Modal opened={backup !== null} onClose={onCancel} title={<Title order={4}>{t("backup.delete.title")}</Title>} centered zIndex={3000}>
+        <Modal {...APP_MODAL_PROPS} opened={backup !== null} onClose={onCancel} title={<Title order={4}>{t("backup.delete.title")}</Title>}>
             <Stack gap="md">
                 <Text size="sm">
                     {backup === null
@@ -757,7 +765,7 @@ function RenameBackupButton({ backup, onRename }: { backup: GameBackup; onRename
             >
                 {t("backup.action.rename")}
             </Button>
-            <Modal opened={opened} onClose={() => setOpened(false)} title={<Title order={4}>{t("backup.rename.title")}</Title>} centered zIndex={3000}>
+            <Modal {...APP_MODAL_PROPS} opened={opened} onClose={() => setOpened(false)} title={<Title order={4}>{t("backup.rename.title")}</Title>}>
                 <form
                     onSubmit={(event) => {
                         event.preventDefault();
@@ -971,7 +979,7 @@ function InstallOptionsModal(props: {
     const { t } = useLocalization();
     const releaseName = props.release === null ? "" : getReleaseNameDisplay(props.release.name);
     return (
-        <Modal opened={props.opened} onClose={props.onCancel} title={<Title order={4}>{t("install.modal.title")}</Title>} centered zIndex={3000}>
+        <Modal {...APP_MODAL_PROPS} opened={props.opened} onClose={props.onCancel} title={<Title order={4}>{t("install.modal.title")}</Title>}>
             <Stack gap="md">
                 <Stack gap={4}>
                     <Text size="sm" c="dimmed">
@@ -1261,7 +1269,7 @@ function DeleteInstallModal({ install, onCancel, onConfirm }: { install: GameIns
     const [deleteUserdata, setDeleteUserdata] = useState(true);
 
     return (
-        <Modal opened={install !== null} onClose={onCancel} title={<Title order={4}>{t("deleteInstall.modal.title")}</Title>} centered zIndex={3000}>
+        <Modal {...APP_MODAL_PROPS} opened={install !== null} onClose={onCancel} title={<Title order={4}>{t("deleteInstall.modal.title")}</Title>}>
             <Stack gap="md">
                 <Text size="sm" c="dimmed">
                     {install === null ? "" : t("deleteInstall.modal.description", { version: getReleaseDisplayName(install) })}
@@ -1284,7 +1292,7 @@ function ReleaseNotesModal({ target, onClose }: { target: ReleaseNotesTarget | n
     const { t } = useLocalization();
     const body = target?.body.trim() ?? "";
     return (
-        <Modal opened={target !== null} onClose={onClose} title={<Title order={4}>{target?.title ?? t("releaseNotes.modal.title")}</Title>} centered size="xl" zIndex={3000}>
+        <Modal {...APP_MODAL_PROPS} opened={target !== null} onClose={onClose} title={<Title order={4}>{target?.title ?? t("releaseNotes.modal.title")}</Title>} size="xl">
             <Stack gap="md">
                 {target !== null && (target.publishedAt !== undefined || target.htmlUrl !== undefined) && (
                     <Group gap="xs">

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 
 import { findGameChannel, getEffectiveGameChannels } from "../../../../shared/gameChannels";
 import { GameInstallProgress } from "../../../../shared/gameInstallations";
+import { type ModRepositoryState } from "../../../../shared/modRepository";
 import { RepositoryStatus } from "../../../../shared/repository";
 import { useLocalization } from "../../localization/LocalizationContext";
 
@@ -21,9 +22,37 @@ export function LauncherDock({ repository, onSelectChannel, onOpenSettings, onOp
     const channels = isReady ? getEffectiveGameChannels(repository.config.customChannels) : [];
     const selectedChannel = isReady ? findGameChannel(channels, repository.config.selectedChannelId) : null;
     const [installProgress, setInstallProgress] = useState<GameInstallProgress>({ status: "idle" });
+    const [modRepositoryState, setModRepositoryState] = useState<ModRepositoryState>({ status: "unconfigured", mods: [], checking: false });
     const isInstallingGame = isInstallBlockingProgress(installProgress);
+    const modIndicatorState = getModIndicatorState(modRepositoryState);
 
     useEffect(() => window.api.game.onInstallProgress(setInstallProgress), []);
+
+    useEffect(() => {
+        let mounted = true;
+
+        window.api.mods
+            .getState()
+            .then((state) => {
+                if (mounted) {
+                    setModRepositoryState(state);
+                }
+            })
+            .catch((error) => console.error("Failed to load mods state for dock", error));
+
+        const unsubscribeChanged = window.api.mods.onChanged((event) => {
+            setModRepositoryState(event.state);
+        });
+        const unsubscribeNotice = window.api.mods.onNotice((event) => {
+            setModRepositoryState(event.state);
+        });
+
+        return () => {
+            mounted = false;
+            unsubscribeChanged();
+            unsubscribeNotice();
+        };
+    }, [repository]);
 
     return (
         <Paper withBorder radius="lg" shadow="xl" className="launcher-dock">
@@ -67,8 +96,9 @@ export function LauncherDock({ repository, onSelectChannel, onOpenSettings, onOp
                     <Button variant="light" size="xs" radius="md" onClick={onOpenSoundpack} className="launcher-dock__button">
                         {t("dock.soundpack")}
                     </Button>
-                    <Button variant="light" size="xs" radius="md" onClick={onOpenMods} className="launcher-dock__button">
+                    <Button variant="light" size="xs" radius="md" onClick={onOpenMods} className="launcher-dock__button launcher-dock__mods-button">
                         {t("dock.mods")}
+                        {modIndicatorState !== "idle" && <span className={`launcher-dock__mods-indicator launcher-dock__mods-indicator--${modIndicatorState}`} aria-hidden="true" />}
                     </Button>
 
                     <Tooltip label={t("dock.settings.tooltip")} position="top">
@@ -127,4 +157,20 @@ function getDockStatusTooltip(t: (key: string) => string, repository: Repository
 function getDockStatusDotClassName(repository: RepositoryStatus): string {
     const modifier = repository.status === "ready" ? "draft" : repository.status === "invalid" ? "error" : "missing";
     return `launcher-dock__status-dot launcher-dock__status-dot--${modifier}`;
+}
+
+function getModIndicatorState(state: ModRepositoryState): "idle" | "checking" | "updates" {
+    if (state.status !== "ready") {
+        return "idle";
+    }
+
+    if (state.mods.some((mod) => mod.updateAvailable)) {
+        return "updates";
+    }
+
+    if (state.checking) {
+        return "checking";
+    }
+
+    return "idle";
 }

@@ -267,3 +267,62 @@ code {
 .backup-drawer-item__actions {
     flex: 0 0 auto;
 }
+
+.launcher-dock__mods-button {
+    position: relative;
+    overflow: visible;
+}
+
+.launcher-dock__mods-indicator {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 9px;
+    height: 9px;
+    pointer-events: none;
+    border-radius: 999px;
+    background-color: var(--mantine-color-blue-5);
+    box-shadow: 0 0 0 3px rgba(34, 139, 230, 0.16);
+}
+
+.launcher-dock__mods-indicator--checking {
+    opacity: 0.55;
+    animation: launcher-dock-mods-checking-pulse 1.4s ease-in-out infinite;
+}
+
+.launcher-dock__mods-indicator--updates {
+    opacity: 1;
+    background-color: var(--mantine-color-blue-6);
+    box-shadow: 0 0 0 0 rgba(34, 139, 230, 0.45);
+    animation: launcher-dock-mods-update-ripple 1.6s ease-out infinite;
+}
+
+@keyframes launcher-dock-mods-checking-pulse {
+    0%,
+    100% {
+        opacity: 0.32;
+        transform: scale(0.85);
+    }
+
+    50% {
+        opacity: 0.72;
+        transform: scale(1);
+    }
+}
+
+@keyframes launcher-dock-mods-update-ripple {
+    0% {
+        transform: scale(0.9);
+        box-shadow: 0 0 0 0 rgba(34, 139, 230, 0.48);
+    }
+
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 9px rgba(34, 139, 230, 0);
+    }
+
+    100% {
+        transform: scale(0.9);
+        box-shadow: 0 0 0 0 rgba(34, 139, 230, 0);
+    }
+}

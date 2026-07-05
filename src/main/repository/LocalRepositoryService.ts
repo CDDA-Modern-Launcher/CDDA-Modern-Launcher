@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { DEFAULT_GAME_CHANNEL_ID, GameChannelDefinition, getEffectiveGameChannels } from "../../shared/gameChannels";
@@ -9,6 +9,8 @@ import { LauncherSettingsStore } from "../settings/LauncherSettingsStore";
 import { parseRepositoryConfig } from "./parseRepositoryConfig";
 
 export class LocalRepositoryService {
+    private configIoQueue: Promise<void> = Promise.resolve();
+
     constructor(
         private readonly settingsStore: LauncherSettingsStore,
         private readonly localizationService: LocalizationService
@@ -70,7 +72,11 @@ export class LocalRepositoryService {
 
         if (existingConfig.status === "ok") {
             const config = normalizeRepositoryConfig(existingConfig.config);
-            await this.writeConfig(repositoryPath, config);
+
+            if (!areRepositoryConfigsEqual(existingConfig.config, config)) {
+                await this.writeConfig(repositoryPath, config);
+            }
+
             return { status: "ready", path: repositoryPath, config };
         }
 
@@ -121,7 +127,11 @@ export class LocalRepositoryService {
 
         if (config.status === "ok") {
             const normalizedConfig = normalizeRepositoryConfig(config.config);
-            await this.writeConfig(repositoryPath, normalizedConfig);
+
+            if (!areRepositoryConfigsEqual(config.config, normalizedConfig)) {
+                await this.writeConfig(repositoryPath, normalizedConfig);
+            }
+
             return { status: "ready", path: repositoryPath, config: normalizedConfig };
         }
 
@@ -136,27 +146,48 @@ export class LocalRepositoryService {
     }
 
     private async readConfig(configPath: string): Promise<{ status: "ok"; config: RepositoryConfig } | { status: "missing" } | { status: "invalid" }> {
-        try {
-            const content = await readFile(configPath, "utf8");
-            const parsed = parseRepositoryConfig(content, configPath);
+        return this.withConfigIo(async () => {
+            try {
+                const content = await readFile(configPath, "utf8");
+                const parsed = parseRepositoryConfig(content, configPath);
 
-            if (!isRepositoryConfig(parsed)) {
+                if (!isRepositoryConfig(parsed)) {
+                    return { status: "invalid" };
+                }
+
+                return { status: "ok", config: parsed };
+            } catch (error) {
+                if (isNodeError(error) && error.code === "ENOENT") {
+                    return { status: "missing" };
+                }
+
+                console.error("[repository] failed to read repository config", error);
                 return { status: "invalid" };
             }
-
-            return { status: "ok", config: parsed };
-        } catch (error) {
-            if (isNodeError(error) && error.code === "ENOENT") {
-                return { status: "missing" };
-            }
-
-            console.error("[repository] failed to read repository config", error);
-            return { status: "invalid" };
-        }
+        });
     }
 
     private async writeConfig(repositoryPath: string, config: RepositoryConfig): Promise<void> {
-        await writeFile(join(repositoryPath, REPOSITORY_CONFIG_FILE_NAME), `${JSON.stringify(config, null, 2)}\n`, "utf8");
+        await this.withConfigIo(async () => {
+            const configPath = join(repositoryPath, REPOSITORY_CONFIG_FILE_NAME);
+            const tempPath = join(repositoryPath, `${REPOSITORY_CONFIG_FILE_NAME}.${process.pid}.${Date.now()}.tmp`);
+
+            try {
+                await writeFile(tempPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+                await rename(tempPath, configPath);
+            } finally {
+                await rm(tempPath, { force: true });
+            }
+        });
+    }
+
+    private withConfigIo<T>(operation: () => Promise<T>): Promise<T> {
+        const run = this.configIoQueue.then(operation, operation);
+        this.configIoQueue = run.then(
+            () => undefined,
+            () => undefined
+        );
+        return run;
     }
 }
 
@@ -208,6 +239,10 @@ function normalizeRepositoryConfig(config: RepositoryConfig): RepositoryConfig {
         activeInstallByChannel: normalizeStringRecord(config.activeInstallByChannel),
         lastSeenReleaseByChannel: normalizeStringRecord(config.lastSeenReleaseByChannel)
     };
+}
+
+function areRepositoryConfigsEqual(left: RepositoryConfig, right: RepositoryConfig): boolean {
+    return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function normalizeCustomChannel(channel: unknown): GameChannelDefinition | null {

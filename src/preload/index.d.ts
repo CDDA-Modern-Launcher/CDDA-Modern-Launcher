@@ -32,6 +32,7 @@ import {
     StopGameResult
 } from "../shared/gameInstallations";
 import { LocalizationBundle } from "../shared/localization";
+import { CheckModsResult, InstallModResult, ModRepositoryChangedEvent, ModRepositoryNoticeEvent, ModRepositoryState, OpenModFolderResult, RemoveModResult, UpdateModOptions, UpdateModResult } from "../shared/modRepository";
 import { RepositoryStatus, SelectRepositoryResult } from "../shared/repository";
 
 type UpdateState =
@@ -112,6 +113,17 @@ type GameApi = {
     onBackupSummaryChanged: (callback: (update: GameBackupSummaryUpdate) => void) => () => void;
 };
 
+type ModsApi = {
+    getState: () => Promise<ModRepositoryState>;
+    installFromUrl: (url: string) => Promise<InstallModResult>;
+    checkUpdates: () => Promise<CheckModsResult>;
+    update: (modId: string, options?: UpdateModOptions) => Promise<UpdateModResult>;
+    remove: (modId: string) => Promise<RemoveModResult>;
+    openFolder: (modId?: string) => Promise<OpenModFolderResult>;
+    onChanged: (callback: (event: ModRepositoryChangedEvent) => void) => () => void;
+    onNotice: (callback: (event: ModRepositoryNoticeEvent) => void) => () => void;
+};
+
 type AppApi = {
     updater: UpdaterApi;
     repository: RepositoryApi;
@@ -120,6 +132,7 @@ type AppApi = {
     shell: ShellApi;
     settings: SettingsApi;
     game: GameApi;
+    mods: ModsApi;
 };
 
 declare global {

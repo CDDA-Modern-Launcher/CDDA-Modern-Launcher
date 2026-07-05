@@ -36,6 +36,7 @@ export default function App(): React.JSX.Element {
 
             if (result.status === "selected") {
                 setRepository(result.repository);
+                window.api.mods.checkUpdates().catch((error) => console.error("Failed to check mods after repository selection", error));
             }
         } finally {
             setSelectingRepository(false);
@@ -44,6 +45,7 @@ export default function App(): React.JSX.Element {
 
     const setSelectedChannel = async (channelId: string): Promise<void> => {
         setRepository(await window.api.repository.setSelectedChannel(channelId));
+        window.api.mods.checkUpdates().catch((error) => console.error("Failed to check mods after channel change", error));
     };
 
     const openContent = (kind: ContentSheetKind): void => {

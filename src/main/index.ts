@@ -10,6 +10,8 @@ import { GameInstallationService } from "./game/GameInstallationService";
 import { setupGameInstallationIpc } from "./game/setupGameInstallationIpc";
 import { LocalizationService } from "./localization/LocalizationService";
 import { setupLocalizationIpc } from "./localization/setupLocalizationIpc";
+import { ModRepositoryService } from "./mods/ModRepositoryService";
+import { setupModRepositoryIpc } from "./mods/setupModRepositoryIpc";
 import { LocalRepositoryService } from "./repository/LocalRepositoryService";
 import { setupRepositoryIpc } from "./repository/setupRepositoryIpc";
 import { LauncherSettingsStore } from "./settings/LauncherSettingsStore";
@@ -300,15 +302,18 @@ app.whenReady().then(async () => {
     await localizationService.initialize();
     const repositoryService = new LocalRepositoryService(settingsStore, localizationService);
     const gameInstallationService = new GameInstallationService(repositoryService, settingsStore);
+    const modRepositoryService = new ModRepositoryService(repositoryService);
 
     await setupAppearanceIpc(settingsStore);
     setupLocalizationIpc(localizationService);
     setupLauncherSettingsIpc(settingsStore);
     setupRepositoryIpc(repositoryService, localizationService);
     setupGameInstallationIpc(gameInstallationService);
+    setupModRepositoryIpc(modRepositoryService);
     setupUpdaterIpc(localizationService);
     setupShellIpc();
     createWindow();
+    modRepositoryService.checkAllInBackground();
     setupAutoUpdater(localizationService);
 
     app.on("activate", function () {

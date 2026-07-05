@@ -26,6 +26,7 @@ import {
     LaunchGameOptions
 } from "../shared/gameInstallations";
 import { LocalizationBundle } from "../shared/localization";
+import { ModRepositoryChangedEvent, ModRepositoryNoticeEvent, UpdateModOptions } from "../shared/modRepository";
 import { RepositoryStatus, SelectRepositoryResult } from "../shared/repository";
 
 const updaterApi = {
@@ -174,6 +175,33 @@ const gameApi = {
     }
 };
 
+const modsApi = {
+    getState: () => ipcRenderer.invoke("mods:get-state"),
+    installFromUrl: (url: string) => ipcRenderer.invoke("mods:install-from-url", url),
+    checkUpdates: () => ipcRenderer.invoke("mods:check-updates"),
+    update: (modId: string, options?: UpdateModOptions) => ipcRenderer.invoke("mods:update", modId, options),
+    remove: (modId: string) => ipcRenderer.invoke("mods:remove", modId),
+    openFolder: (modId?: string) => ipcRenderer.invoke("mods:open-folder", modId),
+    onChanged: (callback: (event: ModRepositoryChangedEvent) => void) => {
+        const listener = (_event: IpcRendererEvent, event: ModRepositoryChangedEvent): void => callback(event);
+
+        ipcRenderer.on("mods:changed", listener);
+
+        return () => {
+            ipcRenderer.removeListener("mods:changed", listener);
+        };
+    },
+    onNotice: (callback: (event: ModRepositoryNoticeEvent) => void) => {
+        const listener = (_event: IpcRendererEvent, event: ModRepositoryNoticeEvent): void => callback(event);
+
+        ipcRenderer.on("mods:notice", listener);
+
+        return () => {
+            ipcRenderer.removeListener("mods:notice", listener);
+        };
+    }
+};
+
 // Custom APIs for renderer
 const api = {
     updater: updaterApi,
@@ -182,7 +210,8 @@ const api = {
     appearance: appearanceApi,
     shell: shellApi,
     settings: settingsApi,
-    game: gameApi
+    game: gameApi,
+    mods: modsApi
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to
