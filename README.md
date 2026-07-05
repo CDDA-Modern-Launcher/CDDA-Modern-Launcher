@@ -1,4 +1,4 @@
-# cdda-launcher-electron
+# CDDA-Modern-Launcher
 
 An Electron application with React and TypeScript
 

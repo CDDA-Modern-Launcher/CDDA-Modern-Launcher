@@ -1,24 +1,20 @@
-import { Button, Divider, Drawer, Group, Select, Stack, Switch, Text, Title } from "@mantine/core";
+import { Divider, Drawer, Group, Select, Stack, Switch, Text, Title, Tooltip } from "@mantine/core";
 import React from "react";
 
 import { AppTheme } from "../../../../shared/appearance";
 import type { AutoBackupCooldown, AutoBackupLimit, BackupRotationLimit } from "../../../../shared/backups";
 import type { GameAssetVariant } from "../../../../shared/gameAssetVariants";
-import { findGameChannel, getEffectiveGameChannels } from "../../../../shared/gameChannels";
-import { RepositoryStatus } from "../../../../shared/repository";
 import { useLauncherSettings } from "../../hooks/useLauncherSettings";
 import { useSystemAppearance } from "../../hooks/useSystemAppearance";
 import { LocaleSelector } from "../../localization/LocaleSelector";
 import { useLocalization } from "../../localization/LocalizationContext";
 
 type SettingsSheetProps = {
-    repository: RepositoryStatus;
     opened: boolean;
     onClose: () => void;
-    onSelectChannel: (channelId: string) => Promise<void>;
 };
 
-export function SettingsSheet({ repository, opened, onClose, onSelectChannel }: SettingsSheetProps): React.JSX.Element {
+export function SettingsSheet({ opened, onClose }: SettingsSheetProps): React.JSX.Element {
     const { t } = useLocalization();
     const appearance = useSystemAppearance();
     const launcherSettings = useLauncherSettings();
@@ -28,13 +24,11 @@ export function SettingsSheet({ repository, opened, onClose, onSelectChannel }: 
     const autoBackupLimitOptions = getAutoBackupLimitOptions(t);
     const autoBackupCooldownOptions = getAutoBackupCooldownOptions(t);
     const manualBackupRotationOptions = getManualBackupRotationOptions(t);
-    const channels = repository.status === "ready" ? getEffectiveGameChannels(repository.config.customChannels) : [];
-    const selectedChannel = repository.status === "ready" ? findGameChannel(channels, repository.config.selectedChannelId) : null;
 
     return (
         <Drawer opened={opened} onClose={onClose} position="right" size={420} title={<Title order={3}>{t("settings.title")}</Title>}>
             <Stack gap="xl">
-                <SettingsSection title={t("settings.appearance.title")} description={t("settings.appearance.description")}>
+                <SettingsSection title={t("settings.appearance.title")}>
                     <LocaleSelector variant="settings" />
                     <Select
                         label={t("settings.appearance.theme")}
@@ -59,20 +53,7 @@ export function SettingsSheet({ repository, opened, onClose, onSelectChannel }: 
                     />
                 </SettingsSection>
 
-                <SettingsSection title={t("settings.game.title")} description={t("settings.game.description")}>
-                    <Select
-                        label={t("settings.game.channel")}
-                        value={selectedChannel?.id ?? null}
-                        data={channels.map((channel) => ({ value: channel.id, label: `${channel.gameName} · ${channel.channelName}` }))}
-                        disabled={repository.status !== "ready"}
-                        placeholder={t("settings.game.channelUnavailable")}
-                        allowDeselect={false}
-                        onChange={(value) => {
-                            if (value !== null) {
-                                onSelectChannel(value).catch((error) => console.error("Failed to select game channel", error));
-                            }
-                        }}
-                    />
+                <SettingsSection title={t("settings.game.title")}>
                     <Select
                         label={t("settings.game.assetVariant")}
                         description={t("settings.game.assetVariantDescription")}
@@ -85,41 +66,27 @@ export function SettingsSheet({ repository, opened, onClose, onSelectChannel }: 
                             }
                         }}
                     />
-                    <Button variant="light" disabled>
-                        {t("settings.game.addCustomChannel")}
-                    </Button>
-                    <Button variant="light" disabled>
-                        {t("settings.game.repository")}
-                    </Button>
                 </SettingsSection>
 
-                <SettingsSection title={t("settings.content.title")} description={t("settings.content.description")}>
-                    <Button variant="light" disabled>
-                        {t("settings.content.mods")}
-                    </Button>
-                    <Button variant="light" disabled>
-                        {t("settings.content.soundpacks")}
-                    </Button>
-                    <Button variant="light" disabled>
-                        {t("settings.content.tilesets")}
-                    </Button>
-                    <Button variant="light" disabled>
-                        {t("settings.content.modpackProfile")}
-                    </Button>
-                </SettingsSection>
-
-                <SettingsSection title={t("settings.backups.title")} description={t("settings.backups.description")}>
-                    <Switch
-                        label={t("settings.backups.enabled")}
-                        checked={launcherSettings.backupsEnabled}
-                        onChange={(event) => launcherSettings.setBackupsEnabled(event.currentTarget.checked).catch((error) => console.error("Failed to set backups enabled", error))}
-                    />
+                <SettingsSection
+                    title={t("settings.backups.title")}
+                    rightSection={
+                        <Tooltip label={t("settings.backups.enabledTooltip")}>
+                            <Switch
+                                aria-label={t("settings.backups.enabled")}
+                                checked={launcherSettings.backupsEnabled}
+                                onChange={(event) => launcherSettings.setBackupsEnabled(event.currentTarget.checked).catch((error) => console.error("Failed to set backups enabled", error))}
+                            />
+                        </Tooltip>
+                    }
+                >
                     <Select
                         label={t("settings.backups.autoLimit")}
                         description={t("settings.backups.autoLimitDescription")}
                         value={launcherSettings.autoBackupLimit}
                         data={autoBackupLimitOptions.map((option) => ({ value: option.value, label: option.label }))}
                         allowDeselect={false}
+                        renderOption={({ option }) => <BackupSelectOption label={option.label} tooltip={getAutoBackupLimitOptionTooltip(t, option.value)} />}
                         disabled={!launcherSettings.backupsEnabled}
                         onChange={(value) => {
                             if (isAutoBackupLimit(value)) {
@@ -133,6 +100,7 @@ export function SettingsSheet({ repository, opened, onClose, onSelectChannel }: 
                         value={launcherSettings.autoBackupCooldown}
                         data={autoBackupCooldownOptions.map((option) => ({ value: option.value, label: option.label }))}
                         allowDeselect={false}
+                        renderOption={({ option }) => <BackupSelectOption label={option.label} />}
                         disabled={!launcherSettings.backupsEnabled || launcherSettings.autoBackupLimit === "disabled"}
                         onChange={(value) => {
                             if (isAutoBackupCooldown(value)) {
@@ -146,6 +114,7 @@ export function SettingsSheet({ repository, opened, onClose, onSelectChannel }: 
                         value={launcherSettings.manualBackupRotationLimit}
                         data={manualBackupRotationOptions.map((option) => ({ value: option.value, label: option.label }))}
                         allowDeselect={false}
+                        renderOption={({ option }) => <BackupSelectOption label={option.label} tooltip={getManualBackupRotationOptionTooltip(t, option.value)} />}
                         disabled={!launcherSettings.backupsEnabled}
                         onChange={(value) => {
                             if (isBackupRotationLimit(value)) {
@@ -153,21 +122,6 @@ export function SettingsSheet({ repository, opened, onClose, onSelectChannel }: 
                             }
                         }}
                     />
-                    <Text size="xs" c="dimmed">
-                        {t("settings.backups.rotationNote")}
-                    </Text>
-                </SettingsSection>
-
-                <SettingsSection title={t("settings.advanced.title")} description={t("settings.advanced.description")}>
-                    <Button variant="subtle" disabled>
-                        {t("settings.advanced.openRepo")}
-                    </Button>
-                    <Button variant="subtle" disabled>
-                        {t("settings.advanced.openLogs")}
-                    </Button>
-                    <Button variant="subtle" disabled>
-                        {t("settings.advanced.validateLocales")}
-                    </Button>
                 </SettingsSection>
             </Stack>
         </Drawer>
@@ -208,7 +162,7 @@ function getGameAssetVariantOptions(t: (key: string) => string): GameAssetVarian
 
 function getAutoBackupLimitOptions(t: (key: string) => string): Array<BackupOption<AutoBackupLimit>> {
     return [
-        { value: "disabled", label: t("settings.backups.limit.never") },
+        { value: "disabled", label: t("settings.backups.limit.disabled") },
         { value: "3", label: t("settings.backups.limit.max3") },
         { value: "5", label: t("settings.backups.limit.max5") },
         { value: "10", label: t("settings.backups.limit.max10") }
@@ -217,7 +171,7 @@ function getAutoBackupLimitOptions(t: (key: string) => string): Array<BackupOpti
 
 function getAutoBackupCooldownOptions(t: (key: string) => string): Array<BackupOption<AutoBackupCooldown>> {
     return [
-        { value: "disabled", label: t("settings.backups.cooldown.disabled") },
+        { value: "disabled", label: t("settings.backups.cooldown.noPause") },
         { value: "5s", label: t("settings.backups.cooldown.5s") },
         { value: "15s", label: t("settings.backups.cooldown.15s") },
         { value: "1m", label: t("settings.backups.cooldown.1m") }
@@ -226,7 +180,7 @@ function getAutoBackupCooldownOptions(t: (key: string) => string): Array<BackupO
 
 function getManualBackupRotationOptions(t: (key: string) => string): Array<BackupOption<BackupRotationLimit>> {
     return [
-        { value: "disabled", label: t("settings.backups.rotation.disabled") },
+        { value: "disabled", label: t("settings.backups.rotation.all") },
         { value: "3", label: t("settings.backups.limit.max3") },
         { value: "5", label: t("settings.backups.limit.max5") },
         { value: "10", label: t("settings.backups.limit.max10") }
@@ -267,23 +221,41 @@ function ThemeIcon({ icon }: { icon: string | undefined }): React.JSX.Element | 
 
 type SettingsSectionProps = {
     title: string;
-    description: string;
     children: React.ReactNode;
+    rightSection?: React.ReactNode;
 };
 
-function SettingsSection({ title, description, children }: SettingsSectionProps): React.JSX.Element {
+function SettingsSection({ title, children, rightSection }: SettingsSectionProps): React.JSX.Element {
     return (
         <Stack gap="sm" className="settings-section">
-            <Stack gap={2}>
-                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                    <Title order={4}>{title}</Title>
-                </Group>
-                <Text size="sm" c="dimmed">
-                    {description}
-                </Text>
-            </Stack>
+            <Group justify="space-between" align="center" wrap="nowrap">
+                <Title order={4}>{title}</Title>
+                {rightSection}
+            </Group>
             <Stack gap="xs">{children}</Stack>
             <Divider />
         </Stack>
     );
+}
+
+function BackupSelectOption({ label, tooltip }: { label: string; tooltip?: string }): React.JSX.Element {
+    const option = <Text size="sm">{label}</Text>;
+
+    if (tooltip === undefined) {
+        return option;
+    }
+
+    return (
+        <Tooltip label={tooltip} position="right" withArrow>
+            {option}
+        </Tooltip>
+    );
+}
+
+function getAutoBackupLimitOptionTooltip(t: (key: string) => string, value: string): string | undefined {
+    return value === "disabled" ? t("settings.backups.limit.disabledTooltip") : undefined;
+}
+
+function getManualBackupRotationOptionTooltip(t: (key: string) => string, value: string): string | undefined {
+    return value === "disabled" ? t("settings.backups.rotation.allTooltip") : undefined;
 }

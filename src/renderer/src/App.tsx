@@ -59,7 +59,7 @@ export default function App(): React.JSX.Element {
     return (
         <>
             <UpdateFloatingCard />
-            <SettingsSheet repository={repository} opened={settingsOpened} onClose={settings.close} onSelectChannel={setSelectedChannel} />
+            <SettingsSheet opened={settingsOpened} onClose={settings.close} />
             <ContentSheet repository={repository} kind={contentKind} onClose={() => setContentKind(null)} />
 
             <main className="app-shell">

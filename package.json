@@ -1,5 +1,5 @@
 {
-    "name": "cdda-launcher-electron",
+    "name": "cdda-modern-launcher",
     "version": "0.1.6",
     "description": "An Electron application with React and TypeScript",
     "main": "./out/main/index.js",

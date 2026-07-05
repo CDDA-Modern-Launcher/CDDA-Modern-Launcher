@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/cdda-launcher-electron.iml" filepath="$PROJECT_DIR$/.idea/cdda-launcher-electron.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/CDDA-Modern-Launcher.iml" filepath="$PROJECT_DIR$/.idea/CDDA-Modern-Launcher.iml" />
     </modules>
   </component>
 </project>
