@@ -431,7 +431,7 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
                                 onOpenVersions={() => setVersionsOpened(true)}
                             />
                         )}
-                        {activeInstall !== null && (
+                        {activeInstall !== null && !installRunning && (
                             <VersionStrip
                                 currentVersion={getReleaseDisplayName(activeInstall)}
                                 latestRelease={latestRelease}
@@ -880,11 +880,8 @@ function VersionStrip(props: {
         <Card withBorder radius="md" p="sm" className="home-version-strip">
             <Group justify="space-between" gap="sm" wrap="nowrap">
                 <Stack gap={2} className="home-version-strip__text">
-                    <Text size="xs" c="dimmed">
-                        {t("home.version.current")}
-                    </Text>
                     <Text size="sm" fw={700}>
-                        {props.currentVersion}
+                        {t("home.version.current", { version: props.currentVersion })}
                     </Text>
                     <Group gap={6} wrap="wrap">
                         <Text size="xs" c={props.latestReleaseError !== null ? "red" : props.updateAvailable ? "blue" : "dimmed"}>
@@ -893,7 +890,10 @@ function VersionStrip(props: {
                                 : props.latestReleaseError !== null
                                   ? t("home.version.checkFailed", { message: props.latestReleaseError })
                                   : props.updateAvailable && props.latestRelease !== null
-                                    ? t("home.version.updateAvailable", { version: getReleaseNameDisplay(props.latestRelease.name) })
+                                    ? t("home.version.updateAvailable", {
+                                          currentVersion: props.currentVersion,
+                                          latestVersion: getReleaseNameDisplay(props.latestRelease.name)
+                                      })
                                     : props.latestRelease === null
                                       ? t("home.version.latestUnknown")
                                       : t("home.version.latestInstalled")}

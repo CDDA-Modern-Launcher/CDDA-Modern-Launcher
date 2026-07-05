@@ -176,7 +176,12 @@ export class GameInstallationService {
                 [channel.id]: installId
             }
         });
-        return { status: "updated", state: await this.getState(false) };
+        try {
+            return { status: "updated", state: await this.getStateWithLatestRelease(await this.findLatestRelease(channel, false)) };
+        } catch (error) {
+            console.error("[game-install] failed to check latest release after active install change", { channelId: channel.id, error });
+            return { status: "updated", state: await this.getState(false) };
+        }
     }
 
     async deleteInstall(installId: string, options: DeleteGameInstallOptions): Promise<DeleteGameInstallResult> {
