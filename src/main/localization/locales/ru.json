@@ -61,7 +61,7 @@
         "settings.theme.light": "Дневная",
         "settings.theme.dark": "Ночная",
         "settings.game.title": "Игра",
-        "settings.game.description": "Будущие настройки лаунчера и локального репозитория.",
+        "settings.game.description": "Источник игры, платформа и предпочтения архива релиза.",
         "settings.game.fork": "Платформа",
         "settings.game.repository": "Настройки репозитория",
         "settings.content.title": "Контент",
@@ -216,6 +216,11 @@
         "home.saveStatus.notInstalled": "Игра ещё не установлена.",
         "home.saveStatus.noWorlds": "Миры не найдены.",
         "home.saveStatus.multipleWorlds": "Найдено миров: {count}. Для запуска последнего мира выберите нужный мир из списка.",
-        "home.saveStatus.singleWorld": "Мир: {world} · персонаж: {character} · изменено: {modifiedAt}"
+        "home.saveStatus.singleWorld": "Мир: {world} · персонаж: {character} · изменено: {modifiedAt}",
+        "settings.game.assetVariant": "Предпочитаемая сборка",
+        "settings.game.assetVariantDescription": "Используется, когда в релизе есть несколько совместимых архивов. Если выбранной сборки нет, лаунчер попробует: со звуками, затем с графикой, затем с тайлами.",
+        "settings.game.assetVariant.graphicsAndSounds": "Графика + звуки",
+        "settings.game.assetVariant.graphics": "Графика",
+        "settings.game.assetVariant.tiles": "Тайлы"
     }
 }

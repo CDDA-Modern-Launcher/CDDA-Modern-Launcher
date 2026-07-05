@@ -2,8 +2,10 @@ import { Button, Divider, Drawer, Group, Select, Stack, Switch, Text, Title } fr
 import React from "react";
 
 import { AppTheme } from "../../../../shared/appearance";
+import type { GameAssetVariant } from "../../../../shared/gameAssetVariants";
 import { findGameChannel, getEffectiveGameChannels } from "../../../../shared/gameChannels";
 import { RepositoryStatus } from "../../../../shared/repository";
+import { useLauncherSettings } from "../../hooks/useLauncherSettings";
 import { useSystemAppearance } from "../../hooks/useSystemAppearance";
 import { LocaleSelector } from "../../localization/LocaleSelector";
 import { useLocalization } from "../../localization/LocalizationContext";
@@ -18,8 +20,10 @@ type SettingsSheetProps = {
 export function SettingsSheet({ repository, opened, onClose, onSelectChannel }: SettingsSheetProps): React.JSX.Element {
     const { t } = useLocalization();
     const appearance = useSystemAppearance();
+    const launcherSettings = useLauncherSettings();
     const themeOptions = getThemeOptions(t);
     const currentTheme = themeOptions.find((option) => option.value === appearance.theme);
+    const gameAssetVariantOptions = getGameAssetVariantOptions(t);
     const channels = repository.status === "ready" ? getEffectiveGameChannels(repository.config.customChannels) : [];
     const selectedChannel = repository.status === "ready" ? findGameChannel(channels, repository.config.selectedChannelId) : null;
 
@@ -62,6 +66,18 @@ export function SettingsSheet({ repository, opened, onClose, onSelectChannel }: 
                         onChange={(value) => {
                             if (value !== null) {
                                 onSelectChannel(value).catch((error) => console.error("Failed to select game channel", error));
+                            }
+                        }}
+                    />
+                    <Select
+                        label={t("settings.game.assetVariant")}
+                        description={t("settings.game.assetVariantDescription")}
+                        value={launcherSettings.gameAssetVariant}
+                        data={gameAssetVariantOptions.map((option) => ({ value: option.value, label: option.label }))}
+                        allowDeselect={false}
+                        onChange={(value) => {
+                            if (isGameAssetVariant(value)) {
+                                launcherSettings.setGameAssetVariant(value).catch((error) => console.error("Failed to set game asset variant", error));
                             }
                         }}
                     />
@@ -117,6 +133,11 @@ type ThemeOption = {
     icon: string;
 };
 
+type GameAssetVariantOption = {
+    value: GameAssetVariant;
+    label: string;
+};
+
 function getThemeOptions(t: (key: string) => string): ThemeOption[] {
     return [
         { value: "system", label: t("settings.theme.system"), icon: "◐" },
@@ -125,8 +146,20 @@ function getThemeOptions(t: (key: string) => string): ThemeOption[] {
     ];
 }
 
+function getGameAssetVariantOptions(t: (key: string) => string): GameAssetVariantOption[] {
+    return [
+        { value: "graphics-and-sounds", label: t("settings.game.assetVariant.graphicsAndSounds") },
+        { value: "graphics", label: t("settings.game.assetVariant.graphics") },
+        { value: "tiles", label: t("settings.game.assetVariant.tiles") }
+    ];
+}
+
 function isAppTheme(value: string | null): value is AppTheme {
     return value === "system" || value === "dark" || value === "light";
+}
+
+function isGameAssetVariant(value: string | null): value is GameAssetVariant {
+    return value === "graphics-and-sounds" || value === "graphics" || value === "tiles";
 }
 
 function ThemeIcon({ icon }: { icon: string | undefined }): React.JSX.Element | null {

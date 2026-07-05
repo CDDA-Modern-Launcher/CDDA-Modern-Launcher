@@ -1,6 +1,7 @@
 import { ElectronAPI } from "@electron-toolkit/preload";
 
 import { AppAppearance, AppTheme } from "../shared/appearance";
+import { GameAssetVariant, LauncherUserSettings } from "../shared/gameAssetVariants";
 import {
     DeleteGameInstallOptions,
     DeleteGameInstallResult,
@@ -63,6 +64,12 @@ type ShellApi = {
     openExternal: (url: string) => Promise<boolean>;
 };
 
+type SettingsApi = {
+    get: () => Promise<LauncherUserSettings>;
+    setGameAssetVariant: (gameAssetVariant: GameAssetVariant) => Promise<LauncherUserSettings>;
+    onChanged: (callback: (settings: LauncherUserSettings) => void) => () => void;
+};
+
 type GameStateRequest = boolean | { refreshLatest?: boolean; forceRefresh?: boolean };
 
 type GameApi = {
@@ -87,6 +94,7 @@ type AppApi = {
     localization: LocalizationApi;
     appearance: AppearanceApi;
     shell: ShellApi;
+    settings: SettingsApi;
     game: GameApi;
 };
 

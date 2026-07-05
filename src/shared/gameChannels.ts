@@ -32,8 +32,8 @@ export const BUILT_IN_GAME_CHANNELS: GameChannelDefinition[] = [
         githubBranch: "master",
         releasesUrl: "https://api.github.com/repos/CleverRaven/Cataclysm-DDA/releases",
         assetNameIncludes: {
-            windows: ["windows-with-graphics-x64", "cdda-windows-tiles-x64"],
-            linux: ["linux-with-graphics-x64", "cdda-linux-tiles-x64"]
+            windows: ["windows-with-graphics-and-sounds-x64", "windows-with-graphics-x64", "cdda-windows-tiles-x64"],
+            linux: ["linux-with-graphics-and-sounds-x64", "linux-with-graphics-x64", "cdda-linux-tiles-x64"]
         },
         kind: "experimental",
         source: "built-in"
@@ -50,8 +50,8 @@ export const BUILT_IN_GAME_CHANNELS: GameChannelDefinition[] = [
         githubBranch: "0.I-branch",
         releasesUrl: "https://api.github.com/repos/CleverRaven/Cataclysm-DDA/releases",
         assetNameIncludes: {
-            windows: ["windows-with-graphics-x64", "cdda-windows-tiles-x64"],
-            linux: ["linux-with-graphics-x64", "cdda-linux-tiles-x64"]
+            windows: ["windows-with-graphics-and-sounds-x64", "windows-with-graphics-x64", "cdda-windows-tiles-x64"],
+            linux: ["linux-with-graphics-and-sounds-x64", "linux-with-graphics-x64", "cdda-linux-tiles-x64"]
         },
         kind: "stable",
         source: "built-in"

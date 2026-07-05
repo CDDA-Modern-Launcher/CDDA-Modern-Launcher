@@ -4,11 +4,18 @@ import { dirname, join } from "node:path";
 import { app } from "electron";
 
 import { AppTheme } from "../../shared/appearance";
+import {
+    DEFAULT_GAME_ASSET_VARIANT,
+    isGameAssetVariant,
+    type GameAssetVariant,
+    type LauncherUserSettings
+} from "../../shared/gameAssetVariants";
 
 type LauncherSettings = {
     repositoryPath?: string;
     locale?: string;
     theme?: AppTheme;
+    gameAssetVariant?: GameAssetVariant;
 };
 
 export class LauncherSettingsStore {
@@ -42,6 +49,22 @@ export class LauncherSettingsStore {
     async setTheme(theme: AppTheme): Promise<void> {
         const settings = await this.readSettings();
         await this.writeSettings({ ...settings, theme });
+    }
+
+    async getGameAssetVariant(): Promise<GameAssetVariant> {
+        const settings = await this.readSettings();
+        return isGameAssetVariant(settings.gameAssetVariant) ? settings.gameAssetVariant : DEFAULT_GAME_ASSET_VARIANT;
+    }
+
+    async setGameAssetVariant(gameAssetVariant: GameAssetVariant): Promise<void> {
+        const settings = await this.readSettings();
+        await this.writeSettings({ ...settings, gameAssetVariant });
+    }
+
+    async getUserSettings(): Promise<LauncherUserSettings> {
+        return {
+            gameAssetVariant: await this.getGameAssetVariant()
+        };
     }
 
     private async readSettings(): Promise<LauncherSettings> {

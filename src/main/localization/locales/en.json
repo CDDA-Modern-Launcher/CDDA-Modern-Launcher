@@ -61,7 +61,7 @@
         "settings.theme.light": "Day",
         "settings.theme.dark": "Night",
         "settings.game.title": "Game",
-        "settings.game.description": "Future launcher and repository preferences.",
+        "settings.game.description": "Game source, platform and release archive preferences.",
         "settings.game.fork": "Platform",
         "settings.game.repository": "Repository settings",
         "settings.content.title": "Content",
@@ -216,6 +216,11 @@
         "home.saveStatus.notInstalled": "The game is not installed yet.",
         "home.saveStatus.noWorlds": "No worlds found.",
         "home.saveStatus.multipleWorlds": "Worlds found: {count}. Choose a world from the list to launch the last world.",
-        "home.saveStatus.singleWorld": "World: {world} · character: {character} · modified: {modifiedAt}"
+        "home.saveStatus.singleWorld": "World: {world} · character: {character} · modified: {modifiedAt}",
+        "settings.game.assetVariant": "Preferred build",
+        "settings.game.assetVariantDescription": "Used when several compatible archives are attached to a release. If the preferred one is missing, the launcher falls back to sounds, then graphics, then tiles.",
+        "settings.game.assetVariant.graphicsAndSounds": "Graphics + sounds",
+        "settings.game.assetVariant.graphics": "Graphics",
+        "settings.game.assetVariant.tiles": "Tiles"
     }
 }

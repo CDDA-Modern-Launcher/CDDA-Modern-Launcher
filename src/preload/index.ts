@@ -3,6 +3,7 @@ import type { IpcRendererEvent } from "electron";
 import { contextBridge, ipcRenderer } from "electron";
 
 import { AppAppearance, AppTheme } from "../shared/appearance";
+import type { GameAssetVariant, LauncherUserSettings } from "../shared/gameAssetVariants";
 import { DeleteGameInstallOptions, GameInstallProgress, GameRuntimeState, GameSaveSummaryUpdate, InstallGameOptions, LaunchGameOptions } from "../shared/gameInstallations";
 import { LocalizationBundle } from "../shared/localization";
 import { RepositoryStatus, SelectRepositoryResult } from "../shared/repository";
@@ -64,6 +65,20 @@ const shellApi = {
     openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke("shell:open-external", url)
 };
 
+const settingsApi = {
+    get: (): Promise<LauncherUserSettings> => ipcRenderer.invoke("settings:get"),
+    setGameAssetVariant: (gameAssetVariant: GameAssetVariant): Promise<LauncherUserSettings> => ipcRenderer.invoke("settings:set-game-asset-variant", gameAssetVariant),
+    onChanged: (callback: (settings: LauncherUserSettings) => void) => {
+        const listener = (_event: IpcRendererEvent, settings: LauncherUserSettings): void => callback(settings);
+
+        ipcRenderer.on("settings:changed", listener);
+
+        return () => {
+            ipcRenderer.removeListener("settings:changed", listener);
+        };
+    }
+};
+
 const gameApi = {
     getState: (options?: boolean | { refreshLatest?: boolean; forceRefresh?: boolean }) => ipcRenderer.invoke("game:get-state", options),
     getReleases: (forceRefresh?: boolean) => ipcRenderer.invoke("game:get-releases", forceRefresh),
@@ -111,6 +126,7 @@ const api = {
     localization: localizationApi,
     appearance: appearanceApi,
     shell: shellApi,
+    settings: settingsApi,
     game: gameApi
 };
 

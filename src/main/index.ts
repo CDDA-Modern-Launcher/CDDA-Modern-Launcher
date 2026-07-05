@@ -13,6 +13,7 @@ import { setupLocalizationIpc } from "./localization/setupLocalizationIpc";
 import { LocalRepositoryService } from "./repository/LocalRepositoryService";
 import { setupRepositoryIpc } from "./repository/setupRepositoryIpc";
 import { LauncherSettingsStore } from "./settings/LauncherSettingsStore";
+import { setupLauncherSettingsIpc } from "./settings/setupLauncherSettingsIpc";
 
 type UpdateState =
     | { status: "idle" }
@@ -298,10 +299,11 @@ app.whenReady().then(async () => {
     const localizationService = new LocalizationService(settingsStore);
     await localizationService.initialize();
     const repositoryService = new LocalRepositoryService(settingsStore, localizationService);
-    const gameInstallationService = new GameInstallationService(repositoryService);
+    const gameInstallationService = new GameInstallationService(repositoryService, settingsStore);
 
     await setupAppearanceIpc(settingsStore);
     setupLocalizationIpc(localizationService);
+    setupLauncherSettingsIpc(settingsStore);
     setupRepositoryIpc(repositoryService, localizationService);
     setupGameInstallationIpc(gameInstallationService);
     setupUpdaterIpc(localizationService);

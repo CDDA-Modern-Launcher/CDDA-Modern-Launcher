@@ -8,6 +8,7 @@ import { finished } from "node:stream/promises";
 import extractZip from "extract-zip";
 
 import { DEFAULT_GAME_CHANNEL_ID, findGameChannel, type GameChannelDefinition, getEffectiveGameChannels } from "../../shared/gameChannels";
+import { getGameAssetVariantFallbackOrder, type GameAssetVariant } from "../../shared/gameAssetVariants";
 import {
     DeleteGameInstallOptions,
     DeleteGameInstallResult,
@@ -35,6 +36,7 @@ import {
 import { RepositoryConfig } from "../../shared/repository";
 import { GitHubNetworkManager } from "../network/GitHubNetworkManager";
 import { LocalRepositoryService } from "../repository/LocalRepositoryService";
+import type { LauncherSettingsStore } from "../settings/LauncherSettingsStore";
 import { GameSaveMonitor, type GameSaveSettledActivity } from "./GameSaveMonitor";
 
 const WINDOWS_EXECUTABLE_CANDIDATES = ["cataclysm-tiles.exe", "cataclysm.exe", "cataclysm-launcher.exe"];
@@ -67,7 +69,10 @@ export class GameInstallationService {
     private activeSaveMonitorInstallId: string | null = null;
     private readonly preferredWorldByInstallId = new Map<string, string | null>();
 
-    constructor(private readonly repositoryService: LocalRepositoryService) {}
+    constructor(
+        private readonly repositoryService: LocalRepositoryService,
+        private readonly settingsStore: LauncherSettingsStore
+    ) {}
 
     onProgress(listener: (progress: GameInstallProgress) => void): () => void {
         this.progressListeners.add(listener);
@@ -447,10 +452,19 @@ export class GameInstallationService {
     }
 
     private async fetchReleases(channel: GameChannelDefinition, forceRefresh: boolean): Promise<GameRelease[]> {
-        return this.gitHubNetwork.getCached(getReleaseCacheKey(channel), () => this.fetchReleasesFromGitHub(channel, forceRefresh), { forceRefresh });
+        const gameAssetVariant = await this.settingsStore.getGameAssetVariant();
+        return this.gitHubNetwork.getCached(
+            getReleaseCacheKey(channel, gameAssetVariant),
+            () => this.fetchReleasesFromGitHub(channel, forceRefresh, gameAssetVariant),
+            { forceRefresh }
+        );
     }
 
-    private async fetchReleasesFromGitHub(channel: GameChannelDefinition, forceRefresh: boolean): Promise<GameRelease[]> {
+    private async fetchReleasesFromGitHub(
+        channel: GameChannelDefinition,
+        forceRefresh: boolean,
+        gameAssetVariant: GameAssetVariant
+    ): Promise<GameRelease[]> {
         const pageCount = channel.kind === "stable" ? 5 : 1;
         const releases: GameRelease[] = [];
         for (let page = 1; page <= pageCount; page += 1) {
@@ -458,7 +472,7 @@ export class GameInstallationService {
             if (!Array.isArray(value) || value.length === 0) break;
             releases.push(
                 ...value
-                    .map((item) => toGameRelease(item, channel))
+                    .map((item) => toGameRelease(item, channel, gameAssetVariant))
                     .filter((item): item is GameRelease => item !== null)
                     .filter((item) => matchesChannelKind(item, channel))
             );
@@ -570,9 +584,9 @@ function getSelectedChannel(config: RepositoryConfig): GameChannelDefinition {
     return findGameChannel(getEffectiveGameChannels(config.customChannels), config.selectedChannelId || DEFAULT_GAME_CHANNEL_ID);
 }
 
-function getReleaseCacheKey(channel: GameChannelDefinition): string {
+function getReleaseCacheKey(channel: GameChannelDefinition, gameAssetVariant: GameAssetVariant): string {
     const platformKey = process.platform === "win32" ? "windows" : "linux";
-    return `${channel.id}:${platformKey}:${channel.releasesUrl}`;
+    return `${channel.id}:${platformKey}:${gameAssetVariant}:${channel.releasesUrl}`;
 }
 
 function isGitHubUrl(url: string): boolean {
@@ -605,11 +619,11 @@ function toAssetNameParts(value: string | string[]): string[] {
     return Array.isArray(value) ? value : [value];
 }
 
-function toGameRelease(value: unknown, channel: GameChannelDefinition): GameRelease | null {
+function toGameRelease(value: unknown, channel: GameChannelDefinition, gameAssetVariant: GameAssetVariant): GameRelease | null {
     if (typeof value !== "object" || value === null) return null;
     const release = value as GitHubReleaseDto;
     if (release.draft === true || typeof release.tag_name !== "string" || typeof release.published_at !== "string") return null;
-    const asset = release.assets?.find((candidate) => isCompatibleAsset(candidate, channel));
+    const asset = selectReleaseAsset(release.assets, channel, gameAssetVariant);
     if (asset?.name === undefined || asset.browser_download_url === undefined) return null;
     return {
         id: release.tag_name,
@@ -625,6 +639,30 @@ function toGameRelease(value: unknown, channel: GameChannelDefinition): GameRele
         }
     };
 }
+function selectReleaseAsset(
+    assets: GitHubAssetDto[] | undefined,
+    channel: GameChannelDefinition,
+    gameAssetVariant: GameAssetVariant
+): GitHubAssetDto | null {
+    const compatibleAssets = assets?.filter((candidate) => isCompatibleAsset(candidate, channel)) ?? [];
+    const fallbackOrder = getGameAssetVariantFallbackOrder(gameAssetVariant);
+
+    for (const variant of fallbackOrder) {
+        const asset = compatibleAssets.find((candidate) => getAssetVariant(candidate) === variant);
+        if (asset !== undefined) return asset;
+    }
+
+    return compatibleAssets[0] ?? null;
+}
+
+function getAssetVariant(asset: GitHubAssetDto): GameAssetVariant {
+    const assetName = asset.name?.toLowerCase() ?? "";
+
+    if (assetName.includes("with-graphics-and-sounds") || assetName.includes("with-sounds")) return "graphics-and-sounds";
+    if (assetName.includes("with-graphics")) return "graphics";
+    return "tiles";
+}
+
 function isCompatibleAsset(asset: GitHubAssetDto, channel: GameChannelDefinition): boolean {
     if (typeof asset.name !== "string" || typeof asset.browser_download_url !== "string") return false;
     const platformKey = process.platform === "win32" ? "windows" : "linux";
