@@ -49,6 +49,24 @@ export type GameInstall = {
     isActive: boolean;
 };
 
+export type GameWorldInfo = {
+    name: string;
+    folderName: string;
+    characterName: string | null;
+    modifiedAt: string | null;
+};
+
+export type GameSaveSummary = {
+    worlds: GameWorldInfo[];
+    currentWorld: GameWorldInfo | null;
+};
+
+export type GameRuntimeState = { status: "idle" } | { status: "running"; pid: number; installId: string; worldName: string | null };
+
+export type LaunchGameOptions = {
+    worldName?: string;
+};
+
 export type GameInstallState =
     | { status: "loading" }
     | { status: "unavailable"; message: string }
@@ -60,7 +78,10 @@ export type GameInstallState =
           activeInstall: GameInstall | null;
           installs: GameInstall[];
           latestRelease: GameRelease | null;
+          latestReleaseError: string | null;
           updateAvailable: boolean;
+          saves: GameSaveSummary | null;
+          runtime: GameRuntimeState;
       };
 
 export type InstallGameOptions = {
@@ -77,7 +98,8 @@ export type DeleteGameInstallOptions = {
 export type InstallGameResult = { status: "installed"; state: GameInstallState; install: GameInstall } | { status: "unavailable" | "error"; message: string };
 export type SetActiveGameInstallResult = { status: "updated"; state: GameInstallState } | { status: "unavailable" | "error"; message: string };
 export type DeleteGameInstallResult = { status: "deleted"; state: GameInstallState } | { status: "unavailable" | "blocked" | "error"; message: string };
-export type LaunchGameResult = { status: "launched" } | { status: "unavailable"; message: string };
+export type LaunchGameResult = { status: "launched"; runtime: GameRuntimeState } | { status: "already-running"; runtime: GameRuntimeState } | { status: "unavailable"; message: string };
+export type StopGameResult = { status: "stopped"; runtime: GameRuntimeState } | { status: "not-running"; runtime: GameRuntimeState } | { status: "error"; message: string; runtime: GameRuntimeState };
 export type OpenGameFolderResult = { status: "opened" } | { status: "unavailable" | "error"; message: string };
 
 export type GameInstallProgress =

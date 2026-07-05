@@ -7,11 +7,14 @@ import {
     GameInstallProgress,
     GameInstallState,
     GameRelease,
+    GameRuntimeState,
     InstallGameOptions,
     InstallGameResult,
+    LaunchGameOptions,
     LaunchGameResult,
     OpenGameFolderResult,
-    SetActiveGameInstallResult
+    SetActiveGameInstallResult,
+    StopGameResult
 } from "../shared/gameInstallations";
 import { LocalizationBundle } from "../shared/localization";
 import { RepositoryStatus, SelectRepositoryResult } from "../shared/repository";
@@ -59,16 +62,21 @@ type ShellApi = {
     openExternal: (url: string) => Promise<boolean>;
 };
 
+type GameStateRequest = boolean | { refreshLatest?: boolean; forceRefresh?: boolean };
+
 type GameApi = {
-    getState: (refreshLatest?: boolean) => Promise<GameInstallState>;
-    getReleases: () => Promise<GameRelease[]>;
+    getState: (options?: GameStateRequest) => Promise<GameInstallState>;
+    getReleases: (forceRefresh?: boolean) => Promise<GameRelease[]>;
     installLatest: (options: InstallGameOptions) => Promise<InstallGameResult>;
     setActiveInstall: (installId: string) => Promise<SetActiveGameInstallResult>;
     deleteInstall: (installId: string, options: DeleteGameInstallOptions) => Promise<DeleteGameInstallResult>;
-    launchActiveInstall: () => Promise<LaunchGameResult>;
+    getRuntimeState: () => Promise<GameRuntimeState>;
+    launchActiveInstall: (options?: LaunchGameOptions) => Promise<LaunchGameResult>;
+    stop: () => Promise<StopGameResult>;
     openInstallFolder: (installId: string) => Promise<OpenGameFolderResult>;
     openSavesFolder: (installId: string) => Promise<OpenGameFolderResult>;
     onInstallProgress: (callback: (progress: GameInstallProgress) => void) => () => void;
+    onRuntimeChanged: (callback: (runtime: GameRuntimeState) => void) => () => void;
 };
 
 type AppApi = {

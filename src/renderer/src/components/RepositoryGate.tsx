@@ -1,8 +1,8 @@
-import { ActionIcon, Alert, Anchor, Badge, Box, Button, Card, Checkbox, Divider, Drawer, Group, Loader, Modal, Progress, Stack, Text, Title, Tooltip } from "@mantine/core";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActionIcon, Alert, Anchor, Badge, Box, Button, Card, Checkbox, Divider, Drawer, Group, Loader, Menu, Modal, Progress, Stack, Text, Title, Tooltip } from "@mantine/core";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { findGameChannel, getEffectiveGameChannels, getGameChannelRepositoryUrl } from "../../../shared/gameChannels";
-import { GameInstall, GameInstallProgress, GameInstallState, GameRelease, InstallGameOptions } from "../../../shared/gameInstallations";
+import { GameInstall, GameInstallProgress, GameInstallState, GameRelease, GameRuntimeState, GameWorldInfo, InstallGameOptions } from "../../../shared/gameInstallations";
 import { REPOSITORY_CONFIG_FILE_NAME, RepositoryStatus } from "../../../shared/repository";
 import { useLocalization } from "../localization/LocalizationContext";
 
@@ -83,6 +83,7 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
     const selectedChannel = findGameChannel(channels, repository.config.selectedChannelId);
     const [gameState, setGameState] = useState<GameInstallState>({ status: "loading" });
     const [installProgress, setInstallProgress] = useState<GameInstallProgress>({ status: "idle" });
+    const [runtime, setRuntime] = useState<GameRuntimeState>({ status: "idle" });
     const [versionsOpened, setVersionsOpened] = useState(false);
     const [isInstalling, setInstalling] = useState(false);
     const [isCheckingLatest, setCheckingLatest] = useState(false);
@@ -92,12 +93,13 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
     const [releaseNotesTarget, setReleaseNotesTarget] = useState<ReleaseNotesTarget | null>(null);
     const [availableReleases, setAvailableReleases] = useState<GameRelease[]>([]);
     const [isLoadingReleaseNotes, setLoadingReleaseNotes] = useState(false);
+    const previousRuntimeStatus = useRef<GameRuntimeState["status"]>("idle");
     const installedIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.installs.map((install) => install.id) : []), [gameState]);
 
-    const refreshGameState = async (refreshLatest = true): Promise<void> => {
+    const refreshGameState = async (refreshLatest = true, forceRefresh = false): Promise<void> => {
         if (refreshLatest) setCheckingLatest(true);
         try {
-            const nextState = await window.api.game.getState(refreshLatest);
+            const nextState = await window.api.game.getState({ refreshLatest, forceRefresh });
             setGameState(nextState);
             if (nextState.status !== "ready" || !nextState.updateAvailable) setAvailableReleases([]);
         } catch (error) {
@@ -108,41 +110,31 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
     };
 
     useEffect(() => {
-        const unsubscribe = window.api.game.onInstallProgress(setInstallProgress);
-        return unsubscribe;
+        const unsubscribeProgress = window.api.game.onInstallProgress(setInstallProgress);
+        const unsubscribeRuntime = window.api.game.onRuntimeChanged(setRuntime);
+        window.api.game
+            .getRuntimeState()
+            .then(setRuntime)
+            .catch((error) => console.error("Failed to read game runtime", error));
+        return () => {
+            unsubscribeProgress();
+            unsubscribeRuntime();
+        };
     }, []);
+
+    useEffect(() => {
+        const previousStatus = previousRuntimeStatus.current;
+        previousRuntimeStatus.current = runtime.status;
+        if (previousStatus === "running" && runtime.status === "idle") void refreshGameState(false);
+    }, [runtime.status]);
 
     useEffect(() => {
         queueMicrotask(() => {
             setGameState({ status: "loading" });
             setAvailableReleases([]);
-            void refreshGameState(true);
+            void refreshGameState(true, false);
         });
     }, [repository.path, selectedChannel.id]);
-
-    useEffect(() => {
-        if (gameState.status !== "ready" || !gameState.updateAvailable) return;
-        let cancelled = false;
-        queueMicrotask(() => {
-            if (cancelled) return;
-            setLoadingReleaseNotes(true);
-            window.api.game
-                .getReleases()
-                .then((releases) => {
-                    if (!cancelled) setAvailableReleases(releases);
-                })
-                .catch((error) => {
-                    console.error("Failed to load update release notes", error);
-                    if (!cancelled) setAvailableReleases([]);
-                })
-                .finally(() => {
-                    if (!cancelled) setLoadingReleaseNotes(false);
-                });
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [gameState]);
 
     const installRelease = async (releaseId?: string): Promise<void> => {
         setInstalling(true);
@@ -173,11 +165,47 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
         void installRelease(release.id);
     };
     const latestRelease = gameState.status === "ready" ? gameState.latestRelease : null;
+    const latestReleaseError = gameState.status === "ready" ? gameState.latestReleaseError : null;
     const updateAvailable = gameState.status === "ready" && gameState.updateAvailable;
     const activeInstallId = activeInstall?.id ?? null;
     const latestInstalledId = latestRelease !== null && installedIds.has(latestRelease.id) ? latestRelease.id : null;
     const updateReleases = useMemo(() => (activeInstall === null ? [] : getUpdateReleases(activeInstall, availableReleases)), [activeInstall, availableReleases]);
     const installRunning = isInstallRunning(isInstalling, installProgress);
+    const gameRunning = runtime.status === "running";
+    const saveSummary = gameState.status === "ready" ? gameState.saves : null;
+    const worlds = saveSummary?.worlds ?? [];
+    const currentWorld = saveSummary?.currentWorld ?? null;
+
+    const launchGame = async (worldName?: string): Promise<void> => {
+        const result = await window.api.game.launchActiveInstall(worldName === undefined ? {} : { worldName });
+        if (result.status === "unavailable") setGameState({ status: "error", message: result.message });
+        else setRuntime(result.runtime);
+    };
+
+    const stopGame = async (): Promise<void> => {
+        const result = await window.api.game.stop();
+        setRuntime(result.runtime);
+        if (result.status === "error") setGameState({ status: "error", message: result.message });
+    };
+
+    const showUpdateChanges = async (): Promise<void> => {
+        if (activeInstall === null || latestRelease === null) return;
+        let releases = availableReleases;
+        if (releases.length === 0) {
+            setLoadingReleaseNotes(true);
+            try {
+                releases = await window.api.game.getReleases();
+                setAvailableReleases(releases);
+            } catch (error) {
+                console.error("Failed to load update release notes", error);
+                setAvailableReleases([]);
+                releases = [];
+            } finally {
+                setLoadingReleaseNotes(false);
+            }
+        }
+        setReleaseNotesTarget(toUpdateReleaseNotesTarget(activeInstall, latestRelease, getUpdateReleases(activeInstall, releases), t));
+    };
 
     return (
         <>
@@ -200,7 +228,7 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
                 installedIds={installedIds}
                 isInstalling={isInstalling}
                 onClose={() => setVersionsOpened(false)}
-                onRefresh={() => refreshGameState(true)}
+                onRefresh={() => refreshGameState(true, true)}
                 onRequestInstall={openInstallModal}
                 onSetActive={async (installId) => {
                     const result = await window.api.game.setActiveInstall(installId);
@@ -241,7 +269,7 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
                                 {activeInstall === null ? t("home.status.notInstalled") : updateAvailable ? t("home.status.updateAvailable") : t("home.status.installed")}
                             </Badge>
                         </Group>
-                        <Text c="dimmed">{t("home.description")}</Text>
+                        <SaveStatusLine activeInstallAvailable={activeInstall !== null} world={currentWorld} worldCount={worlds.length} />
                         {gameState.status === "loading" && (
                             <Alert variant="light" color="blue" title={t("home.gameState.loading.title")}>
                                 <Group gap="sm">
@@ -253,6 +281,16 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
                         {gameState.status === "error" && (
                             <Alert variant="light" color="red" title={t("home.gameState.error.title")}>
                                 <Text size="sm">{gameState.message ?? t("home.gameState.error.description")}</Text>
+                            </Alert>
+                        )}
+                        {gameState.status === "ready" && gameState.latestReleaseError !== null && activeInstall === null && (
+                            <Alert variant="light" color="red" title={t("home.gameState.error.title")}>
+                                <Group justify="space-between" gap="sm">
+                                    <Text size="sm">{t("home.version.checkFailed", { message: gameState.latestReleaseError })}</Text>
+                                    <Button size="xs" variant="light" loading={isCheckingLatest} onClick={() => void refreshGameState(true, true)}>
+                                        {t("home.action.checkAgain")}
+                                    </Button>
+                                </Group>
                             </Alert>
                         )}
                         {(isInstalling || installProgress.status !== "idle") && <InstallProgressCard progress={installProgress} />}
@@ -270,6 +308,7 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
                             <VersionStrip
                                 currentVersion={getReleaseDisplayName(activeInstall)}
                                 latestRelease={latestRelease}
+                                latestReleaseError={latestReleaseError}
                                 updateAvailable={updateAvailable}
                                 updateReleases={updateReleases}
                                 isChecking={isCheckingLatest}
@@ -281,22 +320,22 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
                                     const result = await window.api.game.setActiveInstall(installId);
                                     result.status === "updated" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
                                 }}
-                                onCheckAgain={() => refreshGameState(true)}
+                                onCheckAgain={() => refreshGameState(true, true)}
                                 onOpenVersions={() => setVersionsOpened(true)}
-                                onShowUpdateChanges={() => {
-                                    if (activeInstall !== null && latestRelease !== null) setReleaseNotesTarget(toUpdateReleaseNotesTarget(activeInstall, latestRelease, updateReleases, t));
-                                }}
+                                onShowUpdateChanges={() => void showUpdateChanges()}
                             />
                         )}
                         <Group grow>
-                            <Button size="md" color="green" disabled={activeInstall === null} leftSection="▶" onClick={() => void window.api.game.launchActiveInstall()}>
-                                {t("home.action.play")}
+                            <Button
+                                size="md"
+                                color={gameRunning ? "orange" : "green"}
+                                disabled={activeInstall === null}
+                                leftSection={gameRunning ? "■" : "▶"}
+                                onClick={() => void (gameRunning ? stopGame() : launchGame())}
+                            >
+                                {gameRunning ? t("home.action.stop") : t("home.action.play")}
                             </Button>
-                            <Tooltip label={t("home.action.lastWorldTooltip")}>
-                                <Button size="md" variant="light" disabled={activeInstall === null} leftSection="▶">
-                                    {t("home.action.lastWorld")}
-                                </Button>
-                            </Tooltip>
+                            <LastWorldButton activeInstallAvailable={activeInstall !== null} gameRunning={gameRunning} worlds={worlds} currentWorld={currentWorld} onLaunch={launchGame} />
                         </Group>
                     </Stack>
                 </Card>
@@ -305,9 +344,78 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
     );
 }
 
+function SaveStatusLine({ activeInstallAvailable, world, worldCount }: { activeInstallAvailable: boolean; world: GameWorldInfo | null; worldCount: number }): React.JSX.Element {
+    const { t } = useLocalization();
+    const text = getSaveStatusText(t, activeInstallAvailable, world, worldCount);
+    return <Text c="dimmed">{text}</Text>;
+}
+
+function getSaveStatusText(t: ReturnType<typeof useLocalization>["t"], activeInstallAvailable: boolean, world: GameWorldInfo | null, worldCount: number): string {
+    if (!activeInstallAvailable) return t("home.saveStatus.notInstalled");
+    if (worldCount === 0) return t("home.saveStatus.noWorlds");
+    if (world === null) return t("home.saveStatus.multipleWorlds", { count: worldCount.toString() });
+    const character = world.characterName ?? t("home.world.unknown");
+    const modifiedAt = world.modifiedAt ?? t("home.world.unknown");
+    return t("home.saveStatus.singleWorld", { world: world.name, character, modifiedAt });
+}
+
+function LastWorldButton({
+    activeInstallAvailable,
+    gameRunning,
+    worlds,
+    currentWorld,
+    onLaunch
+}: {
+    activeInstallAvailable: boolean;
+    gameRunning: boolean;
+    worlds: GameWorldInfo[];
+    currentWorld: GameWorldInfo | null;
+    onLaunch: (worldName?: string) => Promise<void>;
+}): React.JSX.Element {
+    const { t } = useLocalization();
+    const disabled = !activeInstallAvailable || gameRunning || worlds.length === 0;
+    const tooltip = gameRunning ? t("home.action.lastWorldTooltipRunning") : t("home.action.lastWorldTooltip");
+
+    if (worlds.length <= 1) {
+        return (
+            <Tooltip label={tooltip}>
+                <Button size="md" variant="light" disabled={disabled} leftSection="▶" onClick={() => void onLaunch(worlds[0]?.name)}>
+                    {t("home.action.lastWorld")}
+                </Button>
+            </Tooltip>
+        );
+    }
+
+    return (
+        <Menu shadow="md" width={320} position="top-end" disabled={disabled}>
+            <Menu.Target>
+                <Tooltip label={tooltip}>
+                    <Button size="md" variant="light" disabled={disabled} leftSection="▶">
+                        {t("home.action.lastWorld")}
+                    </Button>
+                </Tooltip>
+            </Menu.Target>
+            <Menu.Dropdown>
+                <Menu.Label>{t("home.world.selectWorld")}</Menu.Label>
+                {worlds.map((world) => (
+                    <Menu.Item key={world.folderName} onClick={() => void onLaunch(world.name)} rightSection={world.folderName === currentWorld?.folderName ? "✓" : undefined}>
+                        <Stack gap={0}>
+                            <Text size="sm">{world.name}</Text>
+                            <Text size="xs" c="dimmed">
+                                {t("home.world.character", { character: world.characterName ?? t("home.world.unknown") })}
+                            </Text>
+                        </Stack>
+                    </Menu.Item>
+                ))}
+            </Menu.Dropdown>
+        </Menu>
+    );
+}
+
 function VersionStrip(props: {
     currentVersion: string;
     latestRelease: GameRelease | null;
+    latestReleaseError: string | null;
     updateAvailable: boolean;
     updateReleases: GameRelease[];
     isChecking: boolean;
@@ -345,21 +453,23 @@ function VersionStrip(props: {
                         {props.currentVersion}
                     </Text>
                     <Group gap={6} wrap="wrap">
-                        <Text size="xs" c={props.updateAvailable ? "blue" : "dimmed"}>
+                        <Text size="xs" c={props.latestReleaseError !== null ? "red" : props.updateAvailable ? "blue" : "dimmed"}>
                             {props.isChecking
                                 ? t("home.version.checking")
-                                : props.updateAvailable && props.latestRelease !== null
-                                  ? t("home.version.updateAvailable", { version: getReleaseNameDisplay(props.latestRelease.name) })
-                                  : props.latestRelease === null
-                                    ? t("home.version.latestUnknown")
-                                    : t("home.version.latestInstalled")}
+                                : props.latestReleaseError !== null
+                                  ? t("home.version.checkFailed", { message: props.latestReleaseError })
+                                  : props.updateAvailable && props.latestRelease !== null
+                                    ? t("home.version.updateAvailable", { version: getReleaseNameDisplay(props.latestRelease.name) })
+                                    : props.latestRelease === null
+                                      ? t("home.version.latestUnknown")
+                                      : t("home.version.latestInstalled")}
                         </Text>
                         <Anchor component="button" type="button" size="xs" disabled={props.isChecking} onClick={() => void props.onCheckAgain()}>
                             {t("home.action.checkAgain")}
                         </Anchor>
                         {props.updateAvailable && props.latestRelease !== null && (
-                            <Anchor component="button" type="button" size="xs" disabled={props.isLoadingReleaseNotes || props.updateReleases.length === 0} onClick={props.onShowUpdateChanges}>
-                                {props.isLoadingReleaseNotes ? t("home.action.loadingUpdateChanges") : t("home.action.showUpdateChanges", { count: props.updateReleases.length })}
+                            <Anchor component="button" type="button" size="xs" disabled={props.isLoadingReleaseNotes} onClick={props.onShowUpdateChanges}>
+                                {props.isLoadingReleaseNotes ? t("home.action.loadingUpdateChanges") : t("home.action.showUpdateChanges")}
                             </Anchor>
                         )}
                     </Group>
@@ -515,10 +625,10 @@ function VersionsDrawer({
     const releaseById = useMemo(() => new Map(releases.map((release) => [release.id, release])), [releases]);
     const channelId = state.status === "ready" ? state.channel.id : "";
 
-    const loadReleases = useCallback(async (): Promise<void> => {
+    const loadReleases = useCallback(async (forceRefresh = false): Promise<void> => {
         setLoadingReleases(true);
         try {
-            setReleases(await window.api.game.getReleases());
+            setReleases(await window.api.game.getReleases(forceRefresh));
         } catch (error) {
             console.error("Failed to load releases", error);
         } finally {
@@ -527,7 +637,7 @@ function VersionsDrawer({
     }, []);
 
     const refreshDrawer = async (): Promise<void> => {
-        await Promise.all([onRefresh(), loadReleases()]);
+        await Promise.all([onRefresh(), loadReleases(true)]);
     };
 
     useEffect(() => {

@@ -3,7 +3,7 @@ import type { IpcRendererEvent } from "electron";
 import { contextBridge, ipcRenderer } from "electron";
 
 import { AppAppearance, AppTheme } from "../shared/appearance";
-import { DeleteGameInstallOptions, GameInstallProgress, InstallGameOptions } from "../shared/gameInstallations";
+import { DeleteGameInstallOptions, GameInstallProgress, GameRuntimeState, InstallGameOptions, LaunchGameOptions } from "../shared/gameInstallations";
 import { LocalizationBundle } from "../shared/localization";
 import { RepositoryStatus, SelectRepositoryResult } from "../shared/repository";
 
@@ -65,12 +65,14 @@ const shellApi = {
 };
 
 const gameApi = {
-    getState: (refreshLatest?: boolean) => ipcRenderer.invoke("game:get-state", refreshLatest),
-    getReleases: () => ipcRenderer.invoke("game:get-releases"),
+    getState: (options?: boolean | { refreshLatest?: boolean; forceRefresh?: boolean }) => ipcRenderer.invoke("game:get-state", options),
+    getReleases: (forceRefresh?: boolean) => ipcRenderer.invoke("game:get-releases", forceRefresh),
     installLatest: (options: InstallGameOptions) => ipcRenderer.invoke("game:install-latest", options),
     setActiveInstall: (installId: string) => ipcRenderer.invoke("game:set-active-install", installId),
     deleteInstall: (installId: string, options: DeleteGameInstallOptions) => ipcRenderer.invoke("game:delete-install", installId, options),
-    launchActiveInstall: () => ipcRenderer.invoke("game:launch-active-install"),
+    getRuntimeState: () => ipcRenderer.invoke("game:get-runtime-state"),
+    launchActiveInstall: (options?: LaunchGameOptions) => ipcRenderer.invoke("game:launch-active-install", options),
+    stop: () => ipcRenderer.invoke("game:stop"),
     openInstallFolder: (installId: string) => ipcRenderer.invoke("game:open-install-folder", installId),
     openSavesFolder: (installId: string) => ipcRenderer.invoke("game:open-saves-folder", installId),
     onInstallProgress: (callback: (progress: GameInstallProgress) => void) => {
@@ -80,6 +82,15 @@ const gameApi = {
 
         return () => {
             ipcRenderer.removeListener("game:install-progress", listener);
+        };
+    },
+    onRuntimeChanged: (callback: (runtime: GameRuntimeState) => void) => {
+        const listener = (_event: IpcRendererEvent, runtime: GameRuntimeState): void => callback(runtime);
+
+        ipcRenderer.on("game:runtime-changed", listener);
+
+        return () => {
+            ipcRenderer.removeListener("game:runtime-changed", listener);
         };
     }
 };
