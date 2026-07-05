@@ -35,6 +35,10 @@ export class LocalRepositoryService {
         return status;
     }
 
+    async saveConfig(repositoryPath: string, config: RepositoryConfig): Promise<void> {
+        await this.writeConfig(repositoryPath, normalizeRepositoryConfig(config));
+    }
+
     async setSelectedChannel(channelId: string): Promise<RepositoryStatus> {
         const currentStatus = await this.getInitialStatus();
 
@@ -85,7 +89,9 @@ export class LocalRepositoryService {
             schemaVersion: 1,
             createdAt: new Date().toISOString(),
             selectedChannelId: DEFAULT_GAME_CHANNEL_ID,
-            customChannels: []
+            customChannels: [],
+            activeInstallByChannel: {},
+            lastSeenReleaseByChannel: {}
         });
 
         await this.writeConfig(repositoryPath, config);
@@ -198,7 +204,9 @@ function normalizeRepositoryConfig(config: RepositoryConfig): RepositoryConfig {
         schemaVersion: 1,
         createdAt: config.createdAt,
         selectedChannelId,
-        customChannels
+        customChannels,
+        activeInstallByChannel: normalizeStringRecord(config.activeInstallByChannel),
+        lastSeenReleaseByChannel: normalizeStringRecord(config.lastSeenReleaseByChannel)
     };
 }
 
@@ -225,12 +233,17 @@ function normalizeCustomChannel(channel: unknown): GameChannelDefinition | null 
         githubBranch: typeof candidate.githubBranch === "string" && candidate.githubBranch.length > 0 ? candidate.githubBranch : "master",
         releasesUrl: typeof candidate.releasesUrl === "string" ? candidate.releasesUrl : "",
         assetNameIncludes: {
-            windows: typeof candidate.assetNameIncludes?.windows === "string" ? candidate.assetNameIncludes.windows : "",
-            linux: typeof candidate.assetNameIncludes?.linux === "string" ? candidate.assetNameIncludes.linux : ""
+            windows: normalizeAssetNameIncludes(candidate.assetNameIncludes?.windows),
+            linux: normalizeAssetNameIncludes(candidate.assetNameIncludes?.linux)
         },
         kind: candidate.kind === "stable" ? "stable" : "experimental",
         source: "custom"
     };
+}
+
+function normalizeAssetNameIncludes(value: unknown): string[] {
+    if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
+    return typeof value === "string" && value.length > 0 ? [value] : [];
 }
 
 function isRepositoryConfig(value: unknown): value is RepositoryConfig {
@@ -245,6 +258,14 @@ function isRepositoryConfig(value: unknown): value is RepositoryConfig {
         (candidate.selectedChannelId === undefined || typeof candidate.selectedChannelId === "string") &&
         (candidate.customChannels === undefined || Array.isArray(candidate.customChannels))
     );
+}
+
+function normalizeStringRecord(value: unknown): Record<string, string> {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        return {};
+    }
+
+    return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

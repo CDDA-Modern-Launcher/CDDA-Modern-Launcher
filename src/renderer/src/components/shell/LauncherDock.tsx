@@ -1,7 +1,8 @@
 import { Button, Group, Menu, Paper, Text, Tooltip } from "@mantine/core";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 import { findGameChannel, getEffectiveGameChannels } from "../../../../shared/gameChannels";
+import { GameInstallProgress } from "../../../../shared/gameInstallations";
 import { RepositoryStatus } from "../../../../shared/repository";
 import { useLocalization } from "../../localization/LocalizationContext";
 
@@ -19,14 +20,18 @@ export function LauncherDock({ repository, onSelectChannel, onOpenSettings, onOp
     const isReady = repository.status === "ready";
     const channels = isReady ? getEffectiveGameChannels(repository.config.customChannels) : [];
     const selectedChannel = isReady ? findGameChannel(channels, repository.config.selectedChannelId) : null;
+    const [installProgress, setInstallProgress] = useState<GameInstallProgress>({ status: "idle" });
+    const isInstallingGame = isInstallBlockingProgress(installProgress);
+
+    useEffect(() => window.api.game.onInstallProgress(setInstallProgress), []);
 
     return (
         <Paper withBorder radius="lg" shadow="xl" className="launcher-dock">
             <Group justify="space-between" gap="md" wrap="nowrap">
                 <Group gap="xs" wrap="nowrap" className="launcher-dock__section">
-                    <Menu shadow="md" width={310} position="top-start" disabled={!isReady}>
+                    <Menu shadow="md" width={310} position="top-start" disabled={!isReady || isInstallingGame}>
                         <Menu.Target>
-                            <Button variant="subtle" size="xs" radius="md" disabled={!isReady} className="launcher-dock__button launcher-dock__game-button">
+                            <Button variant="subtle" size="xs" radius="md" disabled={!isReady || isInstallingGame} className="launcher-dock__button launcher-dock__game-button">
                                 {selectedChannel === null ? t("dock.game.unavailable") : `${selectedChannel.shortName} · ${selectedChannel.channelName}`}
                             </Button>
                         </Menu.Target>
@@ -78,6 +83,10 @@ export function LauncherDock({ repository, onSelectChannel, onOpenSettings, onOp
             </Group>
         </Paper>
     );
+}
+
+function isInstallBlockingProgress(progress: GameInstallProgress): boolean {
+    return progress.status === "resolving-release" || progress.status === "downloading" || progress.status === "extracting" || progress.status === "preparing-saves" || progress.status === "finalizing";
 }
 
 function StackedMenuLabel({ title, description }: { title: string; description: string }): React.JSX.Element {

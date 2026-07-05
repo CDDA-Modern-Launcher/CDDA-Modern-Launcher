@@ -3,6 +3,7 @@ import type { IpcRendererEvent } from "electron";
 import { contextBridge, ipcRenderer } from "electron";
 
 import { AppAppearance, AppTheme } from "../shared/appearance";
+import { DeleteGameInstallOptions, GameInstallProgress, InstallGameOptions } from "../shared/gameInstallations";
 import { LocalizationBundle } from "../shared/localization";
 import { RepositoryStatus, SelectRepositoryResult } from "../shared/repository";
 
@@ -63,13 +64,34 @@ const shellApi = {
     openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke("shell:open-external", url)
 };
 
+const gameApi = {
+    getState: (refreshLatest?: boolean) => ipcRenderer.invoke("game:get-state", refreshLatest),
+    getReleases: () => ipcRenderer.invoke("game:get-releases"),
+    installLatest: (options: InstallGameOptions) => ipcRenderer.invoke("game:install-latest", options),
+    setActiveInstall: (installId: string) => ipcRenderer.invoke("game:set-active-install", installId),
+    deleteInstall: (installId: string, options: DeleteGameInstallOptions) => ipcRenderer.invoke("game:delete-install", installId, options),
+    launchActiveInstall: () => ipcRenderer.invoke("game:launch-active-install"),
+    openInstallFolder: (installId: string) => ipcRenderer.invoke("game:open-install-folder", installId),
+    openSavesFolder: (installId: string) => ipcRenderer.invoke("game:open-saves-folder", installId),
+    onInstallProgress: (callback: (progress: GameInstallProgress) => void) => {
+        const listener = (_event: IpcRendererEvent, progress: GameInstallProgress): void => callback(progress);
+
+        ipcRenderer.on("game:install-progress", listener);
+
+        return () => {
+            ipcRenderer.removeListener("game:install-progress", listener);
+        };
+    }
+};
+
 // Custom APIs for renderer
 const api = {
     updater: updaterApi,
     repository: repositoryApi,
     localization: localizationApi,
     appearance: appearanceApi,
-    shell: shellApi
+    shell: shellApi,
+    game: gameApi
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -1,49 +1,29 @@
-import { Alert, Badge, Button, Card, Divider, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import React from "react";
+import { ActionIcon, Alert, Anchor, Badge, Box, Button, Card, Checkbox, Divider, Drawer, Group, Loader, Modal, Progress, Stack, Text, Title, Tooltip } from "@mantine/core";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { findGameChannel, getEffectiveGameChannels, getGameChannelRepositoryUrl } from "../../../shared/gameChannels";
+import { GameInstall, GameInstallProgress, GameInstallState, GameRelease, InstallGameOptions } from "../../../shared/gameInstallations";
 import { REPOSITORY_CONFIG_FILE_NAME, RepositoryStatus } from "../../../shared/repository";
 import { useLocalization } from "../localization/LocalizationContext";
 
-export type RepositoryGateProps = {
-    repository: RepositoryStatus;
-    isSelecting: boolean;
-    onSelectRepository: () => void;
-};
+export type RepositoryGateProps = { repository: RepositoryStatus; isSelecting: boolean; onSelectRepository: () => void };
 
 export function RepositoryGate({ repository, isSelecting, onSelectRepository }: RepositoryGateProps): React.JSX.Element {
-    if (repository.status === "loading") {
-        return <LoadingRepository path={repository.path} />;
-    }
-
-    if (repository.status === "ready") {
-        return <ReadyRepository repository={repository} />;
-    }
-
-    return (
-        <RepositorySetup
-            repository={repository}
-            isSelecting={isSelecting}
-            onSelectRepository={() => {
-                try {
-                    onSelectRepository();
-                } catch (error) {
-                    console.error("Failed to select repository", error);
-                }
-            }}
-        />
-    );
+    if (repository.status === "loading") return <LoadingRepository path={repository.path} />;
+    if (repository.status === "ready") return <ReadyRepository repository={repository} />;
+    return <RepositorySetup repository={repository} isSelecting={isSelecting} onSelectRepository={onSelectRepository} />;
 }
 
-type RepositorySetupProps = {
+function RepositorySetup({
+    repository,
+    isSelecting,
+    onSelectRepository
+}: {
     repository: Extract<RepositoryStatus, { status: "unconfigured" | "invalid" }>;
     isSelecting: boolean;
     onSelectRepository: () => void;
-};
-
-function RepositorySetup({ repository, isSelecting, onSelectRepository }: RepositorySetupProps): React.JSX.Element {
+}): React.JSX.Element {
     const { t } = useLocalization();
-
     return (
         <Card withBorder radius="lg" p="xl" className="repository-card">
             <Stack gap="lg">
@@ -54,7 +34,6 @@ function RepositorySetup({ repository, isSelecting, onSelectRepository }: Reposi
                     <Title order={1}>{t("repository.setup.title")}</Title>
                     <Text c="dimmed">{t("repository.setup.description")}</Text>
                 </Stack>
-
                 {repository.status === "invalid" && (
                     <Alert color="red" title={t("repository.setup.invalidTitle")} variant="light">
                         <Stack gap={6}>
@@ -63,7 +42,6 @@ function RepositorySetup({ repository, isSelecting, onSelectRepository }: Reposi
                         </Stack>
                     </Alert>
                 )}
-
                 <Stack gap="xs" className="repository-rules">
                     <Text size="sm">{t("repository.setup.rule.emptyFolder")}</Text>
                     <Text size="sm">
@@ -71,7 +49,6 @@ function RepositorySetup({ repository, isSelecting, onSelectRepository }: Reposi
                     </Text>
                     <Text size="sm">{t("repository.setup.rule.persistedPath")}</Text>
                 </Stack>
-
                 <Group justify="flex-end">
                     <Button loading={isSelecting} onClick={onSelectRepository}>
                         {t("repository.setup.selectButton")}
@@ -84,7 +61,6 @@ function RepositorySetup({ repository, isSelecting, onSelectRepository }: Reposi
 
 function LoadingRepository({ path }: { path: string }): React.JSX.Element {
     const { t } = useLocalization();
-
     return (
         <Card withBorder radius="lg" p="xl" className="repository-card">
             <Group gap="lg" wrap="nowrap">
@@ -105,102 +81,817 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
     const { t } = useLocalization();
     const channels = getEffectiveGameChannels(repository.config.customChannels);
     const selectedChannel = findGameChannel(channels, repository.config.selectedChannelId);
+    const [gameState, setGameState] = useState<GameInstallState>({ status: "loading" });
+    const [installProgress, setInstallProgress] = useState<GameInstallProgress>({ status: "idle" });
+    const [versionsOpened, setVersionsOpened] = useState(false);
+    const [isInstalling, setInstalling] = useState(false);
+    const [isCheckingLatest, setCheckingLatest] = useState(false);
+    const [copyUserdata, setCopyUserdata] = useState(false);
+    const [removeOldVersions, setRemoveOldVersions] = useState(false);
+    const [installModalRelease, setInstallModalRelease] = useState<GameRelease | null>(null);
+    const [releaseNotesTarget, setReleaseNotesTarget] = useState<ReleaseNotesTarget | null>(null);
+    const [availableReleases, setAvailableReleases] = useState<GameRelease[]>([]);
+    const [isLoadingReleaseNotes, setLoadingReleaseNotes] = useState(false);
+    const installedIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.installs.map((install) => install.id) : []), [gameState]);
+
+    const refreshGameState = async (refreshLatest = true): Promise<void> => {
+        if (refreshLatest) setCheckingLatest(true);
+        try {
+            const nextState = await window.api.game.getState(refreshLatest);
+            setGameState(nextState);
+            if (nextState.status !== "ready" || !nextState.updateAvailable) setAvailableReleases([]);
+        } catch (error) {
+            setGameState({ status: "error", message: error instanceof Error ? error.message : String(error) });
+        } finally {
+            if (refreshLatest) setCheckingLatest(false);
+        }
+    };
+
+    useEffect(() => {
+        const unsubscribe = window.api.game.onInstallProgress(setInstallProgress);
+        return unsubscribe;
+    }, []);
+
+    useEffect(() => {
+        queueMicrotask(() => {
+            setGameState({ status: "loading" });
+            setAvailableReleases([]);
+            void refreshGameState(true);
+        });
+    }, [repository.path, selectedChannel.id]);
+
+    useEffect(() => {
+        if (gameState.status !== "ready" || !gameState.updateAvailable) return;
+        let cancelled = false;
+        queueMicrotask(() => {
+            if (cancelled) return;
+            setLoadingReleaseNotes(true);
+            window.api.game
+                .getReleases()
+                .then((releases) => {
+                    if (!cancelled) setAvailableReleases(releases);
+                })
+                .catch((error) => {
+                    console.error("Failed to load update release notes", error);
+                    if (!cancelled) setAvailableReleases([]);
+                })
+                .finally(() => {
+                    if (!cancelled) setLoadingReleaseNotes(false);
+                });
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [gameState]);
+
+    const installRelease = async (releaseId?: string): Promise<void> => {
+        setInstalling(true);
+        try {
+            const options: InstallGameOptions = { releaseId, makeActive: true, copyUserdata, removeOlderInstalls: removeOldVersions };
+            const result = await window.api.game.installLatest(options);
+            result.status === "installed" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
+        } finally {
+            setInstalling(false);
+        }
+    };
+
+    const activeInstall = gameState.status === "ready" ? gameState.activeInstall : null;
+    const hasInstalledVersions = gameState.status === "ready" && gameState.installs.length > 0;
+
+    const openInstallModal = (release: GameRelease | null): void => {
+        if (release === null) return;
+        setCopyUserdata(activeInstall !== null);
+        setRemoveOldVersions(false);
+        setInstallModalRelease(release);
+    };
+
+    const confirmInstall = (): void => {
+        const release = installModalRelease;
+        if (release === null) return;
+        setInstallModalRelease(null);
+        setVersionsOpened(false);
+        void installRelease(release.id);
+    };
+    const latestRelease = gameState.status === "ready" ? gameState.latestRelease : null;
+    const updateAvailable = gameState.status === "ready" && gameState.updateAvailable;
+    const activeInstallId = activeInstall?.id ?? null;
+    const latestInstalledId = latestRelease !== null && installedIds.has(latestRelease.id) ? latestRelease.id : null;
+    const updateReleases = useMemo(() => (activeInstall === null ? [] : getUpdateReleases(activeInstall, availableReleases)), [activeInstall, availableReleases]);
+    const installRunning = isInstallRunning(isInstalling, installProgress);
 
     return (
-        <Stack className="home-dashboard" gap="lg">
-            <Card withBorder radius="lg" p="xl" className="repository-card home-hero-card">
-                <Stack gap="lg">
-                    <Group justify="space-between" align="flex-start" wrap="nowrap">
-                        <Stack gap={4}>
-                            <Text size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow">
-                                {t("home.eyebrow")}
-                            </Text>
-                            <Title order={1}>{selectedChannel.gameName}</Title>
-                            <Group gap="xs">
-                                <Badge variant="light">{selectedChannel.channelName}</Badge>
-                                <Badge
-                                    component="button"
-                                    variant="outline"
-                                    className="home-repository-badge"
-                                    onClick={() => {
-                                        void window.api.shell.openExternal(getGameChannelRepositoryUrl(selectedChannel));
-                                    }}
-                                >
-                                    {selectedChannel.githubOwner}/{selectedChannel.githubRepo}
-                                </Badge>
-                            </Group>
-                        </Stack>
-                        <Badge color="gray" variant="light" size="lg">
-                            {t("home.status.notInstalled")}
-                        </Badge>
-                    </Group>
-
-                    <Text c="dimmed">{t("home.description")}</Text>
-
-                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                        <Button size="md" disabled>
-                            {t("home.action.play")}
-                        </Button>
-                        <Button size="md" variant="light" disabled>
-                            {t("home.action.continue")}
-                        </Button>
-                    </SimpleGrid>
-
-                    <Alert variant="light" color="blue" title={t("home.install.title")}>
-                        <Stack gap="sm">
-                            <Text size="sm">{t("home.install.description")}</Text>
-                            <Group gap="xs">
-                                <Button size="xs" disabled>
-                                    {t("home.action.install")}
+        <>
+            <ReleaseNotesModal target={releaseNotesTarget} onClose={() => setReleaseNotesTarget(null)} />
+            <InstallOptionsModal
+                opened={installModalRelease !== null}
+                release={installModalRelease}
+                hasInstalledVersions={hasInstalledVersions}
+                copyUserdata={copyUserdata}
+                removeOldVersions={removeOldVersions}
+                isInstalling={isInstalling}
+                onCopyUserdata={setCopyUserdata}
+                onRemoveOldVersions={setRemoveOldVersions}
+                onCancel={() => setInstallModalRelease(null)}
+                onConfirm={confirmInstall}
+            />
+            <VersionsDrawer
+                opened={versionsOpened}
+                state={gameState}
+                installedIds={installedIds}
+                isInstalling={isInstalling}
+                onClose={() => setVersionsOpened(false)}
+                onRefresh={() => refreshGameState(true)}
+                onRequestInstall={openInstallModal}
+                onSetActive={async (installId) => {
+                    const result = await window.api.game.setActiveInstall(installId);
+                    result.status === "updated" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
+                }}
+                onDelete={async (installId, deleteUserdata) => {
+                    const result = await window.api.game.deleteInstall(installId, { deleteUserdata });
+                    result.status === "deleted" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
+                }}
+            />
+            <Stack className="home-dashboard" gap="lg">
+                <Card withBorder radius="lg" p="xl" className="repository-card home-hero-card">
+                    <Stack gap="lg">
+                        <Group justify="space-between" align="flex-start" wrap="nowrap">
+                            <Stack gap={4}>
+                                <Text size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow">
+                                    {t("home.eyebrow")}
+                                </Text>
+                                <Title order={1}>{selectedChannel.gameName}</Title>
+                                <Group gap="xs">
+                                    <Badge variant="light">{selectedChannel.channelName}</Badge>
+                                    <Badge component="button" variant="outline" className="home-repository-badge" onClick={() => void window.api.shell.openExternal(getGameChannelRepositoryUrl(selectedChannel))}>
+                                        {selectedChannel.githubOwner}/{selectedChannel.githubRepo}
+                                    </Badge>
+                                    {activeInstallId !== null && (
+                                        <>
+                                            <Button size="compact-xs" variant="subtle" onClick={() => void window.api.game.openInstallFolder(activeInstallId)}>
+                                                {t("home.action.openInstallFolder")}
+                                            </Button>
+                                            <Button size="compact-xs" variant="subtle" onClick={() => void window.api.game.openSavesFolder(activeInstallId)}>
+                                                {t("home.action.openSavesFolder")}
+                                            </Button>
+                                        </>
+                                    )}
+                                </Group>
+                            </Stack>
+                            <Badge color={activeInstall === null ? "gray" : updateAvailable ? "blue" : "green"} variant="light" size="lg">
+                                {activeInstall === null ? t("home.status.notInstalled") : updateAvailable ? t("home.status.updateAvailable") : t("home.status.installed")}
+                            </Badge>
+                        </Group>
+                        <Text c="dimmed">{t("home.description")}</Text>
+                        {gameState.status === "loading" && (
+                            <Alert variant="light" color="blue" title={t("home.gameState.loading.title")}>
+                                <Group gap="sm">
+                                    <Loader size="sm" />
+                                    <Text size="sm">{t("home.gameState.loading.description")}</Text>
+                                </Group>
+                            </Alert>
+                        )}
+                        {gameState.status === "error" && (
+                            <Alert variant="light" color="red" title={t("home.gameState.error.title")}>
+                                <Text size="sm">{gameState.message ?? t("home.gameState.error.description")}</Text>
+                            </Alert>
+                        )}
+                        {(isInstalling || installProgress.status !== "idle") && <InstallProgressCard progress={installProgress} />}
+                        {activeInstall === null && gameState.status === "ready" && !installRunning && (
+                            <InstallPrompt
+                                description={latestRelease === null ? t("home.install.noRelease") : t("home.install.description")}
+                                installLabel={t("home.action.install")}
+                                loading={isInstalling}
+                                disabled={latestRelease === null}
+                                onInstall={() => openInstallModal(latestRelease)}
+                                onOpenVersions={() => setVersionsOpened(true)}
+                            />
+                        )}
+                        {activeInstall !== null && (
+                            <VersionStrip
+                                currentVersion={getReleaseDisplayName(activeInstall)}
+                                latestRelease={latestRelease}
+                                updateAvailable={updateAvailable}
+                                updateReleases={updateReleases}
+                                isChecking={isCheckingLatest}
+                                isInstalling={isInstalling}
+                                isLoadingReleaseNotes={isLoadingReleaseNotes}
+                                latestInstalledId={latestInstalledId}
+                                onInstall={() => openInstallModal(latestRelease)}
+                                onActivateLatest={async (installId) => {
+                                    const result = await window.api.game.setActiveInstall(installId);
+                                    result.status === "updated" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
+                                }}
+                                onCheckAgain={() => refreshGameState(true)}
+                                onOpenVersions={() => setVersionsOpened(true)}
+                                onShowUpdateChanges={() => {
+                                    if (activeInstall !== null && latestRelease !== null) setReleaseNotesTarget(toUpdateReleaseNotesTarget(activeInstall, latestRelease, updateReleases, t));
+                                }}
+                            />
+                        )}
+                        <Group grow>
+                            <Button size="md" color="green" disabled={activeInstall === null} leftSection="▶" onClick={() => void window.api.game.launchActiveInstall()}>
+                                {t("home.action.play")}
+                            </Button>
+                            <Tooltip label={t("home.action.lastWorldTooltip")}>
+                                <Button size="md" variant="light" disabled={activeInstall === null} leftSection="▶">
+                                    {t("home.action.lastWorld")}
                                 </Button>
-                                <Button size="xs" variant="subtle" disabled>
-                                    {t("home.action.openReleases")}
-                                </Button>
-                            </Group>
-                        </Stack>
-                    </Alert>
-                </Stack>
-            </Card>
-
-            <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md" className="home-secondary-grid">
-                <HomeInfoCard title={t("home.card.installation.title")} description={t("home.card.installation.description")} value={t("home.status.notInstalled")} />
-                <HomeInfoCard title={t("home.card.world.title")} description={t("home.card.world.description")} value={t("home.status.unavailable")} />
-                <HomeInfoCard title={t("home.card.backups.title")} description={t("home.card.backups.description")} value={t("home.status.uiOnly")} />
-            </SimpleGrid>
-
-            <Card withBorder radius="lg" p="md" className="repository-card repository-details">
-                <Stack gap="xs">
-                    <Group justify="space-between" wrap="nowrap">
-                        <Text size="sm" c="dimmed">
-                            {t("repository.ready.path")}
-                        </Text>
-                        <Text size="sm" className="path-text">
-                            {repository.path}
-                        </Text>
-                    </Group>
-                    <Divider />
-                    <Group justify="space-between" wrap="nowrap">
-                        <Text size="sm" c="dimmed">
-                            {t("repository.ready.created")}
-                        </Text>
-                        <Text size="sm">{repository.config.createdAt}</Text>
-                    </Group>
-                </Stack>
-            </Card>
-        </Stack>
+                            </Tooltip>
+                        </Group>
+                    </Stack>
+                </Card>
+            </Stack>
+        </>
     );
 }
 
-function HomeInfoCard({ title, description, value }: { title: string; description: string; value: string }): React.JSX.Element {
+function VersionStrip(props: {
+    currentVersion: string;
+    latestRelease: GameRelease | null;
+    updateAvailable: boolean;
+    updateReleases: GameRelease[];
+    isChecking: boolean;
+    isInstalling: boolean;
+    isLoadingReleaseNotes: boolean;
+    latestInstalledId: string | null;
+    onInstall: () => void;
+    onActivateLatest: (installId: string) => Promise<void>;
+    onCheckAgain: () => Promise<void>;
+    onOpenVersions: () => void;
+    onShowUpdateChanges: () => void;
+}): React.JSX.Element {
+    const { t } = useLocalization();
+    const [isActivatingLatest, setActivatingLatest] = useState(false);
+    const updateAction = getUpdateAction(props.updateAvailable, props.latestRelease, props.latestInstalledId);
+
+    const activateLatest = async (): Promise<void> => {
+        if (props.latestInstalledId === null) return;
+        setActivatingLatest(true);
+        try {
+            await props.onActivateLatest(props.latestInstalledId);
+        } finally {
+            setActivatingLatest(false);
+        }
+    };
+
     return (
-        <Card withBorder radius="lg" p="md" className="home-info-card">
+        <Card withBorder radius="md" p="sm" className="home-version-strip">
+            <Group justify="space-between" gap="sm" wrap="nowrap">
+                <Stack gap={2} className="home-version-strip__text">
+                    <Text size="xs" c="dimmed">
+                        {t("home.version.current")}
+                    </Text>
+                    <Text size="sm" fw={700}>
+                        {props.currentVersion}
+                    </Text>
+                    <Group gap={6} wrap="wrap">
+                        <Text size="xs" c={props.updateAvailable ? "blue" : "dimmed"}>
+                            {props.isChecking
+                                ? t("home.version.checking")
+                                : props.updateAvailable && props.latestRelease !== null
+                                  ? t("home.version.updateAvailable", { version: getReleaseNameDisplay(props.latestRelease.name) })
+                                  : props.latestRelease === null
+                                    ? t("home.version.latestUnknown")
+                                    : t("home.version.latestInstalled")}
+                        </Text>
+                        <Anchor component="button" type="button" size="xs" disabled={props.isChecking} onClick={() => void props.onCheckAgain()}>
+                            {t("home.action.checkAgain")}
+                        </Anchor>
+                        {props.updateAvailable && props.latestRelease !== null && (
+                            <Anchor component="button" type="button" size="xs" disabled={props.isLoadingReleaseNotes || props.updateReleases.length === 0} onClick={props.onShowUpdateChanges}>
+                                {props.isLoadingReleaseNotes ? t("home.action.loadingUpdateChanges") : t("home.action.showUpdateChanges", { count: props.updateReleases.length })}
+                            </Anchor>
+                        )}
+                    </Group>
+                </Stack>
+                <Group gap="xs" wrap="nowrap">
+                    {updateAction === "activate" && (
+                        <Button size="xs" variant="light" loading={isActivatingLatest} onClick={() => void activateLatest()}>
+                            {t("home.action.activateLatest")}
+                        </Button>
+                    )}
+                    {updateAction === "install" && (
+                        <Button size="xs" variant="light" loading={props.isInstalling} onClick={props.onInstall}>
+                            {t("home.action.installUpdate")}
+                        </Button>
+                    )}
+                    <Button size="xs" variant="subtle" onClick={props.onOpenVersions}>
+                        {t("home.action.openVersions")}
+                    </Button>
+                </Group>
+            </Group>
+        </Card>
+    );
+}
+
+type InstallPromptProps = {
+    description: string;
+    installLabel: string;
+    loading: boolean;
+    disabled: boolean;
+    onInstall: () => void;
+    onOpenVersions: () => void;
+};
+
+function InstallPrompt(props: InstallPromptProps): React.JSX.Element {
+    const { t } = useLocalization();
+    return (
+        <Alert variant="light" color="blue" title={t("home.install.title")}>
+            <Stack gap="sm">
+                <Text size="sm">{props.description}</Text>
+                <Group gap="xs">
+                    <Button size="xs" loading={props.loading} disabled={props.disabled} onClick={props.onInstall}>
+                        {props.installLabel}
+                    </Button>
+                    <Button size="xs" variant="subtle" onClick={props.onOpenVersions}>
+                        {t("home.action.chooseVersion")}
+                    </Button>
+                </Group>
+            </Stack>
+        </Alert>
+    );
+}
+
+function InstallOptionsModal(props: {
+    opened: boolean;
+    release: GameRelease | null;
+    hasInstalledVersions: boolean;
+    copyUserdata: boolean;
+    removeOldVersions: boolean;
+    isInstalling: boolean;
+    onCopyUserdata: (value: boolean) => void;
+    onRemoveOldVersions: (value: boolean) => void;
+    onCancel: () => void;
+    onConfirm: () => void;
+}): React.JSX.Element {
+    const { t } = useLocalization();
+    const releaseName = props.release === null ? "" : getReleaseNameDisplay(props.release.name);
+    return (
+        <Modal opened={props.opened} onClose={props.onCancel} title={<Title order={4}>{t("install.modal.title")}</Title>} centered zIndex={3000}>
+            <Stack gap="md">
+                <Stack gap={4}>
+                    <Text size="sm" c="dimmed">
+                        {t("install.modal.description", { version: releaseName })}
+                    </Text>
+                    {props.release !== null && (
+                        <Text size="xs" c="dimmed">
+                            {props.release.asset.name}
+                        </Text>
+                    )}
+                </Stack>
+                {props.hasInstalledVersions && (
+                    <Stack gap="xs" className="install-options">
+                        <Checkbox size="sm" checked={props.copyUserdata} onChange={(event) => props.onCopyUserdata(event.currentTarget.checked)} label={t("install.option.copyUserdata")} />
+                        <Checkbox size="sm" checked={props.removeOldVersions} onChange={(event) => props.onRemoveOldVersions(event.currentTarget.checked)} label={t("install.option.removeOldVersions")} />
+                    </Stack>
+                )}
+                <Group justify="flex-end" gap="xs">
+                    <Button variant="subtle" onClick={props.onCancel}>
+                        {t("common.cancel")}
+                    </Button>
+                    <Button loading={props.isInstalling} onClick={props.onConfirm}>
+                        {t("versions.action.install")}
+                    </Button>
+                </Group>
+            </Stack>
+        </Modal>
+    );
+}
+
+function InstallProgressCard({ progress }: { progress: GameInstallProgress }): React.JSX.Element {
+    const { t } = useLocalization();
+    const percent = progress.status === "downloading" || progress.status === "extracting" ? progress.percent : null;
+    return (
+        <Card withBorder radius="md" p="sm" className="install-progress-card">
             <Stack gap="xs">
-                <Text fw={700}>{title}</Text>
-                <Text size="sm" c="dimmed">
-                    {description}
+                <Group justify="space-between" wrap="nowrap">
+                    <Text size="sm" fw={700}>
+                        {getProgressTitle(progress, t)}
+                    </Text>
+                    {percent !== null && <Text size="xs">{percent}%</Text>}
+                </Group>
+                <Progress value={percent ?? getIndeterminateProgressValue(progress)} animated={progress.status !== "completed" && progress.status !== "error"} />
+                <Text size="xs" c="dimmed">
+                    {getProgressDescription(progress, t)}
                 </Text>
-                <Text size="sm">{value}</Text>
             </Stack>
         </Card>
     );
+}
+
+type ReleaseNotesTarget = {
+    title: string;
+    publishedAt?: string;
+    htmlUrl?: string;
+    body: string;
+};
+
+function VersionsDrawer({
+    opened,
+    state,
+    installedIds,
+    isInstalling,
+    onClose,
+    onRefresh,
+    onRequestInstall,
+    onSetActive,
+    onDelete
+}: {
+    opened: boolean;
+    state: GameInstallState;
+    installedIds: Set<string>;
+    isInstalling: boolean;
+    onClose: () => void;
+    onRefresh: () => Promise<void>;
+    onRequestInstall: (release: GameRelease) => void;
+    onSetActive: (installId: string) => Promise<void>;
+    onDelete: (installId: string, deleteUserdata: boolean) => Promise<void>;
+}): React.JSX.Element {
+    const { t } = useLocalization();
+    const [releases, setReleases] = useState<GameRelease[]>([]);
+    const [isLoadingReleases, setLoadingReleases] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<GameInstall | null>(null);
+    const [releaseNotesTarget, setReleaseNotesTarget] = useState<ReleaseNotesTarget | null>(null);
+    const releaseById = useMemo(() => new Map(releases.map((release) => [release.id, release])), [releases]);
+    const channelId = state.status === "ready" ? state.channel.id : "";
+
+    const loadReleases = useCallback(async (): Promise<void> => {
+        setLoadingReleases(true);
+        try {
+            setReleases(await window.api.game.getReleases());
+        } catch (error) {
+            console.error("Failed to load releases", error);
+        } finally {
+            setLoadingReleases(false);
+        }
+    }, []);
+
+    const refreshDrawer = async (): Promise<void> => {
+        await Promise.all([onRefresh(), loadReleases()]);
+    };
+
+    useEffect(() => {
+        if (!opened) return;
+        queueMicrotask(() => void loadReleases());
+    }, [opened, channelId, loadReleases]);
+
+    return (
+        <>
+            <Drawer
+                opened={opened}
+                onClose={onClose}
+                position="right"
+                size={560}
+                title={
+                    <Group gap="xs" wrap="nowrap">
+                        <Title order={3}>{t("versions.title")}</Title>
+                        <Tooltip label={t("versions.action.refreshTooltip")}>
+                            <ActionIcon variant="subtle" aria-label={t("versions.action.refreshTooltip")} loading={isLoadingReleases} onClick={() => void refreshDrawer()}>
+                                ↻
+                            </ActionIcon>
+                        </Tooltip>
+                    </Group>
+                }
+            >
+                <Stack gap="lg">
+                    <Text size="sm" c="dimmed">
+                        {state.status === "ready" ? t("versions.description", { channel: `${state.channel.shortName} · ${state.channel.channelName}` }) : t("versions.description.unavailable")}
+                    </Text>
+                    <Stack gap="sm">
+                        <Title order={4}>{t("versions.installed.title")}</Title>
+                        {state.status !== "ready" || state.installs.length === 0 ? (
+                            <Text size="sm" c="dimmed">
+                                {t("versions.installed.empty")}
+                            </Text>
+                        ) : (
+                            state.installs.map((install) => (
+                                <InstallCard
+                                    key={install.id}
+                                    install={install}
+                                    release={releaseById.get(install.id) ?? null}
+                                    onSetActive={onSetActive}
+                                    onRequestDelete={setDeleteTarget}
+                                    onShowReleaseNotes={setReleaseNotesTarget}
+                                />
+                            ))
+                        )}
+                    </Stack>
+                    <Divider />
+                    <Stack gap="sm">
+                        <Group justify="space-between">
+                            <Title order={4}>{t("versions.available.title")}</Title>
+                            {isLoadingReleases && <Loader size="sm" />}
+                        </Group>
+                        <Stack gap="sm">
+                            {releases.length === 0 && !isLoadingReleases ? (
+                                <Text size="sm" c="dimmed">
+                                    {t("versions.available.empty")}
+                                </Text>
+                            ) : (
+                                releases.map((release) => (
+                                    <ReleaseCard
+                                        key={release.id}
+                                        release={release}
+                                        isInstalled={installedIds.has(release.id)}
+                                        isInstalling={isInstalling}
+                                        onRequestInstall={onRequestInstall}
+                                        onShowReleaseNotes={setReleaseNotesTarget}
+                                    />
+                                ))
+                            )}
+                        </Stack>
+                    </Stack>
+                </Stack>
+            </Drawer>
+            <DeleteInstallModal
+                key={deleteTarget?.id ?? "empty"}
+                install={deleteTarget}
+                onCancel={() => setDeleteTarget(null)}
+                onConfirm={(installId, deleteUserdata) => {
+                    setDeleteTarget(null);
+                    void onDelete(installId, deleteUserdata);
+                }}
+            />
+            <ReleaseNotesModal target={releaseNotesTarget} onClose={() => setReleaseNotesTarget(null)} />
+        </>
+    );
+}
+
+function InstallCard({
+    install,
+    release,
+    onSetActive,
+    onRequestDelete,
+    onShowReleaseNotes
+}: {
+    install: GameInstall;
+    release: GameRelease | null;
+    onSetActive: (installId: string) => Promise<void>;
+    onRequestDelete: (install: GameInstall) => void;
+    onShowReleaseNotes: (target: ReleaseNotesTarget) => void;
+}): React.JSX.Element {
+    const { t } = useLocalization();
+    return (
+        <Card withBorder radius="md" p="sm" className="version-card">
+            <Stack gap="xs">
+                <Stack gap={2}>
+                    <Group gap="xs">
+                        <Text fw={700}>{getReleaseDisplayName(install)}</Text>
+                        {install.isActive && <Badge variant="light">{t("versions.badge.active")}</Badge>}
+                    </Group>
+                    <Text size="xs" c="dimmed">
+                        {t("versions.installed.installedAt", { date: formatDate(install.manifest.installedAt) })}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                        {t("versions.installed.saves")}
+                    </Text>
+                </Stack>
+                <Group gap="xs">
+                    {!install.isActive && (
+                        <Button size="xs" variant="light" onClick={() => void onSetActive(install.id)}>
+                            {t("versions.action.makeActive")}
+                        </Button>
+                    )}
+                    <Button size="xs" variant="subtle" onClick={() => void window.api.game.openInstallFolder(install.id)}>
+                        {t("versions.action.openInstallFolder")}
+                    </Button>
+                    <Button size="xs" variant="subtle" onClick={() => void window.api.game.openSavesFolder(install.id)}>
+                        {t("versions.action.openSavesFolder")}
+                    </Button>
+                    <Button size="xs" variant="subtle" onClick={() => onShowReleaseNotes(toInstalledReleaseNotesTarget(install, release))}>
+                        {t("versions.action.showChanges")}
+                    </Button>
+                    <Button size="xs" variant="subtle" disabled={install.isActive} color="red" onClick={() => onRequestDelete(install)}>
+                        {t("versions.action.delete")}
+                    </Button>
+                </Group>
+            </Stack>
+        </Card>
+    );
+}
+
+function ReleaseCard({
+    release,
+    isInstalled,
+    isInstalling,
+    onRequestInstall,
+    onShowReleaseNotes
+}: {
+    release: GameRelease;
+    isInstalled: boolean;
+    isInstalling: boolean;
+    onRequestInstall: (release: GameRelease) => void;
+    onShowReleaseNotes: (target: ReleaseNotesTarget) => void;
+}): React.JSX.Element {
+    const { t } = useLocalization();
+    return (
+        <Card withBorder radius="md" p="sm" className="version-card">
+            <Group justify="space-between" align="flex-start" wrap="nowrap">
+                <Stack gap={2}>
+                    <Group gap="xs">
+                        <Text fw={700}>{getReleaseNameDisplay(release.name)}</Text>
+                        {isInstalled && <Badge variant="light">{t("versions.badge.installed")}</Badge>}
+                    </Group>
+                    <Text size="xs" c="dimmed">
+                        {t("versions.available.publishedAt", { date: formatDate(release.publishedAt) })}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                        {release.asset.name}
+                    </Text>
+                </Stack>
+                <Group gap="xs" wrap="nowrap">
+                    <Button size="xs" variant="subtle" onClick={() => onShowReleaseNotes(toReleaseNotesTarget(release))}>
+                        {t("versions.action.showChanges")}
+                    </Button>
+                    <Button size="xs" disabled={isInstalled} loading={isInstalling} onClick={() => onRequestInstall(release)}>
+                        {isInstalled ? t("versions.action.installed") : t("versions.action.install")}
+                    </Button>
+                </Group>
+            </Group>
+        </Card>
+    );
+}
+
+function DeleteInstallModal({ install, onCancel, onConfirm }: { install: GameInstall | null; onCancel: () => void; onConfirm: (installId: string, deleteUserdata: boolean) => void }): React.JSX.Element {
+    const { t } = useLocalization();
+    const [deleteUserdata, setDeleteUserdata] = useState(true);
+
+    return (
+        <Modal opened={install !== null} onClose={onCancel} title={<Title order={4}>{t("deleteInstall.modal.title")}</Title>} centered zIndex={3000}>
+            <Stack gap="md">
+                <Text size="sm" c="dimmed">
+                    {install === null ? "" : t("deleteInstall.modal.description", { version: getReleaseDisplayName(install) })}
+                </Text>
+                <Checkbox size="sm" checked={deleteUserdata} onChange={(event) => setDeleteUserdata(event.currentTarget.checked)} label={t("versions.option.deleteUserdata")} />
+                <Group justify="flex-end" gap="xs">
+                    <Button variant="subtle" onClick={onCancel}>
+                        {t("common.cancel")}
+                    </Button>
+                    <Button color="red" onClick={() => install !== null && onConfirm(install.id, deleteUserdata)}>
+                        {t("versions.action.delete")}
+                    </Button>
+                </Group>
+            </Stack>
+        </Modal>
+    );
+}
+
+function ReleaseNotesModal({ target, onClose }: { target: ReleaseNotesTarget | null; onClose: () => void }): React.JSX.Element {
+    const { t } = useLocalization();
+    const body = target?.body.trim() ?? "";
+    return (
+        <Modal opened={target !== null} onClose={onClose} title={<Title order={4}>{target?.title ?? t("releaseNotes.modal.title")}</Title>} centered size="xl" zIndex={3000}>
+            <Stack gap="md">
+                {target !== null && (target.publishedAt !== undefined || target.htmlUrl !== undefined) && (
+                    <Group gap="xs">
+                        {target.publishedAt !== undefined && (
+                            <Text size="xs" c="dimmed">
+                                {t("releaseNotes.modal.publishedAt", { date: formatDate(target.publishedAt) })}
+                            </Text>
+                        )}
+                        {target.htmlUrl !== undefined && (
+                            <Anchor size="xs" component="button" type="button" onClick={() => void window.api.shell.openExternal(target.htmlUrl!)}>
+                                {t("releaseNotes.modal.openOnGithub")}
+                            </Anchor>
+                        )}
+                    </Group>
+                )}
+                {body.length === 0 ? (
+                    <Text size="sm" c="dimmed">
+                        {t("releaseNotes.modal.empty")}
+                    </Text>
+                ) : (
+                    <Box component="pre" className="release-notes-text">
+                        {body}
+                    </Box>
+                )}
+            </Stack>
+        </Modal>
+    );
+}
+
+function getUpdateReleases(activeInstall: GameInstall, releases: GameRelease[]): GameRelease[] {
+    if (releases.length === 0) return [];
+    const activeIndex = releases.findIndex((release) => release.id === activeInstall.id);
+    if (activeIndex >= 0) return releases.slice(0, activeIndex);
+
+    const activePublishedAt = new Date(activeInstall.manifest.publishedAt).getTime();
+    if (!Number.isFinite(activePublishedAt)) return releases;
+    return releases.filter((release) => new Date(release.publishedAt).getTime() > activePublishedAt);
+}
+
+function toUpdateReleaseNotesTarget(activeInstall: GameInstall, latestRelease: GameRelease, updateReleases: GameRelease[], t: (key: string, values?: Record<string, string | number>) => string): ReleaseNotesTarget {
+    return {
+        title: t("releaseNotes.modal.updateTitle", {
+            current: getReleaseDisplayName(activeInstall),
+            latest: getReleaseNameDisplay(latestRelease.name)
+        }),
+        body: formatUpdateReleaseNotes(updateReleases, t)
+    };
+}
+
+function formatUpdateReleaseNotes(releases: GameRelease[], t: (key: string, values?: Record<string, string | number>) => string): string {
+    if (releases.length === 0) return t("releaseNotes.modal.emptyUpdateRange");
+    return releases
+        .map((release) => {
+            const body = release.body.trim() || t("releaseNotes.modal.empty");
+            return [`## ${getReleaseNameDisplay(release.name)}`, t("releaseNotes.modal.publishedAt", { date: formatDate(release.publishedAt) }), "", body].join("\n");
+        })
+        .join("\n\n────────────────────────\n\n");
+}
+
+function toReleaseNotesTarget(release: GameRelease): ReleaseNotesTarget {
+    return {
+        title: getReleaseNameDisplay(release.name),
+        publishedAt: release.publishedAt,
+        htmlUrl: release.htmlUrl,
+        body: release.body
+    };
+}
+
+function toInstalledReleaseNotesTarget(install: GameInstall, release: GameRelease | null): ReleaseNotesTarget {
+    if (release !== null) return toReleaseNotesTarget(release);
+    return {
+        title: getReleaseDisplayName(install),
+        publishedAt: install.manifest.publishedAt,
+        htmlUrl: install.manifest.htmlUrl,
+        body: install.manifest.releaseBody ?? ""
+    };
+}
+
+function getUpdateAction(updateAvailable: boolean, latestRelease: GameRelease | null, latestInstalledId: string | null): "install" | "activate" | null {
+    if (!updateAvailable || latestRelease === null) return null;
+    return latestInstalledId === null ? "install" : "activate";
+}
+
+function getReleaseDisplayName(install: GameInstall): string {
+    return getReleaseNameDisplay(install.manifest.releaseName || install.manifest.releaseId);
+}
+
+function getReleaseNameDisplay(value: string): string {
+    const buildId = value.match(/20\d{2}-\d{2}-\d{2}-\d{4}/)?.[0];
+    if (buildId !== undefined) return buildId;
+    return value
+        .replace(/^Cataclysm-DDA experimental build\s+/i, "")
+        .replace(/^Cataclysm-DDA\s+/i, "")
+        .replace(/^cdda-(?:windows|linux)-[^-]+(?:-[^-]+)*-/i, "")
+        .replace(/\.(?:zip|tar\.gz|tgz)$/i, "")
+        .trim();
+}
+
+function getProgressTitle(progress: GameInstallProgress, t: (key: string, values?: Record<string, string | number>) => string): string {
+    if (progress.status === "downloading") return t("install.progress.downloading", { version: getReleaseNameDisplay(progress.releaseName) });
+    if (progress.status === "extracting") return t("install.progress.extracting", { version: getReleaseNameDisplay(progress.releaseName) });
+    if (progress.status === "preparing-saves") return t("install.progress.preparingSaves");
+    if (progress.status === "finalizing") return t("install.progress.finalizing");
+    if (progress.status === "completed") return t("install.progress.completed");
+    if (progress.status === "error") return t("install.progress.error");
+    return t("install.progress.resolvingRelease");
+}
+
+function getProgressDescription(progress: GameInstallProgress, t: (key: string, values?: Record<string, string | number>) => string): string {
+    if (progress.status === "downloading")
+        return t("install.progress.downloadingDescription", { size: formatBytes(progress.transferredBytes), total: progress.totalBytes === null ? "?" : formatBytes(progress.totalBytes) });
+    if (progress.status === "extracting") return t("install.progress.extractingDescription", { version: progress.releaseName });
+    if (progress.status === "preparing-saves") return t("install.progress.preparingSavesDescription");
+    if (progress.status === "finalizing") return t("install.progress.finalizingDescription");
+    if (progress.status === "completed") return t("install.progress.completedDescription");
+    if (progress.status === "error") return progress.message;
+    return t("install.progress.resolvingReleaseDescription");
+}
+
+function getIndeterminateProgressValue(progress: GameInstallProgress): number {
+    if (progress.status === "extracting") return 58;
+    if (progress.status === "preparing-saves") return 76;
+    if (progress.status === "finalizing") return 90;
+    if (progress.status === "completed") return 100;
+    if (progress.status === "error") return 100;
+    return 12;
+}
+
+function isInstallRunning(isInstalling: boolean, progress: GameInstallProgress): boolean {
+    if (isInstalling) return true;
+
+    switch (progress.status) {
+        case "resolving-release":
+        case "downloading":
+        case "extracting":
+        case "preparing-saves":
+        case "finalizing":
+            return true;
+        default:
+            return false;
+    }
+}
+
+function formatBytes(value: number): string {
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+    if (value < 1024 * 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
+    return `${(value / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function formatDate(value: string): string {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }

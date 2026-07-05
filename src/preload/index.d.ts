@@ -1,6 +1,18 @@
 import { ElectronAPI } from "@electron-toolkit/preload";
 
 import { AppAppearance, AppTheme } from "../shared/appearance";
+import {
+    DeleteGameInstallOptions,
+    DeleteGameInstallResult,
+    GameInstallProgress,
+    GameInstallState,
+    GameRelease,
+    InstallGameOptions,
+    InstallGameResult,
+    LaunchGameResult,
+    OpenGameFolderResult,
+    SetActiveGameInstallResult
+} from "../shared/gameInstallations";
 import { LocalizationBundle } from "../shared/localization";
 import { RepositoryStatus, SelectRepositoryResult } from "../shared/repository";
 
@@ -47,12 +59,25 @@ type ShellApi = {
     openExternal: (url: string) => Promise<boolean>;
 };
 
+type GameApi = {
+    getState: (refreshLatest?: boolean) => Promise<GameInstallState>;
+    getReleases: () => Promise<GameRelease[]>;
+    installLatest: (options: InstallGameOptions) => Promise<InstallGameResult>;
+    setActiveInstall: (installId: string) => Promise<SetActiveGameInstallResult>;
+    deleteInstall: (installId: string, options: DeleteGameInstallOptions) => Promise<DeleteGameInstallResult>;
+    launchActiveInstall: () => Promise<LaunchGameResult>;
+    openInstallFolder: (installId: string) => Promise<OpenGameFolderResult>;
+    openSavesFolder: (installId: string) => Promise<OpenGameFolderResult>;
+    onInstallProgress: (callback: (progress: GameInstallProgress) => void) => () => void;
+};
+
 type AppApi = {
     updater: UpdaterApi;
     repository: RepositoryApi;
     localization: LocalizationApi;
     appearance: AppearanceApi;
     shell: ShellApi;
+    game: GameApi;
 };
 
 declare global {

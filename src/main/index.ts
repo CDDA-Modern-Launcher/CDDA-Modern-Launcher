@@ -6,6 +6,8 @@ import { join } from "path";
 
 import icon from "../../resources/icon.png?asset";
 import { setupAppearanceIpc } from "./appearance/setupAppearanceIpc";
+import { GameInstallationService } from "./game/GameInstallationService";
+import { setupGameInstallationIpc } from "./game/setupGameInstallationIpc";
 import { LocalizationService } from "./localization/LocalizationService";
 import { setupLocalizationIpc } from "./localization/setupLocalizationIpc";
 import { LocalRepositoryService } from "./repository/LocalRepositoryService";
@@ -296,10 +298,12 @@ app.whenReady().then(async () => {
     const localizationService = new LocalizationService(settingsStore);
     await localizationService.initialize();
     const repositoryService = new LocalRepositoryService(settingsStore, localizationService);
+    const gameInstallationService = new GameInstallationService(repositoryService);
 
     await setupAppearanceIpc(settingsStore);
     setupLocalizationIpc(localizationService);
     setupRepositoryIpc(repositoryService, localizationService);
+    setupGameInstallationIpc(gameInstallationService);
     setupUpdaterIpc(localizationService);
     setupShellIpc();
     createWindow();

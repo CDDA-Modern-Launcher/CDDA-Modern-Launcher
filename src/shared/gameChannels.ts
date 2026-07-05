@@ -10,8 +10,8 @@ export type GameChannelDefinition = {
     githubBranch: string;
     releasesUrl: string;
     assetNameIncludes: {
-        windows: string;
-        linux: string;
+        windows: string[];
+        linux: string[];
     };
     kind: "stable" | "experimental";
     source: "built-in" | "custom";
@@ -32,8 +32,8 @@ export const BUILT_IN_GAME_CHANNELS: GameChannelDefinition[] = [
         githubBranch: "master",
         releasesUrl: "https://api.github.com/repos/CleverRaven/Cataclysm-DDA/releases",
         assetNameIncludes: {
-            windows: "cdda-windows-tiles-x64",
-            linux: "cdda-linux-tiles-x64"
+            windows: ["windows-with-graphics-x64", "cdda-windows-tiles-x64"],
+            linux: ["linux-with-graphics-x64", "cdda-linux-tiles-x64"]
         },
         kind: "experimental",
         source: "built-in"
@@ -50,8 +50,8 @@ export const BUILT_IN_GAME_CHANNELS: GameChannelDefinition[] = [
         githubBranch: "0.I-branch",
         releasesUrl: "https://api.github.com/repos/CleverRaven/Cataclysm-DDA/releases",
         assetNameIncludes: {
-            windows: "cdda-windows-tiles-x64",
-            linux: "cdda-linux-tiles-x64"
+            windows: ["windows-with-graphics-x64", "cdda-windows-tiles-x64"],
+            linux: ["linux-with-graphics-x64", "cdda-linux-tiles-x64"]
         },
         kind: "stable",
         source: "built-in"
@@ -68,8 +68,8 @@ export const BUILT_IN_GAME_CHANNELS: GameChannelDefinition[] = [
         githubBranch: "main",
         releasesUrl: "https://api.github.com/repos/cataclysmbn/Cataclysm-BN/releases",
         assetNameIncludes: {
-            windows: "cbn-windows-tiles-x64",
-            linux: "cbn-linux-tiles-x64"
+            windows: ["cbn-windows-tiles-x64"],
+            linux: ["cbn-linux-tiles-x64"]
         },
         kind: "experimental",
         source: "built-in"
@@ -86,8 +86,8 @@ export const BUILT_IN_GAME_CHANNELS: GameChannelDefinition[] = [
         githubBranch: "main",
         releasesUrl: "https://api.github.com/repos/cataclysmbn/Cataclysm-BN/releases",
         assetNameIncludes: {
-            windows: "cbn-windows-tiles-x64",
-            linux: "cbn-linux-tiles-x64"
+            windows: ["cbn-windows-tiles-x64"],
+            linux: ["cbn-linux-tiles-x64"]
         },
         kind: "stable",
         source: "built-in"
@@ -104,8 +104,8 @@ export const BUILT_IN_GAME_CHANNELS: GameChannelDefinition[] = [
         githubBranch: "master",
         releasesUrl: "https://api.github.com/repos/Cataclysm-TLG/Cataclysm-TLG/releases",
         assetNameIncludes: {
-            windows: "ctlg-windows-tiles-x64",
-            linux: "ctlg-linux-tiles-x64"
+            windows: ["ctlg-windows-tiles-x64"],
+            linux: ["ctlg-linux-tiles-x64"]
         },
         kind: "experimental",
         source: "built-in"
