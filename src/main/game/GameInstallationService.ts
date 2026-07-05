@@ -1,6 +1,6 @@
 import { ChildProcess, spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { access, cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, readdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
 import { Readable } from "node:stream";
 import { finished } from "node:stream/promises";
@@ -219,7 +219,7 @@ export class GameInstallationService {
                 queueMicrotask(() => this.setProgress({ status: "idle" }));
                 return {
                     status: "installed",
-                    state: await this.getState(false),
+                    state: await this.getStateWithLatestRelease(releases[0] ?? null),
                     install: existingInstall
                 };
             }
@@ -239,7 +239,7 @@ export class GameInstallationService {
             await this.cleanupDownloads(repository.path, channel.id);
             this.setProgress({ status: "completed", releaseName: release.name });
             queueMicrotask(() => this.setProgress({ status: "idle" }));
-            return { status: "installed", state: await this.getState(false), install };
+            return { status: "installed", state: await this.getStateWithLatestRelease(releases[0] ?? null), install };
         } catch (error) {
             console.error("[game-install] failed to install release", error);
             const message = error instanceof Error ? error.message : String(error);
@@ -411,6 +411,17 @@ export class GameInstallationService {
         };
     }
 
+    private async getStateWithLatestRelease(latestRelease: GameRelease | null): Promise<GameInstallState> {
+        const state = await this.getState(false);
+        if (state.status !== "ready") return state;
+        return {
+            ...state,
+            latestRelease,
+            latestReleaseError: null,
+            updateAvailable: latestRelease !== null && state.activeInstall !== null && latestRelease.id !== state.activeInstall.id
+        };
+    }
+
     private async launchActiveInstallAsync(options: LaunchGameOptions): Promise<LaunchGameResult> {
         if (this.runtime.status === "running") return { status: "already-running", runtime: this.runtime };
         const state = await this.getState(false);
@@ -463,7 +474,7 @@ export class GameInstallationService {
         await mkdir(dirname(userdataPath), { recursive: true });
         await rm(tempPath, { recursive: true, force: true });
         await rm(installPath, { recursive: true, force: true });
-        await this.downloadFile(release.asset.downloadUrl, downloadPath, release.name);
+        await this.downloadFile(release.asset.downloadUrl, downloadPath, release.name, release.asset.size);
         await this.extractArchive(downloadPath, tempPath, release.name);
         const executablePath = await findExecutable(tempPath);
         const sourceUserdata = options.copyUserdata ? findUserdataSource(installsBefore, config.activeInstallByChannel[channel.id]) : null;
@@ -583,12 +594,25 @@ export class GameInstallationService {
         return this.gitHubNetwork.getJson<unknown>(url, { forceRefresh });
     }
 
-    private async downloadFile(url: string, targetPath: string, releaseName: string): Promise<void> {
+    private async downloadFile(url: string, targetPath: string, releaseName: string, expectedBytes: number): Promise<void> {
+        const reusableArchive = await getReusableArchive(targetPath, expectedBytes);
+        if (reusableArchive !== null) {
+            this.setProgress({
+                status: "downloading",
+                releaseName,
+                percent: 100,
+                transferredBytes: reusableArchive.size,
+                totalBytes: reusableArchive.size
+            });
+            console.info(`[game-install] reuse downloaded archive path=${targetPath} size=${reusableArchive.size}`);
+            return;
+        }
+
         const temporaryPath = `${targetPath}.tmp-${Date.now()}`;
         const response = isGitHubUrl(url) ? await this.gitHubNetwork.fetch(url) : await fetch(url);
         if (!response.ok || response.body === null) throw new Error(`Download failed: ${response.status} ${response.statusText}`);
         const totalBytes = Number(response.headers.get("content-length"));
-        const knownTotalBytes = Number.isFinite(totalBytes) && totalBytes > 0 ? totalBytes : null;
+        const knownTotalBytes = Number.isFinite(totalBytes) && totalBytes > 0 ? totalBytes : expectedBytes > 0 ? expectedBytes : null;
         let transferredBytes = 0;
         this.setProgress({
             status: "downloading",
@@ -598,6 +622,7 @@ export class GameInstallationService {
             totalBytes: knownTotalBytes
         });
         await mkdir(dirname(targetPath), { recursive: true });
+        await rm(temporaryPath, { force: true });
         const fileStream = createWriteStream(temporaryPath);
         const source = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0]);
         source.on("data", (chunk: Buffer | Uint8Array) => {
@@ -669,6 +694,23 @@ export class GameInstallationService {
                     if (deleteUserdata) await rm(install.userdataPath, { recursive: true, force: true });
                 })
         );
+    }
+}
+
+async function getReusableArchive(path: string, expectedBytes: number): Promise<{ size: number } | null> {
+    try {
+        const archiveStat = await stat(path);
+        if (!archiveStat.isFile() || archiveStat.size <= 0) return null;
+        if (expectedBytes > 0 && archiveStat.size !== expectedBytes) {
+            console.warn(`[game-install] cached archive size mismatch path=${path} actual=${archiveStat.size} expected=${expectedBytes}`);
+            return null;
+        }
+        const now = new Date();
+        await utimes(path, now, now);
+        return { size: archiveStat.size };
+    } catch (error) {
+        if (isNodeError(error) && error.code === "ENOENT") return null;
+        throw error;
     }
 }
 
