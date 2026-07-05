@@ -3,8 +3,28 @@ import type { IpcRendererEvent } from "electron";
 import { contextBridge, ipcRenderer } from "electron";
 
 import { AppAppearance, AppTheme } from "../shared/appearance";
+import type {
+    AutoBackupCooldown,
+    AutoBackupLimit,
+    BackupRotationLimit,
+    CreateGameBackupResult,
+    DeleteGameBackupResult,
+    GameBackupProgress,
+    GameBackupSummaryUpdate,
+    RenameGameBackupResult,
+    RestoreGameBackupResult
+} from "../shared/backups";
 import type { GameAssetVariant, LauncherUserSettings } from "../shared/gameAssetVariants";
-import { DeleteGameInstallOptions, GameInstallProgress, GameRuntimeState, GameSaveSummaryUpdate, InstallGameOptions, LaunchGameOptions } from "../shared/gameInstallations";
+import {
+    CreateManualBackupOptions,
+    DeleteGameInstallOptions,
+    GameInstallProgress,
+    GameRuntimeState,
+    GameSaveActivityUpdate,
+    GameSaveSummaryUpdate,
+    InstallGameOptions,
+    LaunchGameOptions
+} from "../shared/gameInstallations";
 import { LocalizationBundle } from "../shared/localization";
 import { RepositoryStatus, SelectRepositoryResult } from "../shared/repository";
 
@@ -68,6 +88,10 @@ const shellApi = {
 const settingsApi = {
     get: (): Promise<LauncherUserSettings> => ipcRenderer.invoke("settings:get"),
     setGameAssetVariant: (gameAssetVariant: GameAssetVariant): Promise<LauncherUserSettings> => ipcRenderer.invoke("settings:set-game-asset-variant", gameAssetVariant),
+    setBackupsEnabled: (backupsEnabled: boolean): Promise<LauncherUserSettings> => ipcRenderer.invoke("settings:set-backups-enabled", backupsEnabled),
+    setAutoBackupLimit: (autoBackupLimit: AutoBackupLimit): Promise<LauncherUserSettings> => ipcRenderer.invoke("settings:set-auto-backup-limit", autoBackupLimit),
+    setAutoBackupCooldown: (autoBackupCooldown: AutoBackupCooldown): Promise<LauncherUserSettings> => ipcRenderer.invoke("settings:set-auto-backup-cooldown", autoBackupCooldown),
+    setManualBackupRotationLimit: (manualBackupRotationLimit: BackupRotationLimit): Promise<LauncherUserSettings> => ipcRenderer.invoke("settings:set-manual-backup-rotation-limit", manualBackupRotationLimit),
     onChanged: (callback: (settings: LauncherUserSettings) => void) => {
         const listener = (_event: IpcRendererEvent, settings: LauncherUserSettings): void => callback(settings);
 
@@ -90,6 +114,10 @@ const gameApi = {
     stop: () => ipcRenderer.invoke("game:stop"),
     openInstallFolder: (installId: string) => ipcRenderer.invoke("game:open-install-folder", installId),
     openSavesFolder: (installId: string) => ipcRenderer.invoke("game:open-saves-folder", installId),
+    createManualBackup: (options?: CreateManualBackupOptions): Promise<CreateGameBackupResult> => ipcRenderer.invoke("game:create-manual-backup", options),
+    restoreBackup: (backupId: string): Promise<RestoreGameBackupResult> => ipcRenderer.invoke("game:restore-backup", backupId),
+    deleteBackup: (backupId: string): Promise<DeleteGameBackupResult> => ipcRenderer.invoke("game:delete-backup", backupId),
+    renameBackup: (backupId: string, comment: string): Promise<RenameGameBackupResult> => ipcRenderer.invoke("game:rename-backup", backupId, comment),
     onInstallProgress: (callback: (progress: GameInstallProgress) => void) => {
         const listener = (_event: IpcRendererEvent, progress: GameInstallProgress): void => callback(progress);
 
@@ -115,6 +143,33 @@ const gameApi = {
 
         return () => {
             ipcRenderer.removeListener("game:save-summary-changed", listener);
+        };
+    },
+    onSaveActivityChanged: (callback: (update: GameSaveActivityUpdate) => void) => {
+        const listener = (_event: IpcRendererEvent, update: GameSaveActivityUpdate): void => callback(update);
+
+        ipcRenderer.on("game:save-activity-changed", listener);
+
+        return () => {
+            ipcRenderer.removeListener("game:save-activity-changed", listener);
+        };
+    },
+    onBackupProgress: (callback: (progress: GameBackupProgress) => void) => {
+        const listener = (_event: IpcRendererEvent, progress: GameBackupProgress): void => callback(progress);
+
+        ipcRenderer.on("game:backup-progress", listener);
+
+        return () => {
+            ipcRenderer.removeListener("game:backup-progress", listener);
+        };
+    },
+    onBackupSummaryChanged: (callback: (update: GameBackupSummaryUpdate) => void) => {
+        const listener = (_event: IpcRendererEvent, update: GameBackupSummaryUpdate): void => callback(update);
+
+        ipcRenderer.on("game:backup-summary-changed", listener);
+
+        return () => {
+            ipcRenderer.removeListener("game:backup-summary-changed", listener);
         };
     }
 };

@@ -1,3 +1,4 @@
+import type { GameBackupSummary } from "./backups";
 import type { GameChannelDefinition } from "./gameChannels";
 
 export const INSTALLS_DIRECTORY_NAME = "installs";
@@ -53,7 +54,6 @@ export type GameWorldInfo = {
     name: string;
     folderName: string;
     characterName: string | null;
-    modifiedAt: string | null;
 };
 
 export type GameSaveSummary = {
@@ -66,9 +66,18 @@ export type GameSaveSummaryUpdate = {
     saves: GameSaveSummary;
 };
 
+export type GameSaveActivityUpdate = {
+    installId: string;
+    stable: boolean;
+};
+
 export type GameRuntimeState = { status: "idle" } | { status: "running"; pid: number; installId: string; worldName: string | null };
 
 export type LaunchGameOptions = {
+    worldName?: string;
+};
+
+export type CreateManualBackupOptions = {
     worldName?: string;
 };
 
@@ -86,7 +95,9 @@ export type GameInstallState =
           latestReleaseError: string | null;
           updateAvailable: boolean;
           saves: GameSaveSummary | null;
+          backups: GameBackupSummary;
           runtime: GameRuntimeState;
+          savesStable: boolean;
       };
 
 export type InstallGameOptions = {

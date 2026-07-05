@@ -7,9 +7,19 @@ import { finished } from "node:stream/promises";
 
 import extractZip from "extract-zip";
 
-import { DEFAULT_GAME_CHANNEL_ID, findGameChannel, type GameChannelDefinition, getEffectiveGameChannels } from "../../shared/gameChannels";
-import { getGameAssetVariantFallbackOrder, type GameAssetVariant } from "../../shared/gameAssetVariants";
 import {
+    type CreateGameBackupResult,
+    type DeleteGameBackupResult,
+    type GameBackupProgress,
+    type GameBackupSummaryUpdate,
+    type RenameGameBackupResult,
+    type RestoreGameBackupResult,
+    toAutoBackupCooldownMs
+} from "../../shared/backups";
+import { type GameAssetVariant, getGameAssetVariantFallbackOrder } from "../../shared/gameAssetVariants";
+import { DEFAULT_GAME_CHANNEL_ID, findGameChannel, type GameChannelDefinition, getEffectiveGameChannels } from "../../shared/gameChannels";
+import {
+    CreateManualBackupOptions,
     DeleteGameInstallOptions,
     DeleteGameInstallResult,
     DOWNLOADS_DIRECTORY_NAME,
@@ -19,6 +29,7 @@ import {
     GameInstallState,
     GameRelease,
     GameRuntimeState,
+    GameSaveActivityUpdate,
     GameSaveSummary,
     GameSaveSummaryUpdate,
     GameWorldInfo,
@@ -37,6 +48,7 @@ import { RepositoryConfig } from "../../shared/repository";
 import { GitHubNetworkManager } from "../network/GitHubNetworkManager";
 import { LocalRepositoryService } from "../repository/LocalRepositoryService";
 import type { LauncherSettingsStore } from "../settings/LauncherSettingsStore";
+import { type GameBackupContext, GameBackupService } from "./GameBackupService";
 import { GameSaveMonitor, type GameSaveSettledActivity } from "./GameSaveMonitor";
 
 const WINDOWS_EXECUTABLE_CANDIDATES = ["cataclysm-tiles.exe", "cataclysm.exe", "cataclysm-launcher.exe"];
@@ -62,17 +74,23 @@ export class GameInstallationService {
     private runtime: GameRuntimeState = { status: "idle" };
     private gameProcess: ChildProcess | null = null;
     private readonly gitHubNetwork = new GitHubNetworkManager();
+    private readonly backupService: GameBackupService;
     private runtimeListeners = new Set<(runtime: GameRuntimeState) => void>();
     private progressListeners = new Set<(progress: GameInstallProgress) => void>();
     private saveSummaryListeners = new Set<(update: GameSaveSummaryUpdate) => void>();
+    private saveActivityListeners = new Set<(update: GameSaveActivityUpdate) => void>();
     private activeSaveMonitor: GameSaveMonitor | null = null;
     private activeSaveMonitorInstallId: string | null = null;
+    private activeSaveStable = true;
     private readonly preferredWorldByInstallId = new Map<string, string | null>();
+    private readonly latestBackupAtByWorld = new Map<string, number>();
 
     constructor(
         private readonly repositoryService: LocalRepositoryService,
         private readonly settingsStore: LauncherSettingsStore
-    ) {}
+    ) {
+        this.backupService = new GameBackupService(settingsStore);
+    }
 
     onProgress(listener: (progress: GameInstallProgress) => void): () => void {
         this.progressListeners.add(listener);
@@ -89,6 +107,19 @@ export class GameInstallationService {
     onSaveSummaryChanged(listener: (update: GameSaveSummaryUpdate) => void): () => void {
         this.saveSummaryListeners.add(listener);
         return () => this.saveSummaryListeners.delete(listener);
+    }
+
+    onSaveActivityChanged(listener: (update: GameSaveActivityUpdate) => void): () => void {
+        this.saveActivityListeners.add(listener);
+        return () => this.saveActivityListeners.delete(listener);
+    }
+
+    onBackupProgress(listener: (progress: GameBackupProgress) => void): () => void {
+        return this.backupService.onProgress(listener);
+    }
+
+    onBackupSummaryChanged(listener: (update: GameBackupSummaryUpdate) => void): () => void {
+        return this.backupService.onSummaryChanged(listener);
     }
 
     async getState(refreshLatest = false, forceRefresh = false): Promise<GameInstallState> {
@@ -121,7 +152,9 @@ export class GameInstallationService {
             latestReleaseError,
             updateAvailable: latestRelease !== null && activeInstall !== null && latestRelease.id !== activeInstall.id,
             saves: activeInstall === null ? null : await readSaveSummary(activeInstall.userdataPath, this.preferredWorldByInstallId.get(activeInstall.id) ?? null),
-            runtime: this.runtime
+            backups: await this.backupService.getSummary(activeInstall),
+            runtime: this.runtime,
+            savesStable: activeInstall === null || activeInstall.id !== this.activeSaveMonitorInstallId ? true : this.activeSaveStable
         };
     }
 
@@ -249,6 +282,30 @@ export class GameInstallationService {
         return path;
     }
 
+    async createManualBackup(options: CreateManualBackupOptions = {}): Promise<CreateGameBackupResult> {
+        const context = await this.getBackupContext(options.worldName);
+        if (context === null) return { status: "unavailable", message: "Game is not installed." };
+        const result = await this.backupService.createManualBackup(context);
+        if (result.status === "created") this.touchAutoBackupCooldown(context.install.id, result.backup.worldFolderName);
+        return result;
+    }
+
+    async restoreBackup(backupId: string): Promise<RestoreGameBackupResult> {
+        const context = await this.getBackupContext();
+        if (context === null) return { status: "unavailable", message: "Game is not installed." };
+        return this.backupService.restoreBackup(context, backupId);
+    }
+
+    async deleteBackup(backupId: string): Promise<DeleteGameBackupResult> {
+        const context = await this.getBackupContext();
+        return this.backupService.deleteBackup(context?.install ?? null, backupId);
+    }
+
+    async renameBackup(backupId: string, comment: string): Promise<RenameGameBackupResult> {
+        const context = await this.getBackupContext();
+        return this.backupService.renameBackup(context?.install ?? null, backupId, comment);
+    }
+
     private setProgress(progress: GameInstallProgress): void {
         this.progress = progress;
         for (const listener of this.progressListeners) listener(progress);
@@ -264,46 +321,94 @@ export class GameInstallationService {
         for (const listener of this.saveSummaryListeners) listener(update);
     }
 
+    private emitSaveActivityChanged(update: GameSaveActivityUpdate): void {
+        for (const listener of this.saveActivityListeners) listener(update);
+    }
+
     private async updateActiveSaveMonitor(activeInstall: GameInstall | null): Promise<void> {
         if (activeInstall === null) {
             this.stopActiveSaveMonitor();
+            this.activeSaveStable = true;
+            await this.backupService.updateActiveInstall(null);
             return;
         }
-        if (this.activeSaveMonitorInstallId === activeInstall.id) return;
+        if (this.activeSaveMonitorInstallId === activeInstall.id) {
+            await this.backupService.updateActiveInstall(activeInstall);
+            return;
+        }
         this.stopActiveSaveMonitor();
         const installId = activeInstall.id;
+        this.activeSaveStable = true;
         const monitor = new GameSaveMonitor({
             userdataPath: activeInstall.userdataPath,
-            onSettled: (activity) => this.processSettledSaveActivity(installId, activity)
+            onSettled: (activity) => this.processSettledSaveActivity(installId, activity),
+            onStabilityChanged: (stable) => {
+                this.activeSaveStable = stable;
+                this.emitSaveActivityChanged({ installId, stable });
+            }
         });
         this.activeSaveMonitor = monitor;
         this.activeSaveMonitorInstallId = installId;
         await monitor.start();
+        await this.backupService.updateActiveInstall(activeInstall);
     }
 
     private stopActiveSaveMonitor(): void {
         this.activeSaveMonitor?.stop();
         this.activeSaveMonitor = null;
         this.activeSaveMonitorInstallId = null;
+        this.clearAutoBackupState();
+    }
+
+    private clearAutoBackupState(): void {
+        this.latestBackupAtByWorld.clear();
     }
 
     private async processSettledSaveActivity(installId: string, activity: GameSaveSettledActivity): Promise<void> {
         console.info(`[game-save] refresh save summary installId=${installId} events=${activity.eventCount} changedPaths=${activity.changedPaths.length}`);
+        const changedWorldFolderNames = getChangedWorldFolderNames(activity);
         const state = await this.getState(false);
         if (state.status !== "ready" || state.activeInstall?.id !== installId || state.saves === null) return;
         const update: GameSaveSummaryUpdate = { installId, saves: state.saves };
         this.emitSaveSummaryChanged(update);
-        this.queuePostSaveTasks(update);
+        this.queuePostSaveTasks(update, changedWorldFolderNames);
     }
 
-    private queuePostSaveTasks(update: GameSaveSummaryUpdate): void {
-        this.queueAutoBackupAfterSave(update);
+    private queuePostSaveTasks(update: GameSaveSummaryUpdate, changedWorldFolderNames: string[]): void {
+        this.queueAutoBackupAfterSave(update, changedWorldFolderNames);
     }
 
-    private queueAutoBackupAfterSave(update: GameSaveSummaryUpdate): void {
-        void update;
-        // Backups are not implemented yet. Keep the post-save hook here so the future
-        // implementation can run after the world state refresh without touching the watcher.
+    private queueAutoBackupAfterSave(update: GameSaveSummaryUpdate, changedWorldFolderNames: string[]): void {
+        if (this.runtime.status !== "running") return;
+        for (const worldFolderName of changedWorldFolderNames) {
+            void this.createAutoBackupAfterSave(update, worldFolderName);
+        }
+    }
+
+    private async createAutoBackupAfterSave(update: GameSaveSummaryUpdate, worldFolderName: string): Promise<void> {
+        const settings = await this.settingsStore.getUserSettings();
+        if (isAutoBackupInCooldown(this.latestBackupAtByWorld.get(getAutoBackupTimerKey(update.installId, worldFolderName)) ?? null, toAutoBackupCooldownMs(settings.autoBackupCooldown))) return;
+        const context = await this.getBackupContext(worldFolderName);
+        if (context === null || context.install.id !== update.installId) return;
+        const result = await this.backupService.createAutoBackup(context);
+        if (result.status === "created") this.touchAutoBackupCooldown(context.install.id, result.backup.worldFolderName);
+    }
+
+    private touchAutoBackupCooldown(installId: string, worldFolderName: string): void {
+        this.latestBackupAtByWorld.set(getAutoBackupTimerKey(installId, worldFolderName), Date.now());
+    }
+
+    private async getBackupContext(worldName?: string): Promise<GameBackupContext | null> {
+        const state = await this.getState(false);
+        if (state.status !== "ready" || state.activeInstall === null) return null;
+        const preferredWorldName = worldName?.trim();
+        const saves = preferredWorldName === undefined || preferredWorldName.length === 0 ? state.saves : await readSaveSummary(state.activeInstall.userdataPath, preferredWorldName);
+        return {
+            install: state.activeInstall,
+            saves,
+            gameRunning: this.runtime.status === "running",
+            savesStable: state.activeInstall.id !== this.activeSaveMonitorInstallId ? true : this.activeSaveStable
+        };
     }
 
     private async launchActiveInstallAsync(options: LaunchGameOptions): Promise<LaunchGameResult> {
@@ -453,18 +558,10 @@ export class GameInstallationService {
 
     private async fetchReleases(channel: GameChannelDefinition, forceRefresh: boolean): Promise<GameRelease[]> {
         const gameAssetVariant = await this.settingsStore.getGameAssetVariant();
-        return this.gitHubNetwork.getCached(
-            getReleaseCacheKey(channel, gameAssetVariant),
-            () => this.fetchReleasesFromGitHub(channel, forceRefresh, gameAssetVariant),
-            { forceRefresh }
-        );
+        return this.gitHubNetwork.getCached(getReleaseCacheKey(channel, gameAssetVariant), () => this.fetchReleasesFromGitHub(channel, forceRefresh, gameAssetVariant), { forceRefresh });
     }
 
-    private async fetchReleasesFromGitHub(
-        channel: GameChannelDefinition,
-        forceRefresh: boolean,
-        gameAssetVariant: GameAssetVariant
-    ): Promise<GameRelease[]> {
+    private async fetchReleasesFromGitHub(channel: GameChannelDefinition, forceRefresh: boolean, gameAssetVariant: GameAssetVariant): Promise<GameRelease[]> {
         const pageCount = channel.kind === "stable" ? 5 : 1;
         const releases: GameRelease[] = [];
         for (let page = 1; page <= pageCount; page += 1) {
@@ -639,11 +736,7 @@ function toGameRelease(value: unknown, channel: GameChannelDefinition, gameAsset
         }
     };
 }
-function selectReleaseAsset(
-    assets: GitHubAssetDto[] | undefined,
-    channel: GameChannelDefinition,
-    gameAssetVariant: GameAssetVariant
-): GitHubAssetDto | null {
+function selectReleaseAsset(assets: GitHubAssetDto[] | undefined, channel: GameChannelDefinition, gameAssetVariant: GameAssetVariant): GitHubAssetDto | null {
     const compatibleAssets = assets?.filter((candidate) => isCompatibleAsset(candidate, channel)) ?? [];
     const fallbackOrder = getGameAssetVariantFallbackOrder(gameAssetVariant);
 
@@ -744,6 +837,24 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
     return error instanceof Error && "code" in error;
 }
 
+function getAutoBackupTimerKey(installId: string, worldFolderName: string): string {
+    return `${installId}:${worldFolderName}`;
+}
+
+function isAutoBackupInCooldown(latestBackupAt: number | null, cooldownMs: number): boolean {
+    return cooldownMs > 0 && latestBackupAt !== null && Date.now() - latestBackupAt < cooldownMs;
+}
+
+function getChangedWorldFolderNames(activity: GameSaveSettledActivity): string[] {
+    const folders = new Set<string>();
+    for (const changedPath of activity.keyChangedPaths) {
+        const normalized = changedPath.split("\\").join("/");
+        const match = /(?:^|\/)save\/([^/]+)\/[^/]+$/.exec(normalized);
+        if (match !== null) folders.add(match[1]);
+    }
+    return [...folders];
+}
+
 async function readSaveSummary(userdataPath: string, preferredWorldName: string | null = null): Promise<GameSaveSummary> {
     const savePath = join(userdataPath, "save");
     let entries: string[];
@@ -761,14 +872,10 @@ async function readSaveSummary(userdataPath: string, preferredWorldName: string 
                 try {
                     if (!(await stat(worldPath)).isDirectory()) return null;
                     const character = await readFirstCharacter(worldPath);
-                    const worldStat = await stat(worldPath);
-                    const fallbackModifiedAt = formatModifiedAt(character?.modifiedAtMs ?? worldStat.mtimeMs);
-                    const modifiedAt = (await readWorldTimestamp(worldPath)) ?? fallbackModifiedAt;
                     return {
                         name: decodeWorldFolderName(entry),
                         folderName: entry,
-                        characterName: character?.name ?? null,
-                        modifiedAt
+                        characterName: character?.name ?? null
                     };
                 } catch (error) {
                     if (isNodeError(error) && error.code === "ENOENT") return null;
@@ -787,7 +894,6 @@ async function readSaveSummary(userdataPath: string, preferredWorldName: string 
 
 type CharacterSaveInfo = {
     name: string;
-    modifiedAtMs: number;
 };
 
 async function readFirstCharacter(worldPath: string): Promise<CharacterSaveInfo | null> {
@@ -803,19 +909,15 @@ async function readFirstCharacter(worldPath: string): Promise<CharacterSaveInfo 
         entries
             .filter((entry) => entry.isFile() && /^#.+\.sav\.zzip$/i.test(entry.name))
             .map(async (entry) => {
-                const path = join(worldPath, entry.name);
-                const itemStat = await stat(path);
                 return {
-                    characterName: decodeCharacterName(entry.name),
-                    modifiedAtMs: itemStat.mtimeMs
+                    characterName: decodeCharacterName(entry.name)
                 };
             })
     );
     const firstSave = saves.sort((a, b) => a.characterName.localeCompare(b.characterName, undefined, { sensitivity: "base" }))[0];
     if (firstSave === undefined) return null;
     return {
-        name: firstSave.characterName,
-        modifiedAtMs: firstSave.modifiedAtMs
+        name: firstSave.characterName
     };
 }
 
@@ -855,36 +957,4 @@ function decodeBase64Utf8(value: string): string | null {
     } catch {
         return null;
     }
-}
-
-async function readWorldTimestamp(worldPath: string): Promise<string | null> {
-    const timestampPath = join(worldPath, "world_timestamp.json");
-    try {
-        const content = await readFile(timestampPath, "utf8");
-        const parsed = JSON.parse(content) as unknown;
-        return typeof parsed === "string" ? formatCddaTimestamp(parsed) : null;
-    } catch (error) {
-        if (isNodeError(error) && error.code === "ENOENT") return null;
-        console.error(`[game-install] failed to read world timestamp: ${timestampPath}`, error);
-        return null;
-    }
-}
-
-function formatCddaTimestamp(value: string): string | null {
-    const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(value.trim());
-    if (match === null) return null;
-    const [, year, month, day, hour, minute] = match;
-    const utcTimestampMs = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
-    return formatModifiedAt(utcTimestampMs);
-}
-
-function formatModifiedAt(valueMs: number): string | null {
-    if (!Number.isFinite(valueMs)) return null;
-    const date = new Date(valueMs);
-    const year = date.getFullYear().toString().padStart(4, "0");
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const day = date.getDate().toString().padStart(2, "0");
-    const hour = date.getHours().toString().padStart(2, "0");
-    const minute = date.getMinutes().toString().padStart(2, "0");
-    return `${year}-${month}-${day} ${hour}:${minute}`;
 }

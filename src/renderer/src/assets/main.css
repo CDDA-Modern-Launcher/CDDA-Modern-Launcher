@@ -245,3 +245,25 @@ code {
     font-size: 12px;
     line-height: 1.5;
 }
+
+.backup-strip {
+    background-color: var(--app-panel-background);
+}
+
+.backup-strip__text {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.backup-strip__actions {
+    flex: 0 0 auto;
+}
+
+.backup-drawer-item__text {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.backup-drawer-item__actions {
+    flex: 0 0 auto;
+}

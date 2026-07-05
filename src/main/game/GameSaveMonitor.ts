@@ -6,6 +6,7 @@ type GameSaveMonitorOptions = {
     userdataPath: string;
     settleDelayMs?: number;
     onSettled: (activity: GameSaveSettledActivity) => void | Promise<void>;
+    onStabilityChanged?: (stable: boolean) => void;
 };
 
 export type GameSaveSettledActivity = {
@@ -41,6 +42,7 @@ export class GameSaveMonitor {
     private readonly savePath: string;
     private readonly settleDelayMs: number;
     private readonly onSettled: (activity: GameSaveSettledActivity) => void | Promise<void>;
+    private readonly onStabilityChanged?: (stable: boolean) => void;
     private readonly watchers = new Map<string, FSWatcher>();
     private readonly watcherKinds = new Map<string, WatchTargetKind>();
     private readonly pendingChangedPaths = new Set<string>();
@@ -60,6 +62,11 @@ export class GameSaveMonitor {
         this.savePath = join(this.userdataPath, SAVE_DIRECTORY_NAME);
         this.settleDelayMs = options.settleDelayMs ?? DEFAULT_SETTLE_DELAY_MS;
         this.onSettled = options.onSettled;
+        this.onStabilityChanged = options.onStabilityChanged;
+    }
+
+    isStable(): boolean {
+        return this.settleTimer === null && !this.settling && this.pendingEventCount === 0;
     }
 
     async start(): Promise<void> {
@@ -192,6 +199,7 @@ export class GameSaveMonitor {
     }
 
     private scheduleSettle(): void {
+        if (this.isStable()) this.onStabilityChanged?.(false);
         this.clearSettleTimer();
         this.settleTimer = setTimeout(() => {
             this.settleTimer = null;
@@ -211,7 +219,10 @@ export class GameSaveMonitor {
         console.info(
             `[game-save] settled events=${activity.eventCount} keyEvents=${activity.keyEventCount} changedPaths=${activity.changedPaths.length} keyPaths=${activity.keyChangedPaths.length} realSave=${activity.hasSaveFileChange ? "yes" : "no"}`
         );
-        if (!activity.hasSaveFileChange) return;
+        if (!activity.hasSaveFileChange) {
+            if (this.isStable()) this.onStabilityChanged?.(true);
+            return;
+        }
 
         this.settling = true;
         try {
@@ -223,6 +234,8 @@ export class GameSaveMonitor {
             if (this.pendingSettledRun) {
                 this.pendingSettledRun = false;
                 this.scheduleSettle();
+            } else if (this.isStable()) {
+                this.onStabilityChanged?.(true);
             }
         }
     }

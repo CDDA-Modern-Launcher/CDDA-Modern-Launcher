@@ -1,14 +1,27 @@
 import { ElectronAPI } from "@electron-toolkit/preload";
 
 import { AppAppearance, AppTheme } from "../shared/appearance";
+import {
+    AutoBackupCooldown,
+    AutoBackupLimit,
+    BackupRotationLimit,
+    CreateGameBackupResult,
+    DeleteGameBackupResult,
+    GameBackupProgress,
+    GameBackupSummaryUpdate,
+    RenameGameBackupResult,
+    RestoreGameBackupResult
+} from "../shared/backups";
 import { GameAssetVariant, LauncherUserSettings } from "../shared/gameAssetVariants";
 import {
+    CreateManualBackupOptions,
     DeleteGameInstallOptions,
     DeleteGameInstallResult,
     GameInstallProgress,
     GameInstallState,
     GameRelease,
     GameRuntimeState,
+    GameSaveActivityUpdate,
     GameSaveSummaryUpdate,
     InstallGameOptions,
     InstallGameResult,
@@ -67,6 +80,10 @@ type ShellApi = {
 type SettingsApi = {
     get: () => Promise<LauncherUserSettings>;
     setGameAssetVariant: (gameAssetVariant: GameAssetVariant) => Promise<LauncherUserSettings>;
+    setBackupsEnabled: (backupsEnabled: boolean) => Promise<LauncherUserSettings>;
+    setAutoBackupLimit: (autoBackupLimit: AutoBackupLimit) => Promise<LauncherUserSettings>;
+    setAutoBackupCooldown: (autoBackupCooldown: AutoBackupCooldown) => Promise<LauncherUserSettings>;
+    setManualBackupRotationLimit: (manualBackupRotationLimit: BackupRotationLimit) => Promise<LauncherUserSettings>;
     onChanged: (callback: (settings: LauncherUserSettings) => void) => () => void;
 };
 
@@ -83,9 +100,16 @@ type GameApi = {
     stop: () => Promise<StopGameResult>;
     openInstallFolder: (installId: string) => Promise<OpenGameFolderResult>;
     openSavesFolder: (installId: string) => Promise<OpenGameFolderResult>;
+    createManualBackup: (options?: CreateManualBackupOptions) => Promise<CreateGameBackupResult>;
+    restoreBackup: (backupId: string) => Promise<RestoreGameBackupResult>;
+    deleteBackup: (backupId: string) => Promise<DeleteGameBackupResult>;
+    renameBackup: (backupId: string, comment: string) => Promise<RenameGameBackupResult>;
     onInstallProgress: (callback: (progress: GameInstallProgress) => void) => () => void;
     onRuntimeChanged: (callback: (runtime: GameRuntimeState) => void) => () => void;
     onSaveSummaryChanged: (callback: (update: GameSaveSummaryUpdate) => void) => () => void;
+    onSaveActivityChanged: (callback: (update: GameSaveActivityUpdate) => void) => () => void;
+    onBackupProgress: (callback: (progress: GameBackupProgress) => void) => () => void;
+    onBackupSummaryChanged: (callback: (update: GameBackupSummaryUpdate) => void) => () => void;
 };
 
 type AppApi = {

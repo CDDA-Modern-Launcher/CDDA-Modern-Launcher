@@ -1,9 +1,11 @@
-import { ActionIcon, Alert, Anchor, Badge, Box, Button, Card, Checkbox, Divider, Drawer, Group, Loader, Menu, Modal, Progress, Stack, Text, Title, Tooltip } from "@mantine/core";
+import { ActionIcon, Alert, Anchor, Badge, Box, Button, Card, Checkbox, Divider, Drawer, Group, Loader, Menu, Modal, Progress, Stack, Text, TextInput, Title, Tooltip } from "@mantine/core";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { type GameBackup, type GameBackupProgress, type GameBackupSummary, type GameBackupSummaryUpdate } from "../../../shared/backups";
 import { findGameChannel, getEffectiveGameChannels, getGameChannelRepositoryUrl } from "../../../shared/gameChannels";
 import { GameInstall, GameInstallProgress, GameInstallState, GameRelease, GameRuntimeState, GameSaveSummaryUpdate, GameWorldInfo, InstallGameOptions } from "../../../shared/gameInstallations";
 import { REPOSITORY_CONFIG_FILE_NAME, RepositoryStatus } from "../../../shared/repository";
+import { useLauncherSettings } from "../hooks/useLauncherSettings";
 import { useLocalization } from "../localization/LocalizationContext";
 
 export type RepositoryGateProps = { repository: RepositoryStatus; isSelecting: boolean; onSelectRepository: () => void };
@@ -83,8 +85,12 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
     const selectedChannel = findGameChannel(channels, repository.config.selectedChannelId);
     const [gameState, setGameState] = useState<GameInstallState>({ status: "loading" });
     const [installProgress, setInstallProgress] = useState<GameInstallProgress>({ status: "idle" });
+    const [backupProgress, setBackupProgress] = useState<GameBackupProgress>({ status: "idle" });
+    const [backupSummary, setBackupSummary] = useState<GameBackupSummary>({ backups: [], latestBackup: null });
     const [runtime, setRuntime] = useState<GameRuntimeState>({ status: "idle" });
     const [versionsOpened, setVersionsOpened] = useState(false);
+    const [backupsOpened, setBackupsOpened] = useState(false);
+    const [deleteBackupTarget, setDeleteBackupTarget] = useState<GameBackup | null>(null);
     const [isInstalling, setInstalling] = useState(false);
     const [isCheckingLatest, setCheckingLatest] = useState(false);
     const [copyUserdata, setCopyUserdata] = useState(false);
@@ -94,6 +100,7 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
     const [availableReleases, setAvailableReleases] = useState<GameRelease[]>([]);
     const [isLoadingReleaseNotes, setLoadingReleaseNotes] = useState(false);
     const previousRuntimeStatus = useRef<GameRuntimeState["status"]>("idle");
+    const launcherSettings = useLauncherSettings();
     const installedIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.installs.map((install) => install.id) : []), [gameState]);
 
     const refreshGameState = async (refreshLatest = true, forceRefresh = false): Promise<void> => {
@@ -101,6 +108,7 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
         try {
             const nextState = await window.api.game.getState({ refreshLatest, forceRefresh });
             setGameState(nextState);
+            if (nextState.status === "ready") setBackupSummary(nextState.backups);
             if (nextState.status !== "ready" || !nextState.updateAvailable) setAvailableReleases([]);
         } catch (error) {
             setGameState({ status: "error", message: error instanceof Error ? error.message : String(error) });
@@ -112,10 +120,24 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
     useEffect(() => {
         const unsubscribeProgress = window.api.game.onInstallProgress(setInstallProgress);
         const unsubscribeRuntime = window.api.game.onRuntimeChanged(setRuntime);
+        const unsubscribeBackupProgress = window.api.game.onBackupProgress(setBackupProgress);
+        const unsubscribeBackups = window.api.game.onBackupSummaryChanged((update: GameBackupSummaryUpdate) => {
+            setGameState((currentState) => {
+                if (currentState.status !== "ready" || currentState.activeInstall?.id !== update.installId) return currentState;
+                return { ...currentState, backups: update.summary };
+            });
+            setBackupSummary(update.summary);
+        });
         const unsubscribeSaves = window.api.game.onSaveSummaryChanged((update: GameSaveSummaryUpdate) => {
             setGameState((currentState) => {
                 if (currentState.status !== "ready" || currentState.activeInstall?.id !== update.installId) return currentState;
                 return { ...currentState, saves: update.saves };
+            });
+        });
+        const unsubscribeSaveActivity = window.api.game.onSaveActivityChanged((update) => {
+            setGameState((currentState) => {
+                if (currentState.status !== "ready" || currentState.activeInstall?.id !== update.installId) return currentState;
+                return { ...currentState, savesStable: update.stable };
             });
         });
         window.api.game
@@ -126,6 +148,9 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
             unsubscribeProgress();
             unsubscribeRuntime();
             unsubscribeSaves();
+            unsubscribeSaveActivity();
+            unsubscribeBackupProgress();
+            unsubscribeBackups();
         };
     }, []);
 
@@ -182,6 +207,7 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
     const saveSummary = gameState.status === "ready" ? gameState.saves : null;
     const worlds = saveSummary?.worlds ?? [];
     const currentWorld = saveSummary?.currentWorld ?? null;
+    const savesStable = gameState.status !== "ready" || gameState.savesStable;
 
     const launchGame = async (worldName?: string): Promise<void> => {
         const result = await window.api.game.launchActiveInstall(worldName === undefined ? {} : { worldName });
@@ -193,6 +219,38 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
         const result = await window.api.game.stop();
         setRuntime(result.runtime);
         if (result.status === "error") setGameState({ status: "error", message: result.message });
+    };
+
+    const createBackup = async (worldName?: string): Promise<void> => {
+        const result = await window.api.game.createManualBackup(worldName === undefined ? {} : { worldName });
+        if (result.status === "created") setBackupSummary(result.summary);
+        else if (result.status === "error") setGameState({ status: "error", message: result.message });
+        else if (result.status === "blocked") console.info(`[game-backup] ${result.message}`);
+    };
+
+    const restoreBackup = async (backupId: string): Promise<void> => {
+        const result = await window.api.game.restoreBackup(backupId);
+        if (result.status === "restored") {
+            setBackupSummary(result.summary);
+            await refreshGameState(false);
+        } else if (result.status === "error") setGameState({ status: "error", message: result.message });
+    };
+
+    const deleteBackup = async (backupId: string): Promise<void> => {
+        const result = await window.api.game.deleteBackup(backupId);
+        if (result.status === "deleted") setBackupSummary(result.summary);
+        else if (result.status === "error") setGameState({ status: "error", message: result.message });
+    };
+
+    const requestDeleteBackup = (backup: GameBackup, skipConfirmation: boolean): void => {
+        if (skipConfirmation) void deleteBackup(backup.id);
+        else setDeleteBackupTarget(backup);
+    };
+
+    const renameBackup = async (backupId: string, comment: string): Promise<void> => {
+        const result = await window.api.game.renameBackup(backupId, comment);
+        if (result.status === "renamed") setBackupSummary(result.summary);
+        else if (result.status === "error") setGameState({ status: "error", message: result.message });
     };
 
     const showUpdateChanges = async (): Promise<void> => {
@@ -228,6 +286,23 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
                 onRemoveOldVersions={setRemoveOldVersions}
                 onCancel={() => setInstallModalRelease(null)}
                 onConfirm={confirmInstall}
+            />
+            <DeleteBackupModal
+                backup={deleteBackupTarget}
+                onCancel={() => setDeleteBackupTarget(null)}
+                onConfirm={(backupId) => {
+                    setDeleteBackupTarget(null);
+                    void deleteBackup(backupId);
+                }}
+            />
+            <BackupsDrawer
+                opened={backupsOpened}
+                summary={backupSummary}
+                gameRunning={gameRunning}
+                onClose={() => setBackupsOpened(false)}
+                onRestore={restoreBackup}
+                onDelete={requestDeleteBackup}
+                onRename={renameBackup}
             />
             <VersionsDrawer
                 opened={versionsOpened}
@@ -332,17 +407,39 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
                                 onShowUpdateChanges={() => void showUpdateChanges()}
                             />
                         )}
-                        <Group grow>
-                            <Button
-                                size="md"
-                                color={gameRunning ? "orange" : "green"}
-                                disabled={activeInstall === null}
-                                leftSection={gameRunning ? "■" : "▶"}
-                                onClick={() => void (gameRunning ? stopGame() : launchGame())}
-                            >
-                                {gameRunning ? t("home.action.stop") : t("home.action.play")}
-                            </Button>
-                            <LastWorldButton activeInstallAvailable={activeInstall !== null} gameRunning={gameRunning} worlds={worlds} currentWorld={currentWorld} onLaunch={launchGame} />
+                        <BackupStrip
+                            enabled={launcherSettings.backupsEnabled}
+                            activeInstallAvailable={activeInstall !== null}
+                            progress={backupProgress}
+                            latestBackup={backupSummary.latestBackup}
+                            gameRunning={gameRunning}
+                            onOpenBackups={() => setBackupsOpened(true)}
+                            onRestore={restoreBackup}
+                            onDelete={requestDeleteBackup}
+                            onRename={renameBackup}
+                        />
+                        <Group justify="space-between" align="center" wrap="nowrap">
+                            <Group gap="xs" wrap="wrap">
+                                <Button
+                                    size="md"
+                                    color={gameRunning ? "orange" : "green"}
+                                    disabled={activeInstall === null}
+                                    leftSection={gameRunning ? "■" : "▶"}
+                                    onClick={() => void (gameRunning ? stopGame() : launchGame())}
+                                >
+                                    {gameRunning ? t("home.action.stop") : t("home.action.play")}
+                                </Button>
+                                <LastWorldButton activeInstallAvailable={activeInstall !== null} gameRunning={gameRunning} worlds={worlds} currentWorld={currentWorld} onLaunch={launchGame} />
+                            </Group>
+                            <BackupCreateButton
+                                enabled={launcherSettings.backupsEnabled}
+                                activeInstallAvailable={activeInstall !== null}
+                                worlds={worlds}
+                                currentWorld={currentWorld}
+                                savesStable={savesStable}
+                                backupBusy={backupProgress.status === "creating" || backupProgress.status === "restoring"}
+                                onCreate={createBackup}
+                            />
                         </Group>
                     </Stack>
                 </Card>
@@ -362,8 +459,7 @@ function getSaveStatusText(t: ReturnType<typeof useLocalization>["t"], activeIns
     if (worldCount === 0) return t("home.saveStatus.noWorlds");
     if (world === null) return t("home.saveStatus.multipleWorlds", { count: worldCount.toString() });
     const character = world.characterName ?? t("home.world.unknown");
-    const modifiedAt = world.modifiedAt ?? t("home.world.unknown");
-    return t("home.saveStatus.singleWorld", { world: world.name, character, modifiedAt });
+    return t("home.saveStatus.singleWorld", { world: world.name, character });
 }
 
 function LastWorldButton({
@@ -416,6 +512,292 @@ function LastWorldButton({
                 ))}
             </Menu.Dropdown>
         </Menu>
+    );
+}
+
+function BackupCreateButton({
+    enabled,
+    activeInstallAvailable,
+    worlds,
+    currentWorld,
+    savesStable,
+    backupBusy,
+    onCreate
+}: {
+    enabled: boolean;
+    activeInstallAvailable: boolean;
+    worlds: GameWorldInfo[];
+    currentWorld: GameWorldInfo | null;
+    savesStable: boolean;
+    backupBusy: boolean;
+    onCreate: (worldName?: string) => Promise<void>;
+}): React.JSX.Element {
+    const { t } = useLocalization();
+    const backupableWorlds = worlds.filter((world) => world.characterName !== null);
+    const disabled = !enabled || !activeInstallAvailable || backupableWorlds.length === 0 || !savesStable || backupBusy;
+    const tooltip = getBackupButtonTooltip(t, enabled, activeInstallAvailable, backupableWorlds.length, savesStable, backupBusy);
+    const icon = (
+        <ActionIcon size={42} variant="light" disabled={disabled} aria-label={t("home.backup.createTooltip")}>
+            💾
+        </ActionIcon>
+    );
+
+    if (backupableWorlds.length <= 1) {
+        return (
+            <Tooltip label={tooltip}>
+                <ActionIcon size={42} variant="light" disabled={disabled} onClick={() => void onCreate(backupableWorlds[0]?.name)} aria-label={t("home.backup.createTooltip")}>
+                    💾
+                </ActionIcon>
+            </Tooltip>
+        );
+    }
+
+    return (
+        <Menu shadow="md" width={320} position="top-end" disabled={disabled}>
+            <Menu.Target>
+                <Tooltip label={tooltip}>{icon}</Tooltip>
+            </Menu.Target>
+            <Menu.Dropdown>
+                <Menu.Label>{t("home.world.selectWorld")}</Menu.Label>
+                {backupableWorlds.map((world) => (
+                    <Menu.Item key={world.folderName} onClick={() => void onCreate(world.name)} rightSection={world.folderName === currentWorld?.folderName ? "✓" : undefined}>
+                        <Stack gap={0}>
+                            <Text size="sm">{world.name}</Text>
+                            <Text size="xs" c="dimmed">
+                                {t("home.world.character", { character: world.characterName ?? t("home.world.unknown") })}
+                            </Text>
+                        </Stack>
+                    </Menu.Item>
+                ))}
+            </Menu.Dropdown>
+        </Menu>
+    );
+}
+
+function getBackupButtonTooltip(t: ReturnType<typeof useLocalization>["t"], enabled: boolean, activeInstallAvailable: boolean, backupableWorldCount: number, savesStable: boolean, backupBusy: boolean): string {
+    if (!enabled) return t("home.backup.disabledTooltip");
+    if (!activeInstallAvailable) return t("home.backup.noInstallTooltip");
+    if (backupableWorldCount === 0) return t("home.backup.noSaveTooltip");
+    if (!savesStable) return t("home.backup.savingTooltip");
+    if (backupBusy) return t("home.backup.busyTooltip");
+    return t("home.backup.createTooltip");
+}
+
+function BackupStrip(props: {
+    enabled: boolean;
+    activeInstallAvailable: boolean;
+    progress: GameBackupProgress;
+    latestBackup: GameBackup | null;
+    gameRunning: boolean;
+    onOpenBackups: () => void;
+    onRestore: (backupId: string) => Promise<void>;
+    onDelete: (backup: GameBackup, skipConfirmation: boolean) => void;
+    onRename: (backupId: string, comment: string) => Promise<void>;
+}): React.JSX.Element | null {
+    const { t } = useLocalization();
+    if (!props.enabled || !props.activeInstallAvailable) return null;
+    if (props.progress.status === "idle" && props.latestBackup === null) return null;
+
+    if (props.progress.status === "creating" || props.progress.status === "restoring") {
+        return (
+            <Card withBorder radius="md" p="sm" className="backup-strip">
+                <Stack gap="xs">
+                    <Group justify="space-between" gap="sm">
+                        <Text size="sm" fw={700}>
+                            {props.progress.status === "creating" ? t("backup.progress.creating") : t("backup.progress.restoring")}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                            {props.progress.percent === null ? t("backup.progress.preparing") : `${props.progress.percent}%`}
+                        </Text>
+                    </Group>
+                    <Progress value={props.progress.percent ?? 100} animated={props.progress.percent === null} />
+                </Stack>
+            </Card>
+        );
+    }
+
+    const backup = props.latestBackup;
+    if (backup === null) return null;
+    const restoreDisabled = props.gameRunning;
+
+    return (
+        <Card withBorder radius="md" p="sm" className="backup-strip">
+            <Group justify="space-between" gap="sm" wrap="nowrap" align="flex-start">
+                <Stack gap={4} className="backup-strip__text">
+                    <Group gap="xs" wrap="wrap">
+                        <Text size="sm" fw={700}>
+                            {backup.comment.trim().length === 0 ? t("backup.latest.title") : backup.comment}
+                        </Text>
+                        <Badge size="xs" variant="light">
+                            {backup.type === "manual" ? t("backup.type.manual") : t("backup.type.auto")}
+                        </Badge>
+                    </Group>
+                    <Text size="xs" c="dimmed">
+                        {t("backup.latest.worldAndCharacter", {
+                            world: backup.worldName,
+                            character: backup.characterName
+                        })}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                        {t("backup.latest.createdAt", { createdAt: formatBackupTimestamp(backup.createdAt) ?? t("home.world.unknown") })}
+                    </Text>
+                </Stack>
+                <Stack gap={4} align="flex-end" className="backup-strip__actions">
+                    <Group gap="xs" wrap="nowrap">
+                        <Tooltip label={restoreDisabled ? t("backup.action.restoreBlockedRunning") : t("backup.action.restoreTooltip")}>
+                            <Button size="xs" variant="light" disabled={restoreDisabled} onClick={() => void props.onRestore(backup.id)}>
+                                {t("backup.action.restore")}
+                            </Button>
+                        </Tooltip>
+                        <RenameBackupButton backup={backup} onRename={props.onRename} />
+                    </Group>
+                    <Group gap="xs" wrap="nowrap">
+                        <Button size="xs" variant="subtle" onClick={props.onOpenBackups}>
+                            {t("backup.action.manage")}
+                        </Button>
+                        <Button size="xs" variant="subtle" color="red" onClick={(event) => props.onDelete(backup, event.shiftKey)}>
+                            {t("backup.action.delete")}
+                        </Button>
+                    </Group>
+                </Stack>
+            </Group>
+        </Card>
+    );
+}
+
+function DeleteBackupModal({ backup, onCancel, onConfirm }: { backup: GameBackup | null; onCancel: () => void; onConfirm: (backupId: string) => void }): React.JSX.Element {
+    const { t } = useLocalization();
+    return (
+        <Modal opened={backup !== null} onClose={onCancel} title={<Title order={4}>{t("backup.delete.title")}</Title>} centered zIndex={3000}>
+            <Stack gap="md">
+                <Text size="sm">
+                    {backup === null
+                        ? ""
+                        : t("backup.delete.description", {
+                              title: backup.comment.trim().length === 0 ? t("backup.latest.title") : backup.comment,
+                              world: backup.worldName,
+                              character: backup.characterName
+                          })}
+                </Text>
+                <Text size="xs" c="dimmed">
+                    {t("backup.delete.shiftHint")}
+                </Text>
+                <Group justify="flex-end" gap="xs">
+                    <Button variant="subtle" onClick={onCancel}>
+                        {t("common.cancel")}
+                    </Button>
+                    <Button color="red" onClick={() => backup !== null && onConfirm(backup.id)}>
+                        {t("backup.action.delete")}
+                    </Button>
+                </Group>
+            </Stack>
+        </Modal>
+    );
+}
+
+function RenameBackupButton({ backup, onRename }: { backup: GameBackup; onRename: (backupId: string, comment: string) => Promise<void> }): React.JSX.Element {
+    const { t } = useLocalization();
+    const [opened, setOpened] = useState(false);
+    const [value, setValue] = useState(backup.comment);
+
+    return (
+        <>
+            <Button
+                size="xs"
+                variant="subtle"
+                onClick={() => {
+                    setValue(backup.comment);
+                    setOpened(true);
+                }}
+            >
+                {t("backup.action.rename")}
+            </Button>
+            <Modal opened={opened} onClose={() => setOpened(false)} title={<Title order={4}>{t("backup.rename.title")}</Title>} centered zIndex={3000}>
+                <form
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        setOpened(false);
+                        void onRename(backup.id, value);
+                    }}
+                >
+                    <Stack gap="md">
+                        <TextInput label={t("backup.rename.label")} value={value} onChange={(event) => setValue(event.currentTarget.value)} data-autofocus />
+                        <Text size="xs" c="dimmed">
+                            {t("backup.rename.description")}
+                        </Text>
+                        <Group justify="flex-end" gap="xs">
+                            <Button variant="subtle" onClick={() => setOpened(false)}>
+                                {t("common.cancel")}
+                            </Button>
+                            <Button type="submit">{t("backup.action.save")}</Button>
+                        </Group>
+                    </Stack>
+                </form>
+            </Modal>
+        </>
+    );
+}
+
+function BackupsDrawer(props: {
+    opened: boolean;
+    summary: GameBackupSummary;
+    gameRunning: boolean;
+    onClose: () => void;
+    onRestore: (backupId: string) => Promise<void>;
+    onDelete: (backup: GameBackup, skipConfirmation: boolean) => void;
+    onRename: (backupId: string, comment: string) => Promise<void>;
+}): React.JSX.Element {
+    const { t } = useLocalization();
+    return (
+        <Drawer opened={props.opened} onClose={props.onClose} position="right" size={520} title={<Title order={3}>{t("backups.title")}</Title>}>
+            <Stack gap="md">
+                <Text size="sm" c="dimmed">
+                    {t("backups.description")}
+                </Text>
+                {props.summary.backups.length === 0 ? (
+                    <Alert variant="light" color="gray" title={t("backups.empty.title")}>
+                        <Text size="sm">{t("backups.empty.description")}</Text>
+                    </Alert>
+                ) : (
+                    props.summary.backups.map((backup) => (
+                        <Card key={backup.id} withBorder radius="md" p="sm">
+                            <Group justify="space-between" align="flex-start" gap="sm" wrap="nowrap">
+                                <Stack gap={2} className="backup-drawer-item__text">
+                                    <Group gap="xs">
+                                        <Text size="sm" fw={700} truncate>
+                                            {backup.comment.trim().length === 0 ? t("backup.latest.title") : backup.comment}
+                                        </Text>
+                                        <Badge size="xs" variant="light">
+                                            {backup.type === "manual" ? t("backup.type.manual") : t("backup.type.auto")}
+                                        </Badge>
+                                    </Group>
+                                    <Text size="xs" c="dimmed">
+                                        {t("backup.latest.worldAndCharacter", {
+                                            world: backup.worldName,
+                                            character: backup.characterName
+                                        })}
+                                    </Text>
+                                    <Text size="xs" c="dimmed">
+                                        {t("backup.latest.createdAt", { createdAt: formatBackupTimestamp(backup.createdAt) ?? t("home.world.unknown") })}
+                                    </Text>
+                                </Stack>
+                                <Stack gap={4} align="stretch" className="backup-drawer-item__actions">
+                                    <Tooltip label={props.gameRunning ? t("backup.action.restoreBlockedRunning") : t("backup.action.restoreTooltip")}>
+                                        <Button size="xs" disabled={props.gameRunning} onClick={() => void props.onRestore(backup.id)}>
+                                            {t("backup.action.restore")}
+                                        </Button>
+                                    </Tooltip>
+                                    <RenameBackupButton backup={backup} onRename={props.onRename} />
+                                    <Button size="xs" variant="subtle" color="red" onClick={(event) => props.onDelete(backup, event.shiftKey)}>
+                                        {t("backup.action.delete")}
+                                    </Button>
+                                </Stack>
+                            </Group>
+                        </Card>
+                    ))
+                )}
+            </Stack>
+        </Drawer>
     );
 }
 
@@ -1006,6 +1388,18 @@ function formatBytes(value: number): string {
     if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
     if (value < 1024 * 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
     return `${(value / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function formatBackupTimestamp(value: string | null): string | null {
+    if (value === null) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    const year = date.getFullYear().toString().padStart(4, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
+    const hour = date.getHours().toString().padStart(2, "0");
+    const minute = date.getMinutes().toString().padStart(2, "0");
+    return `${year}-${month}-${day} ${hour}:${minute}`;
 }
 
 function formatDate(value: string): string {

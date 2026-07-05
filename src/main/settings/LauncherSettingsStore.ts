@@ -4,18 +4,18 @@ import { dirname, join } from "node:path";
 import { app } from "electron";
 
 import { AppTheme } from "../../shared/appearance";
-import {
-    DEFAULT_GAME_ASSET_VARIANT,
-    isGameAssetVariant,
-    type GameAssetVariant,
-    type LauncherUserSettings
-} from "../../shared/gameAssetVariants";
+import { type AutoBackupCooldown, type AutoBackupLimit, type BackupRotationLimit, DEFAULT_BACKUP_SETTINGS, isAutoBackupCooldown, isAutoBackupLimit, isBackupRotationLimit } from "../../shared/backups";
+import { DEFAULT_GAME_ASSET_VARIANT, type GameAssetVariant, isGameAssetVariant, type LauncherUserSettings } from "../../shared/gameAssetVariants";
 
 type LauncherSettings = {
     repositoryPath?: string;
     locale?: string;
     theme?: AppTheme;
     gameAssetVariant?: GameAssetVariant;
+    backupsEnabled?: boolean;
+    autoBackupLimit?: AutoBackupLimit;
+    manualBackupRotationLimit?: BackupRotationLimit;
+    autoBackupCooldown?: AutoBackupCooldown;
 };
 
 export class LauncherSettingsStore {
@@ -61,9 +61,53 @@ export class LauncherSettingsStore {
         await this.writeSettings({ ...settings, gameAssetVariant });
     }
 
+    async getBackupsEnabled(): Promise<boolean> {
+        const settings = await this.readSettings();
+        return typeof settings.backupsEnabled === "boolean" ? settings.backupsEnabled : DEFAULT_BACKUP_SETTINGS.backupsEnabled;
+    }
+
+    async setBackupsEnabled(backupsEnabled: boolean): Promise<void> {
+        const settings = await this.readSettings();
+        await this.writeSettings({ ...settings, backupsEnabled });
+    }
+
+    async getAutoBackupLimit(): Promise<AutoBackupLimit> {
+        const settings = await this.readSettings();
+        return isAutoBackupLimit(settings.autoBackupLimit) ? settings.autoBackupLimit : DEFAULT_BACKUP_SETTINGS.autoBackupLimit;
+    }
+
+    async setAutoBackupLimit(autoBackupLimit: AutoBackupLimit): Promise<void> {
+        const settings = await this.readSettings();
+        await this.writeSettings({ ...settings, autoBackupLimit });
+    }
+
+    async getAutoBackupCooldown(): Promise<AutoBackupCooldown> {
+        const settings = await this.readSettings();
+        return isAutoBackupCooldown(settings.autoBackupCooldown) ? settings.autoBackupCooldown : DEFAULT_BACKUP_SETTINGS.autoBackupCooldown;
+    }
+
+    async setAutoBackupCooldown(autoBackupCooldown: AutoBackupCooldown): Promise<void> {
+        const settings = await this.readSettings();
+        await this.writeSettings({ ...settings, autoBackupCooldown });
+    }
+
+    async getManualBackupRotationLimit(): Promise<BackupRotationLimit> {
+        const settings = await this.readSettings();
+        return isBackupRotationLimit(settings.manualBackupRotationLimit) ? settings.manualBackupRotationLimit : DEFAULT_BACKUP_SETTINGS.manualBackupRotationLimit;
+    }
+
+    async setManualBackupRotationLimit(manualBackupRotationLimit: BackupRotationLimit): Promise<void> {
+        const settings = await this.readSettings();
+        await this.writeSettings({ ...settings, manualBackupRotationLimit });
+    }
+
     async getUserSettings(): Promise<LauncherUserSettings> {
         return {
-            gameAssetVariant: await this.getGameAssetVariant()
+            gameAssetVariant: await this.getGameAssetVariant(),
+            backupsEnabled: await this.getBackupsEnabled(),
+            autoBackupLimit: await this.getAutoBackupLimit(),
+            manualBackupRotationLimit: await this.getManualBackupRotationLimit(),
+            autoBackupCooldown: await this.getAutoBackupCooldown()
         };
     }
 
