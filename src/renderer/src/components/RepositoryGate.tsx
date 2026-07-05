@@ -2,7 +2,7 @@ import { ActionIcon, Alert, Anchor, Badge, Box, Button, Card, Checkbox, Divider,
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { findGameChannel, getEffectiveGameChannels, getGameChannelRepositoryUrl } from "../../../shared/gameChannels";
-import { GameInstall, GameInstallProgress, GameInstallState, GameRelease, GameRuntimeState, GameWorldInfo, InstallGameOptions } from "../../../shared/gameInstallations";
+import { GameInstall, GameInstallProgress, GameInstallState, GameRelease, GameRuntimeState, GameSaveSummaryUpdate, GameWorldInfo, InstallGameOptions } from "../../../shared/gameInstallations";
 import { REPOSITORY_CONFIG_FILE_NAME, RepositoryStatus } from "../../../shared/repository";
 import { useLocalization } from "../localization/LocalizationContext";
 
@@ -112,6 +112,12 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
     useEffect(() => {
         const unsubscribeProgress = window.api.game.onInstallProgress(setInstallProgress);
         const unsubscribeRuntime = window.api.game.onRuntimeChanged(setRuntime);
+        const unsubscribeSaves = window.api.game.onSaveSummaryChanged((update: GameSaveSummaryUpdate) => {
+            setGameState((currentState) => {
+                if (currentState.status !== "ready" || currentState.activeInstall?.id !== update.installId) return currentState;
+                return { ...currentState, saves: update.saves };
+            });
+        });
         window.api.game
             .getRuntimeState()
             .then(setRuntime)
@@ -119,6 +125,7 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
         return () => {
             unsubscribeProgress();
             unsubscribeRuntime();
+            unsubscribeSaves();
         };
     }, []);
 

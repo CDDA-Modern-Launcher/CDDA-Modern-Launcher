@@ -61,6 +61,11 @@ export type GameSaveSummary = {
     currentWorld: GameWorldInfo | null;
 };
 
+export type GameSaveSummaryUpdate = {
+    installId: string;
+    saves: GameSaveSummary;
+};
+
 export type GameRuntimeState = { status: "idle" } | { status: "running"; pid: number; installId: string; worldName: string | null };
 
 export type LaunchGameOptions = {

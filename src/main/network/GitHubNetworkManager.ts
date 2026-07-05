@@ -78,16 +78,20 @@ export class GitHubNetworkManager {
 
     private async fetchWithLogging(url: string, init?: NetworkRequestInit): Promise<Response> {
         const requestInit = withGitHubDefaults(init);
-        console.info("[github] request", { method: requestInit.method ?? "GET", url });
-        const response = await fetch(url, requestInit);
-        console.info("[github] response", {
-            status: response.status,
-            statusText: response.statusText,
-            remaining: response.headers.get("x-ratelimit-remaining"),
-            reset: response.headers.get("x-ratelimit-reset"),
-            url
-        });
-        return response;
+        const method = requestInit.method ?? "GET";
+        const startedAt = Date.now();
+        try {
+            const response = await fetch(url, requestInit);
+            const durationMs = Date.now() - startedAt;
+            console.info(
+                `[github] ${method} ${response.status} ${response.statusText} remaining=${response.headers.get("x-ratelimit-remaining") ?? "?"} reset=${response.headers.get("x-ratelimit-reset") ?? "?"} durationMs=${durationMs} url=${url}`
+            );
+            return response;
+        } catch (error) {
+            const durationMs = Date.now() - startedAt;
+            console.error(`[github] ${method} failed durationMs=${durationMs} url=${url}`, error);
+            throw error;
+        }
     }
 }
 

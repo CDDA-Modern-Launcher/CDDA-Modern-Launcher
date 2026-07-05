@@ -8,6 +8,7 @@ import {
     GameInstallState,
     GameRelease,
     GameRuntimeState,
+    GameSaveSummaryUpdate,
     InstallGameOptions,
     InstallGameResult,
     LaunchGameOptions,
@@ -77,6 +78,7 @@ type GameApi = {
     openSavesFolder: (installId: string) => Promise<OpenGameFolderResult>;
     onInstallProgress: (callback: (progress: GameInstallProgress) => void) => () => void;
     onRuntimeChanged: (callback: (runtime: GameRuntimeState) => void) => () => void;
+    onSaveSummaryChanged: (callback: (update: GameSaveSummaryUpdate) => void) => () => void;
 };
 
 type AppApi = {

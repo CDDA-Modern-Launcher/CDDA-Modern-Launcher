@@ -3,7 +3,7 @@ import type { IpcRendererEvent } from "electron";
 import { contextBridge, ipcRenderer } from "electron";
 
 import { AppAppearance, AppTheme } from "../shared/appearance";
-import { DeleteGameInstallOptions, GameInstallProgress, GameRuntimeState, InstallGameOptions, LaunchGameOptions } from "../shared/gameInstallations";
+import { DeleteGameInstallOptions, GameInstallProgress, GameRuntimeState, GameSaveSummaryUpdate, InstallGameOptions, LaunchGameOptions } from "../shared/gameInstallations";
 import { LocalizationBundle } from "../shared/localization";
 import { RepositoryStatus, SelectRepositoryResult } from "../shared/repository";
 
@@ -91,6 +91,15 @@ const gameApi = {
 
         return () => {
             ipcRenderer.removeListener("game:runtime-changed", listener);
+        };
+    },
+    onSaveSummaryChanged: (callback: (update: GameSaveSummaryUpdate) => void) => {
+        const listener = (_event: IpcRendererEvent, update: GameSaveSummaryUpdate): void => callback(update);
+
+        ipcRenderer.on("game:save-summary-changed", listener);
+
+        return () => {
+            ipcRenderer.removeListener("game:save-summary-changed", listener);
         };
     }
 };

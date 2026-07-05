@@ -19,6 +19,7 @@ import {
     GameRelease,
     GameRuntimeState,
     GameSaveSummary,
+    GameSaveSummaryUpdate,
     GameWorldInfo,
     INSTALL_MANIFEST_FILE_NAME,
     InstallGameOptions,
@@ -34,6 +35,7 @@ import {
 import { RepositoryConfig } from "../../shared/repository";
 import { GitHubNetworkManager } from "../network/GitHubNetworkManager";
 import { LocalRepositoryService } from "../repository/LocalRepositoryService";
+import { GameSaveMonitor, type GameSaveSettledActivity } from "./GameSaveMonitor";
 
 const WINDOWS_EXECUTABLE_CANDIDATES = ["cataclysm-tiles.exe", "cataclysm.exe", "cataclysm-launcher.exe"];
 const POSIX_EXECUTABLE_CANDIDATES = ["cataclysm-tiles", "cataclysm"];
@@ -60,6 +62,10 @@ export class GameInstallationService {
     private readonly gitHubNetwork = new GitHubNetworkManager();
     private runtimeListeners = new Set<(runtime: GameRuntimeState) => void>();
     private progressListeners = new Set<(progress: GameInstallProgress) => void>();
+    private saveSummaryListeners = new Set<(update: GameSaveSummaryUpdate) => void>();
+    private activeSaveMonitor: GameSaveMonitor | null = null;
+    private activeSaveMonitorInstallId: string | null = null;
+    private readonly preferredWorldByInstallId = new Map<string, string | null>();
 
     constructor(private readonly repositoryService: LocalRepositoryService) {}
 
@@ -73,6 +79,11 @@ export class GameInstallationService {
         this.runtimeListeners.add(listener);
         listener(this.runtime);
         return () => this.runtimeListeners.delete(listener);
+    }
+
+    onSaveSummaryChanged(listener: (update: GameSaveSummaryUpdate) => void): () => void {
+        this.saveSummaryListeners.add(listener);
+        return () => this.saveSummaryListeners.delete(listener);
     }
 
     async getState(refreshLatest = false, forceRefresh = false): Promise<GameInstallState> {
@@ -93,6 +104,8 @@ export class GameInstallationService {
             }
         }
 
+        await this.updateActiveSaveMonitor(activeInstall);
+
         return {
             status: "ready",
             repositoryPath: repository.path,
@@ -102,7 +115,7 @@ export class GameInstallationService {
             latestRelease,
             latestReleaseError,
             updateAvailable: latestRelease !== null && activeInstall !== null && latestRelease.id !== activeInstall.id,
-            saves: activeInstall === null ? null : await readSaveSummary(activeInstall.userdataPath),
+            saves: activeInstall === null ? null : await readSaveSummary(activeInstall.userdataPath, this.preferredWorldByInstallId.get(activeInstall.id) ?? null),
             runtime: this.runtime
         };
     }
@@ -242,6 +255,52 @@ export class GameInstallationService {
         return runtime;
     }
 
+    private emitSaveSummaryChanged(update: GameSaveSummaryUpdate): void {
+        for (const listener of this.saveSummaryListeners) listener(update);
+    }
+
+    private async updateActiveSaveMonitor(activeInstall: GameInstall | null): Promise<void> {
+        if (activeInstall === null) {
+            this.stopActiveSaveMonitor();
+            return;
+        }
+        if (this.activeSaveMonitorInstallId === activeInstall.id) return;
+        this.stopActiveSaveMonitor();
+        const installId = activeInstall.id;
+        const monitor = new GameSaveMonitor({
+            userdataPath: activeInstall.userdataPath,
+            onSettled: (activity) => this.processSettledSaveActivity(installId, activity)
+        });
+        this.activeSaveMonitor = monitor;
+        this.activeSaveMonitorInstallId = installId;
+        await monitor.start();
+    }
+
+    private stopActiveSaveMonitor(): void {
+        this.activeSaveMonitor?.stop();
+        this.activeSaveMonitor = null;
+        this.activeSaveMonitorInstallId = null;
+    }
+
+    private async processSettledSaveActivity(installId: string, activity: GameSaveSettledActivity): Promise<void> {
+        console.info(`[game-save] refresh save summary installId=${installId} events=${activity.eventCount} changedPaths=${activity.changedPaths.length}`);
+        const state = await this.getState(false);
+        if (state.status !== "ready" || state.activeInstall?.id !== installId || state.saves === null) return;
+        const update: GameSaveSummaryUpdate = { installId, saves: state.saves };
+        this.emitSaveSummaryChanged(update);
+        this.queuePostSaveTasks(update);
+    }
+
+    private queuePostSaveTasks(update: GameSaveSummaryUpdate): void {
+        this.queueAutoBackupAfterSave(update);
+    }
+
+    private queueAutoBackupAfterSave(update: GameSaveSummaryUpdate): void {
+        void update;
+        // Backups are not implemented yet. Keep the post-save hook here so the future
+        // implementation can run after the world state refresh without touching the watcher.
+    }
+
     private async launchActiveInstallAsync(options: LaunchGameOptions): Promise<LaunchGameResult> {
         if (this.runtime.status === "running") return { status: "already-running", runtime: this.runtime };
         const state = await this.getState(false);
@@ -261,6 +320,8 @@ export class GameInstallationService {
         if (worldName !== undefined && worldName.length > 0) args.push("--world", worldName);
         const child = spawn(executablePath, args, { cwd: dirname(executablePath), stdio: "ignore" });
         this.gameProcess = child;
+        this.preferredWorldByInstallId.set(state.activeInstall.id, worldName ?? null);
+        await this.updateActiveSaveMonitor(state.activeInstall);
         const runtime = this.setRuntime({ status: "running", pid: child.pid ?? 0, installId: state.activeInstall.id, worldName: worldName ?? null });
         child.once("exit", () => {
             if (this.gameProcess === child) {
@@ -645,7 +706,7 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
     return error instanceof Error && "code" in error;
 }
 
-async function readSaveSummary(userdataPath: string): Promise<GameSaveSummary> {
+async function readSaveSummary(userdataPath: string, preferredWorldName: string | null = null): Promise<GameSaveSummary> {
     const savePath = join(userdataPath, "save");
     let entries: string[];
     try {
@@ -682,7 +743,8 @@ async function readSaveSummary(userdataPath: string): Promise<GameSaveSummary> {
         .filter((world): world is GameWorldInfo => world !== null)
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 
-    return { worlds, currentWorld: worlds.length === 1 ? worlds[0] : null };
+    const preferredWorld = preferredWorldName === null ? null : (worlds.find((world) => world.name === preferredWorldName || world.folderName === preferredWorldName) ?? null);
+    return { worlds, currentWorld: preferredWorld ?? (worlds.length === 1 ? worlds[0] : null) };
 }
 
 type CharacterSaveInfo = {
@@ -732,12 +794,28 @@ function decodeUnicodeEscapedPathSegment(value: string): string | null {
 
 function decodeCharacterName(fileName: string): string {
     const encoded = fileName.replace(/^#/, "").replace(/\.sav\.zzip$/i, "");
-    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = decodeCddaSaveFileName(encoded);
+    return decoded ?? encoded;
+}
+
+function decodeCddaSaveFileName(encoded: string): string | null {
+    const candidates = [encoded.replace(/-/g, "/").replace(/_/g, "/"), encoded.replace(/-/g, "+").replace(/_/g, "/"), encoded];
+
+    for (const candidate of candidates) {
+        const decoded = decodeBase64Utf8(candidate);
+        if (decoded !== null && !decoded.includes("�")) return decoded;
+    }
+
+    return null;
+}
+
+function decodeBase64Utf8(value: string): string | null {
     try {
-        const decoded = Buffer.from(normalized, "base64").toString("utf8").replace(/\0/g, "").trim();
-        return decoded.length > 0 ? decoded : encoded;
+        const padded = value.padEnd(value.length + ((4 - (value.length % 4)) % 4), "=");
+        const decoded = Buffer.from(padded, "base64").toString("utf8").replace(/\0/g, "").trim();
+        return decoded.length > 0 ? decoded : null;
     } catch {
-        return encoded;
+        return null;
     }
 }
 

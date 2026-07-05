@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain, shell } from "electron";
 
-import type { DeleteGameInstallOptions, InstallGameOptions, LaunchGameOptions, OpenGameFolderResult } from "../../shared/gameInstallations";
+import type { DeleteGameInstallOptions, GameSaveSummaryUpdate, InstallGameOptions, LaunchGameOptions, OpenGameFolderResult } from "../../shared/gameInstallations";
 import { GameInstallationService } from "./GameInstallationService";
 
 type GameStateRequest = boolean | { refreshLatest?: boolean; forceRefresh?: boolean } | undefined;
@@ -15,6 +15,12 @@ export function setupGameInstallationIpc(gameInstallationService: GameInstallati
     gameInstallationService.onRuntimeChanged((runtime) => {
         for (const window of BrowserWindow.getAllWindows()) {
             window.webContents.send("game:runtime-changed", runtime);
+        }
+    });
+
+    gameInstallationService.onSaveSummaryChanged((update: GameSaveSummaryUpdate) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+            window.webContents.send("game:save-summary-changed", update);
         }
     });
 
