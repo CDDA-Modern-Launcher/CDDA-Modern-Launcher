@@ -103,19 +103,25 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
     const launcherSettings = useLauncherSettings();
     const installedIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.installs.map((install) => install.id) : []), [gameState]);
 
-    const refreshGameState = async (refreshLatest = true, forceRefresh = false): Promise<void> => {
-        if (refreshLatest) setCheckingLatest(true);
-        try {
-            const nextState = await window.api.game.getState({ refreshLatest, forceRefresh });
-            setGameState(nextState);
-            if (nextState.status === "ready") setBackupSummary(nextState.backups);
-            if (nextState.status !== "ready" || !nextState.updateAvailable) setAvailableReleases([]);
-        } catch (error) {
-            setGameState({ status: "error", message: error instanceof Error ? error.message : String(error) });
-        } finally {
-            if (refreshLatest) setCheckingLatest(false);
-        }
-    };
+    const applyGameState = useCallback((nextState: GameInstallState): void => {
+        setGameState(nextState);
+        if (nextState.status === "ready") setBackupSummary(nextState.backups);
+        if (nextState.status !== "ready" || !nextState.updateAvailable) setAvailableReleases([]);
+    }, []);
+
+    const refreshGameState = useCallback(
+        async (refreshLatest = true, forceRefresh = false): Promise<void> => {
+            if (refreshLatest) setCheckingLatest(true);
+            try {
+                applyGameState(await window.api.game.getState({ refreshLatest, forceRefresh }));
+            } catch (error) {
+                setGameState({ status: "error", message: error instanceof Error ? error.message : String(error) });
+            } finally {
+                if (refreshLatest) setCheckingLatest(false);
+            }
+        },
+        [applyGameState]
+    );
 
     useEffect(() => {
         const unsubscribeProgress = window.api.game.onInstallProgress(setInstallProgress);
@@ -158,15 +164,54 @@ function ReadyRepository({ repository }: { repository: Extract<RepositoryStatus,
         const previousStatus = previousRuntimeStatus.current;
         previousRuntimeStatus.current = runtime.status;
         if (previousStatus === "running" && runtime.status === "idle") void refreshGameState(false);
-    }, [runtime.status]);
+    }, [refreshGameState, runtime.status]);
 
     useEffect(() => {
-        queueMicrotask(() => {
+        let disposed = false;
+
+        const loadLocalStateThenCheckLatest = async (): Promise<void> => {
             setGameState({ status: "loading" });
             setAvailableReleases([]);
-            void refreshGameState(true, false);
-        });
-    }, [repository.path, selectedChannel.id]);
+            setCheckingLatest(false);
+
+            try {
+                const localState = await window.api.game.getState({ refreshLatest: false });
+                if (disposed) return;
+                applyGameState(localState);
+
+                if (localState.status !== "ready") return;
+
+                setCheckingLatest(true);
+                try {
+                    const latestState = await window.api.game.getState({ refreshLatest: true, forceRefresh: false });
+                    if (!disposed) applyGameState(latestState);
+                } catch (error) {
+                    if (!disposed) {
+                        setGameState((currentState) =>
+                            currentState.status === "ready"
+                                ? {
+                                      ...currentState,
+                                      latestRelease: null,
+                                      latestReleaseError: error instanceof Error ? error.message : String(error),
+                                      updateAvailable: false
+                                  }
+                                : { status: "error", message: error instanceof Error ? error.message : String(error) }
+                        );
+                    }
+                } finally {
+                    if (!disposed) setCheckingLatest(false);
+                }
+            } catch (error) {
+                if (!disposed) setGameState({ status: "error", message: error instanceof Error ? error.message : String(error) });
+            }
+        };
+
+        queueMicrotask(() => void loadLocalStateThenCheckLatest());
+
+        return () => {
+            disposed = true;
+        };
+    }, [applyGameState, repository.path, selectedChannel.id]);
 
     const installRelease = async (releaseId?: string): Promise<void> => {
         setInstalling(true);

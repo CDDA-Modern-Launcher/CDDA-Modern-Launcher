@@ -15,7 +15,7 @@ export function setupLauncherSettingsIpc(settingsStore: LauncherSettingsStore): 
         return emitSettingsChanged(settingsStore);
     });
     ipcMain.handle("settings:set-backups-enabled", async (_event, backupsEnabled: boolean): Promise<LauncherUserSettings> => {
-        await settingsStore.setBackupsEnabled(backupsEnabled === true);
+        await settingsStore.setBackupsEnabled(backupsEnabled);
         return emitSettingsChanged(settingsStore);
     });
     ipcMain.handle("settings:set-auto-backup-limit", async (_event, autoBackupLimit: AutoBackupLimit): Promise<LauncherUserSettings> => {
