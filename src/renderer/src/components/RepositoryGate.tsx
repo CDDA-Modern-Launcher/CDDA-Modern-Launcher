@@ -522,13 +522,13 @@ function LastWorldButton({
 }): React.JSX.Element {
     const { t } = useLocalization();
     const disabled = !activeInstallAvailable || gameRunning || worlds.length === 0;
-    const tooltip = gameRunning ? t("home.action.lastWorldTooltipRunning") : t("home.action.lastWorldTooltip");
+    const tooltip = gameRunning ? t("home.action.loadWorldTooltipRunning") : t("home.action.loadWorldTooltip");
 
     if (worlds.length <= 1) {
         return (
             <Tooltip label={tooltip}>
                 <Button size="md" variant="light" disabled={disabled} leftSection="▶" onClick={() => void onLaunch(worlds[0]?.name)}>
-                    {t("home.action.lastWorld")}
+                    {t("home.action.loadWorld")}
                 </Button>
             </Tooltip>
         );
@@ -539,7 +539,7 @@ function LastWorldButton({
             <Menu.Target>
                 <Tooltip label={tooltip}>
                     <Button size="md" variant="light" disabled={disabled} leftSection="▶">
-                        {t("home.action.lastWorld")}
+                        {t("home.action.loadWorldWithChoice")}
                     </Button>
                 </Tooltip>
             </Menu.Target>
