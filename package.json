@@ -21,7 +21,8 @@
         "build:linux": "electron-vite build && electron-builder --linux",
         "publish": "npm version patch && git push --follow-tags",
         "publish:minor": "npm version minor && git push --follow-tags",
-        "zip:source": "tsx scripts/zip-source.ts"
+        "zip:source": "tsx scripts/zip-source.ts",
+        "dev:debug-main": "electron-vite dev --inspect-brk=9229"
     },
     "dependencies": {
         "@electron-toolkit/preload": "^3.0.2",

@@ -1,7 +1,7 @@
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { LocalizationService } from "../localization/LocalizationService";
+import { LocalizationService } from "../LocalizationService";
 import { AppSettings } from "../settings/AppSettings";
 import { parseRepositoryConfig } from "./parseRepositoryConfig";
 import { DEFAULT_GAME_CHANNEL_ID, REPOSITORY_CONFIG_FILE_NAME } from "../../shared/Const";

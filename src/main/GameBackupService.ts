@@ -5,26 +5,26 @@ import { finished } from "node:stream/promises";
 
 import extractZip from "extract-zip";
 
-import type { LocalizationService } from "../localization/LocalizationService";
-import type { WorkspaceService } from "../repository/WorkspaceService";
-import { BACKUP_ARCHIVE_FILE_NAME, BACKUP_INFO_FILE_NAME, BACKUPS_DIRECTORY_NAME } from "../../shared/Const";
-import { TBackupKind } from "../../shared/backups/types/TBackupKind";
-import { BackupInfo } from "../../shared/backups/types/BackupInfo";
-import { BackupInstanceInfo } from "../../shared/backups/types/BackupInstanceInfo";
-import { BackupProgress } from "../../shared/backups/types/BackupProgress";
-import { BackupSummary } from "../../shared/backups/types/BackupSummary";
-import { BackupSummaryUpdate } from "../../shared/backups/types/BackupSummaryUpdate";
-import { EBackupCreateResult } from "../../shared/backups/types/EBackupCreateResult";
-import { EBackupDeleteResult } from "../../shared/backups/types/EBackupDeleteResult";
-import { toRotationCount } from "../../shared/backups/toRotationCount";
-import { EBackupRestoreResult } from "../../shared/backups/types/EBackupRestoreResult";
+import type { LocalizationService } from "./LocalizationService";
+import type { WorkspaceService } from "./repository/WorkspaceService";
+import { BACKUP_ARCHIVE_FILE_NAME, BACKUP_INFO_FILE_NAME } from "../shared/Const";
+import { TBackupKind } from "../shared/backups/types/TBackupKind";
+import { BackupInfo } from "../shared/backups/types/BackupInfo";
+import { BackupInstanceInfo } from "../shared/backups/types/BackupInstanceInfo";
+import { BackupProgress } from "../shared/backups/types/BackupProgress";
+import { BackupSummary } from "../shared/backups/types/BackupSummary";
+import { BackupSummaryUpdate } from "../shared/backups/types/BackupSummaryUpdate";
+import { EBackupCreateResult } from "../shared/backups/types/EBackupCreateResult";
+import { EBackupDeleteResult } from "../shared/backups/types/EBackupDeleteResult";
+import { toRotationCount } from "../shared/backups/toRotationCount";
+import { EBackupRestoreResult } from "../shared/backups/types/EBackupRestoreResult";
 
-import { EBackupRenameResult } from "../../shared/backups/types/EBackupRenameResult";
-import { GameBundle } from "../../shared/game-bundle/GameBundle";
-import { GameSaveSummary } from "../../shared/GameSaveSummary";
-import { isNodeError } from "../utils/isNodeError";
+import { EBackupRenameResult } from "../shared/backups/types/EBackupRenameResult";
+import { GameBundle } from "../shared/game-bundle/GameBundle";
+import { GameSaveSummary } from "../shared/GameSaveSummary";
+import { isNodeError } from "./utils/isNodeError";
 import { BrowserWindow } from "electron";
-import { Bridge } from "../../shared/bridge-api/Bridge";
+import { Bridge } from "../shared/bridge-api/Bridge";
 
 export type GameBackupContext = {
     gameBundle: GameBundle;
@@ -39,6 +39,8 @@ export class GameBackupService {
     private watchedBackupsPath: string | null = null;
     private watcherRefreshTimer: NodeJS.Timeout | null = null;
     private isBusy = false;
+    private lastProgressKey = "";
+    private lastProgressAt = 0;
 
     constructor(
         private readonly repositoryService: WorkspaceService,
@@ -86,7 +88,7 @@ export class GameBackupService {
         const tempPath = `${worldPath}.restore-${Date.now()}`;
 
         this.isBusy = true;
-        this.setProgress({ status: "restoring", backupId, percent: null });
+        this.setProgress({ status: "restoring", backupId, percent: null }, true);
         try {
             await rm(tempPath, { recursive: true, force: true });
             await mkdir(dirname(tempPath), { recursive: true });
@@ -95,14 +97,14 @@ export class GameBackupService {
             await mkdir(savePath, { recursive: true });
             await copyRestoredWorld(tempPath, worldPath);
             await rm(tempPath, { recursive: true, force: true });
-            this.setProgress({ status: "completed" });
-            queueMicrotask(() => this.setProgress({ status: "idle" }));
+            this.setProgress({ status: "completed" }, true);
+            queueMicrotask(() => this.setProgress({ status: "idle" }, true));
             const summary = await this.emitSummary(context.gameBundle);
             return { status: "restored", summary };
         } catch (error) {
             await rm(tempPath, { recursive: true, force: true });
             const message = error instanceof Error ? error.message : String(error);
-            this.setProgress({ status: "error", message });
+            this.setProgress({ status: "error", message }, true);
             return { status: "error", message };
         } finally {
             this.isBusy = false;
@@ -171,13 +173,13 @@ export class GameBackupService {
             await this.rotateBackups(context.gameBundle, type);
             const summary = await this.emitSummary(context.gameBundle);
             const backup = summary.backups.find((candidate) => candidate.id === id);
-            this.setProgress({ status: "completed" });
-            queueMicrotask(() => this.setProgress({ status: "idle" }));
+            this.setProgress({ status: "completed" }, true);
+            queueMicrotask(() => this.setProgress({ status: "idle" }, true));
             return backup === undefined ? { status: "error", message: this.t("backup.error.createdBackupMissing") } : { status: "created", summary, backup };
         } catch (error) {
             await rm(backupPath, { recursive: true, force: true });
             const message = error instanceof Error ? error.message : String(error);
-            this.setProgress({ status: "error", message });
+            this.setProgress({ status: "error", message }, true);
             return { status: "error", message };
         } finally {
             this.isBusy = false;
@@ -220,10 +222,23 @@ export class GameBackupService {
         this.watchedBackupsPath = null;
     }
 
-    private setProgress(progress: BackupProgress): void {
+    private setProgress(progress: BackupProgress, immediate = false): void {
+        if (!immediate && this.shouldThrottleProgress(progress)) return;
+        this.lastProgressKey = this.getProgressKey(progress);
+        this.lastProgressAt = Date.now();
         for (const window of BrowserWindow.getAllWindows()) {
             window.webContents.send(Bridge.Game.gameBackupProgress, progress);
         }
+    }
+
+    private shouldThrottleProgress(progress: BackupProgress): boolean {
+        const key = this.getProgressKey(progress);
+        return key === this.lastProgressKey && Date.now() - this.lastProgressAt < 120;
+    }
+
+    private getProgressKey(progress: BackupProgress): string {
+        if (progress.status === "creating" || progress.status === "restoring") return `${progress.status}:${progress.percent ?? "unknown"}`;
+        return progress.status;
     }
 }
 
@@ -268,7 +283,7 @@ async function findBackup(gameBundle: GameBundle, backupId: string): Promise<Bac
 }
 
 function getBackupsPath(gameBundle: GameBundle): string {
-    return join(gameBundle.userdataPath, BACKUPS_DIRECTORY_NAME);
+    return join(gameBundle.userdataPath, "backups");
 }
 
 function toBackupInfo(backup: BackupInstanceInfo): BackupInfo {

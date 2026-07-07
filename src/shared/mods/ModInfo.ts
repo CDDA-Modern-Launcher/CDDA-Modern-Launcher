@@ -1,11 +1,8 @@
-import { TModSourceProvider } from "./TModSourceProvider";
-
 export type ModInfo = {
     schemaVersion: 1;
     id: string;
     displayName: string;
     sourceUrl: string;
-    provider: TModSourceProvider;
     defaultBranch: string;
     trackingRef: string;
     installedCommit: string;

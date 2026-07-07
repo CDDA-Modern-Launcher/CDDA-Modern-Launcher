@@ -316,6 +316,7 @@ export const RU_LOCALE = {
         "game.error.noGameBundle": "Игра не установлена.",
         "game.error.executableMissing": "Исполняемый файл игры не найден. Game bundle мог быть удалён или повреждён.",
         "game.error.folderUnavailable": "Папка недоступна.",
+        "game.error.fileOperationBusy": "Сейчас выполняется файловая операция. Дождитесь её завершения.",
         "backup.error.autoRequiresRunning": "Автобэкапы создаются только во время работы игры.",
         "backup.error.busy": "Другая операция с бэкапом уже выполняется.",
         "backup.error.autoDisabled": "Автобэкапы отключены.",

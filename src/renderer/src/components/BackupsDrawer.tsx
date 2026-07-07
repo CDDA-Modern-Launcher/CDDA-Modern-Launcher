@@ -11,12 +11,14 @@ export function BackupsDrawer(props: {
     opened: boolean;
     summary: BackupSummary;
     gameRunning: boolean;
+    actionDisabled: boolean;
     onClose: () => void;
     onRestore: (backupId: string) => Promise<void>;
     onDelete: (backup: BackupInstanceInfo, skipConfirmation: boolean) => void;
     onRename: (backupId: string, comment: string) => Promise<void>;
 }): React.JSX.Element {
     const t = useTranslate();
+    const restoreDisabled = props.gameRunning || props.actionDisabled;
     return (
         <Drawer opened={props.opened} onClose={props.onClose} position="right" size={520} title={<Title order={3}>{t("backups.title")}</Title>}>
             <Stack gap="md">
@@ -52,12 +54,12 @@ export function BackupsDrawer(props: {
                                 </Stack>
                                 <Stack gap={4} align="stretch" className="backup-drawer-item__actions">
                                     <Tooltip label={props.gameRunning ? t("backup.action.restoreBlockedRunning") : t("backup.action.restoreTooltip")}>
-                                        <Button size="xs" disabled={props.gameRunning} onClick={() => void props.onRestore(backup.id)}>
+                                        <Button size="xs" disabled={restoreDisabled} onClick={() => void props.onRestore(backup.id)}>
                                             {t("backup.action.restore")}
                                         </Button>
                                     </Tooltip>
-                                    <RenameBackupButton backup={backup} onRename={props.onRename} />
-                                    <Button size="xs" variant="subtle" color="red" onClick={(event) => props.onDelete(backup, event.shiftKey)}>
+                                    <RenameBackupButton backup={backup} disabled={props.actionDisabled} onRename={props.onRename} />
+                                    <Button size="xs" variant="subtle" color="red" disabled={props.actionDisabled} onClick={(event) => props.onDelete(backup, event.shiftKey)}>
                                         {t("backup.action.delete")}
                                     </Button>
                                 </Stack>

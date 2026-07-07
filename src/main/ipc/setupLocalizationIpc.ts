@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 
-import { LocalizationService } from "../localization/LocalizationService";
+import { LocalizationService } from "../LocalizationService";
 import { LocalizationBundle } from "../../shared/localization/types/LocalizationBundle";
 import { Bridge } from "../../shared/bridge-api/Bridge";
 

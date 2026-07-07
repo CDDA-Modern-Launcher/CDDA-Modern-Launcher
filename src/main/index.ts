@@ -5,10 +5,10 @@ import { appendFileSync, mkdirSync } from "fs";
 import { join } from "path";
 
 import icon from "../../resources/icon.png?asset";
-import { registerMainAppearanceApi } from "./ipc/registerMainAppearanceApi";
-import { GameBundleService } from "./game/GameBundleService";
+import { setupAppearanceIpc } from "./ipc/setupAppearanceIpc";
+import { GameBundleService } from "./GameBundleService";
 import { setupGameBundleIpc } from "./ipc/setupGameBundleIpc";
-import { LocalizationService } from "./localization/LocalizationService";
+import { LocalizationService } from "./LocalizationService";
 import { setupLocalizationIpc } from "./ipc/setupLocalizationIpc";
 import { ModRepositoryService } from "./mods/ModRepositoryService";
 import { setupModRepositoryIpc } from "./ipc/setupModRepositoryIpc";
@@ -287,7 +287,7 @@ app.whenReady().then(async () => {
     const gameBundleService = new GameBundleService(repositoryService, localizationService);
     const modRepositoryService = new ModRepositoryService(repositoryService, localizationService);
 
-    await registerMainAppearanceApi(settingsStore);
+    await setupAppearanceIpc(settingsStore);
     setupLocalizationIpc(localizationService);
     setupLauncherSettingsIpc(repositoryService);
     setupWorkspaceIpc(repositoryService, localizationService);

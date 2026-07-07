@@ -4,7 +4,7 @@ import { Button } from "@mantine/core";
 import { useModalOpen } from "@renderer/modals/useModalStore";
 import { useTranslate } from "@renderer/localization/useLocaleStore";
 
-export function RenameBackupButton({ backup, onRename }: { backup: BackupInstanceInfo; onRename: (backupId: string, comment: string) => Promise<void> }): React.JSX.Element {
+export function RenameBackupButton({ backup, disabled = false, onRename }: { backup: BackupInstanceInfo; disabled?: boolean; onRename: (backupId: string, comment: string) => Promise<void> }): React.JSX.Element {
     const t = useTranslate();
 
     const openModal = useModalOpen();
@@ -21,7 +21,7 @@ export function RenameBackupButton({ backup, onRename }: { backup: BackupInstanc
 
     return (
         <>
-            <Button size="xs" variant="subtle" onClick={handleClick}>
+            <Button size="xs" variant="subtle" disabled={disabled} onClick={handleClick}>
                 {t("backup.action.rename")}
             </Button>
         </>

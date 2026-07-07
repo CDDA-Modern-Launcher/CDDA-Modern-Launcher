@@ -11,10 +11,11 @@ interface Props {
     release: GithubRelease;
     isGameBundleReady: boolean;
     isInstallingGameBundle: boolean;
+    actionDisabled: boolean;
     onRequestInstall: (release: GithubRelease) => void;
 }
 
-export function GameBundleReleaseCard({ release, isGameBundleReady, isInstallingGameBundle, onRequestInstall }: Props): React.JSX.Element {
+export function GameBundleReleaseCard({ release, isGameBundleReady, isInstallingGameBundle, actionDisabled, onRequestInstall }: Props): React.JSX.Element {
     const t = useTranslate();
 
     const openModal = useModalOpen();
@@ -38,7 +39,7 @@ export function GameBundleReleaseCard({ release, isGameBundleReady, isInstalling
                     <Button size="xs" variant="subtle" onClick={() => openModal({ kind: "release-notes", notes: toReleaseNotesTarget(release) })}>
                         {t("versions.action.showChanges")}
                     </Button>
-                    <Button size="xs" disabled={isGameBundleReady} loading={isInstallingGameBundle} onClick={() => onRequestInstall(release)}>
+                    <Button size="xs" disabled={isGameBundleReady || actionDisabled} loading={isInstallingGameBundle} onClick={() => onRequestInstall(release)}>
                         {isGameBundleReady ? t("versions.action.installed") : t("versions.action.install")}
                     </Button>
                 </Group>

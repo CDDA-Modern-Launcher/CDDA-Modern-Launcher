@@ -1,5 +1,5 @@
 import { readdir } from "node:fs/promises";
-import { getKeySaveFileKind } from "../game/getKeySaveFileKind";
+import { getKeySaveFileKind } from "./getKeySaveFileKind";
 import { join } from "node:path";
 import { isNodeError } from "./isNodeError";
 

@@ -51,6 +51,8 @@ export const Bridge = {
         restoreBackup: "game:restore-backup",
         deleteBackup: "game:delete-backup",
         renameBackup: "game:rename-backup",
+        getFileOperation: "game:get-file-operation",
+        fileOperationChanged: "game:file-operation-changed",
         gameBundleInstallProgress: "game:bundle-install-progress",
         runtimeChanged: "game:runtime-changed",
         saveSummaryChanged: "game:save-summary-changed",

@@ -6,5 +6,13 @@ export function isRepositoryConfig(value: unknown): value is RepositoryConfig {
     }
 
     const candidate = value as Partial<RepositoryConfig>;
-    return candidate.schemaVersion === 1 && candidate.selectedChannelId === undefined && (candidate.customGameChannels === undefined || Array.isArray(candidate.customGameChannels));
+
+    // noinspection SuspiciousTypeOfGuard - bcz this is type/file guard
+    return (
+        candidate.schemaVersion === 1 &&
+        (candidate.selectedChannelId === undefined || typeof candidate.selectedChannelId === "string") &&
+        (candidate.customGameChannels === undefined || Array.isArray(candidate.customGameChannels)) &&
+        (candidate.activeGameBundleByChannel === undefined ||
+            (typeof candidate.activeGameBundleByChannel === "object" && candidate.activeGameBundleByChannel !== null && !Array.isArray(candidate.activeGameBundleByChannel)))
+    );
 }

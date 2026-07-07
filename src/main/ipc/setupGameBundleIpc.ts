@@ -1,7 +1,7 @@
 import { ipcMain, shell } from "electron";
 
-import { LocalizationService } from "../localization/LocalizationService";
-import { GameBundleService } from "../game/GameBundleService";
+import { LocalizationService } from "../LocalizationService";
+import { GameBundleService } from "../GameBundleService";
 import { GameLaunchOptions } from "../../shared/launch/GameLaunchOptions";
 import { CreateManualBackupOptions } from "../../shared/backups/types/CreateManualBackupOptions";
 import { GameBundleInstallOptions } from "../../shared/game-bundle/GameBundleInstallOptions";
@@ -9,7 +9,7 @@ import { GameBundleDeleteOptions } from "../../shared/game-bundle/GameBundleDele
 import { EGameFolderOpenResult } from "../../shared/EGameFolderOpenResult";
 import { Bridge } from "../../shared/bridge-api/Bridge";
 
-/** @deprecated */
+/** @deprecated todo remove this weird type of arguments. */
 type GameStateRequest = boolean | { refreshLatest?: boolean; forceRefresh?: boolean } | undefined;
 
 export function setupGameBundleIpc(gameBundleService: GameBundleService, localizationService: LocalizationService): void {
@@ -31,6 +31,7 @@ export function setupGameBundleIpc(gameBundleService: GameBundleService, localiz
     ipcMain.handle(Bridge.Game.restoreBackup, (_event, backupId: string) => gameBundleService.restoreBackup(backupId));
     ipcMain.handle(Bridge.Game.deleteBackup, (_event, backupId: string) => gameBundleService.deleteBackup(backupId));
     ipcMain.handle(Bridge.Game.renameBackup, (_event, backupId: string, comment: string) => gameBundleService.renameBackup(backupId, comment));
+    ipcMain.handle(Bridge.Game.getFileOperation, () => gameBundleService.getFileOperation());
 }
 
 async function openFolder(path: string | null, localizationService: LocalizationService): Promise<EGameFolderOpenResult> {

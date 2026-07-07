@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog, ipcMain } from "electron";
 
-import { LocalizationService } from "../localization/LocalizationService";
+import { LocalizationService } from "../LocalizationService";
 import { WorkspaceService } from "../repository/WorkspaceService";
 import { EWorkspaceSelectResult } from "../../shared/workspace/EWorkspaceSelectResult";
 import { Bridge } from "../../shared/bridge-api/Bridge";

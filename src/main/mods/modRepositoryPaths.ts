@@ -1,10 +1,7 @@
 import { join } from "node:path";
 
-
-import { MOD_REPOSITORY_DIRECTORY_NAME } from "../../shared/Const";
-
 export function getChannelModRepositoryPath(repositoryPath: string, channelId: string): string {
-    return join(repositoryPath, MOD_REPOSITORY_DIRECTORY_NAME, channelId);
+    return join(repositoryPath, "mod-repository", channelId);
 }
 
 export function getChannelModsPath(repositoryPath: string, channelId: string): string {

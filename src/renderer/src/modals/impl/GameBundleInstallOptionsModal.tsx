@@ -50,11 +50,12 @@ function GameBundleInstallOptionsModalContent({ release, releaseName, hasInstall
         try {
             if (!onConfirm || !release) return;
             setInstalling(true);
-            await onConfirm(release, copy, remove);
+            void onConfirm(release, copy, remove);
+            onClose();
         } finally {
             setInstalling(false);
         }
-    }, [copy, onConfirm, release, remove]);
+    }, [copy, onClose, onConfirm, release, remove]);
 
     return (
         <Stack gap="md">

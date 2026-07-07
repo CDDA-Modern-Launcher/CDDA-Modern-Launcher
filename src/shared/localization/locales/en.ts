@@ -317,6 +317,7 @@ export const EN_LOCALE = {
         "game.error.noGameBundle": "Game is not installed.",
         "game.error.executableMissing": "Game executable was not found. The game bundle may have been removed or damaged.",
         "game.error.folderUnavailable": "Folder is not available.",
+        "game.error.fileOperationBusy": "A file operation is already running. Wait until it finishes.",
         "backup.error.autoRequiresRunning": "Automatic backups are only created while the game is running.",
         "backup.error.busy": "Another backup operation is already running.",
         "backup.error.autoDisabled": "Automatic backups are disabled.",

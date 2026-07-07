@@ -2,40 +2,32 @@ import { GameWorldInfo } from "../../../shared/GameWorldInfo";
 import type React from "react";
 import { ActionIcon, Menu, Stack, Text, Tooltip } from "@mantine/core";
 import { TLocalizeFn, useTranslate } from "@renderer/localization/useLocaleStore";
+import { useConfigStore } from "@renderer/stores/useConfigStore";
 
-export function BackupCreateButton({
-    enabled,
-    activeGameBundleAvailable,
-    worlds,
-    currentWorld,
-    savesStable,
-    backupBusy,
-    onCreate
-}: {
-    enabled: boolean;
+interface Props {
     activeGameBundleAvailable: boolean;
     worlds: GameWorldInfo[];
     currentWorld: GameWorldInfo | null;
     savesStable: boolean;
     backupBusy: boolean;
     onCreate: (worldName?: string) => Promise<void>;
-}): React.JSX.Element {
-    const t = useTranslate();
-    const backupableWorlds = worlds.filter((world) => world.characterName !== null);
-    const disabled = !enabled || !activeGameBundleAvailable || backupableWorlds.length === 0 || !savesStable || backupBusy;
-    const tooltip = getBackupButtonTooltip(t, enabled, activeGameBundleAvailable, backupableWorlds.length, savesStable, backupBusy);
-    const icon = (
-        <ActionIcon size={42} variant="light" disabled={disabled} aria-label={t("home.backup.createTooltip")}>
-            💾
-        </ActionIcon>
-    );
+}
 
-    if (backupableWorlds.length <= 1) {
+export function BackupCreateButton({ activeGameBundleAvailable, worlds, currentWorld, savesStable, backupBusy, onCreate }: Props): React.JSX.Element | null {
+    const t = useTranslate();
+    const backupsEnabled = useConfigStore((state) => state.backupsEnabled);
+    const backupableWorlds = worlds.filter((world) => world.characterName !== null);
+    const disabled = !backupsEnabled || !activeGameBundleAvailable || backupableWorlds.length === 0 || !savesStable || backupBusy;
+    const tooltip = getBackupButtonTooltip(t, backupsEnabled, activeGameBundleAvailable, backupableWorlds.length, savesStable, backupBusy);
+
+    if (!backupableWorlds.length) {
+        return null;
+    }
+
+    if (backupableWorlds.length == 1) {
         return (
             <Tooltip label={tooltip}>
-                <ActionIcon size={42} variant="light" disabled={disabled} onClick={() => void onCreate(backupableWorlds[0]?.name)} aria-label={t("home.backup.createTooltip")}>
-                    💾
-                </ActionIcon>
+                <Icon disabled={disabled} onClick={() => void onCreate(backupableWorlds[0]?.name)} />
             </Tooltip>
         );
     }
@@ -43,7 +35,7 @@ export function BackupCreateButton({
     return (
         <Menu shadow="md" width={320} position="top-end" disabled={disabled}>
             <Menu.Target>
-                <Tooltip label={tooltip}>{icon}</Tooltip>
+                <Tooltip label={tooltip}>{<Icon disabled={disabled} />}</Tooltip>
             </Menu.Target>
             <Menu.Dropdown>
                 <Menu.Label>{t("home.world.selectWorld")}</Menu.Label>
@@ -59,6 +51,15 @@ export function BackupCreateButton({
                 ))}
             </Menu.Dropdown>
         </Menu>
+    );
+}
+
+function Icon({ disabled, onClick }: { disabled: boolean; onClick?: () => void }): React.JSX.Element {
+    const t = useTranslate();
+    return (
+        <ActionIcon size={42} variant="light" disabled={disabled} onClick={onClick} aria-label={t("home.backup.createTooltip")}>
+            💾
+        </ActionIcon>
     );
 }
 

@@ -12,10 +12,11 @@ interface Props {
     gameBundle: GameBundle;
     release: GithubRelease | null;
     onSetActive: (gameBundleId: string) => Promise<void>;
+    actionDisabled: boolean;
     onConfirmDelete: (gameBundleId: GameBundle, deleteUserdata: boolean) => void;
 }
 
-export function GameBundleCard({ gameBundle, release, onSetActive, onConfirmDelete }: Props): React.JSX.Element {
+export function GameBundleCard({ gameBundle, release, actionDisabled, onSetActive, onConfirmDelete }: Props): React.JSX.Element {
     const t = useTranslate();
 
     const openModal = useModalOpen();
@@ -39,7 +40,7 @@ export function GameBundleCard({ gameBundle, release, onSetActive, onConfirmDele
                 </Stack>
                 <Group gap="xs">
                     {!gameBundle.isActive && (
-                        <Button size="xs" variant="light" onClick={() => void onSetActive(gameBundle.id)}>
+                        <Button size="xs" variant="light" disabled={actionDisabled} onClick={() => void onSetActive(gameBundle.id)}>
                             {t("versions.action.makeActive")}
                         </Button>
                     )}
@@ -52,7 +53,7 @@ export function GameBundleCard({ gameBundle, release, onSetActive, onConfirmDele
                     <Button size="xs" variant="subtle" onClick={() => openModal({ kind: "release-notes", notes: toInstalledReleaseNotesTarget(gameBundle, release) })}>
                         {t("versions.action.showChanges")}
                     </Button>
-                    <Button size="xs" variant="subtle" disabled={gameBundle.isActive} color="red" onClick={onDeleteClick}>
+                    <Button size="xs" variant="subtle" disabled={gameBundle.isActive || actionDisabled} color="red" onClick={onDeleteClick}>
                         {t("versions.action.delete")}
                     </Button>
                 </Group>

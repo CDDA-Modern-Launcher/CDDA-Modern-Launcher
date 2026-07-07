@@ -15,6 +15,7 @@ export function VersionStrip(props: {
     isChecking: boolean;
     isInstallingGameBundle: boolean;
     isLoadingReleaseNotes: boolean;
+    actionDisabled: boolean;
     latestInstalledId: string | null;
     onInstall: () => void;
     onActivateLatest: (gameBundleId: string) => Promise<void>;
@@ -58,11 +59,11 @@ export function VersionStrip(props: {
                                       ? t("home.version.latestUnknown")
                                       : t("home.version.latestInstalled")}
                         </Text>
-                        <Anchor component="button" type="button" size="xs" disabled={props.isChecking} onClick={() => void props.onCheckAgain()}>
+                        <Anchor component="button" type="button" size="xs" disabled={props.isChecking || props.actionDisabled} onClick={() => void props.onCheckAgain()}>
                             {t("home.action.checkAgain")}
                         </Anchor>
                         {props.updateAvailable && props.latestRelease !== null && (
-                            <Anchor component="button" type="button" size="xs" disabled={props.isLoadingReleaseNotes} onClick={props.onShowUpdateChanges}>
+                            <Anchor component="button" type="button" size="xs" disabled={props.isLoadingReleaseNotes || props.actionDisabled} onClick={props.onShowUpdateChanges}>
                                 {props.isLoadingReleaseNotes ? t("home.action.loadingUpdateChanges") : t("home.action.showUpdateChanges")}
                             </Anchor>
                         )}
@@ -70,12 +71,12 @@ export function VersionStrip(props: {
                 </Stack>
                 <Group gap="xs" wrap="nowrap">
                     {updateAction === "activate" && (
-                        <Button size="xs" variant="light" loading={isActivatingLatest} onClick={() => void activateLatest()}>
+                        <Button size="xs" variant="light" loading={isActivatingLatest} disabled={props.actionDisabled} onClick={() => void activateLatest()}>
                             {t("home.action.activateLatest")}
                         </Button>
                     )}
                     {updateAction === "install" && (
-                        <Button size="xs" variant="light" loading={props.isInstallingGameBundle} onClick={props.onInstall}>
+                        <Button size="xs" variant="light" loading={props.isInstallingGameBundle} disabled={props.actionDisabled} onClick={props.onInstall}>
                             {t("home.action.installUpdate")}
                         </Button>
                     )}

@@ -1,18 +1,10 @@
 import { WorkspaceStatus } from "../../../shared/workspace/WorkspaceStatus";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { getEffectiveGameChannels } from "../../../shared/game-channel/getEffectiveGameChannels";
 import { findGameChannel } from "../../../shared/game-channel/findGameChannel";
-import { GameBundleState } from "../../../shared/game-bundle/GameBundleState";
-import { GameBundleInstallProgress } from "../../../shared/game-bundle/GameBundleInstallProgress";
-import { BackupProgress } from "../../../shared/backups/types/BackupProgress";
-import { BackupSummary } from "../../../shared/backups/types/BackupSummary";
-import { GameRuntimeState } from "../../../shared/GameRuntimeState";
 import { GithubRelease } from "../../../shared/GithubRelease";
 import { useModalOpen } from "@renderer/modals/useModalStore";
-import { BackupSummaryUpdate } from "../../../shared/backups/types/BackupSummaryUpdate";
-import { GameSaveSummaryUpdate } from "../../../shared/GameSaveSummaryUpdate";
 import { getUpdateReleases } from "@renderer/utils/getUpdateReleases";
-import { isGameBundleInstallRunning } from "@renderer/utils/isGameBundleInstallRunning";
 import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstanceInfo";
 import { toUpdateReleaseNotesTarget } from "@renderer/utils/toUpdateReleaseNotesTarget";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
@@ -27,143 +19,69 @@ import { GameBundlePrompt } from "@renderer/components/GameBundlePrompt";
 import { VersionStrip } from "@renderer/components/VersionStrip";
 import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { BackupStrip } from "@renderer/components/BackupStrip";
-import { LastWorldButton } from "@renderer/components/LastWorldButton";
-import { BackupCreateButton } from "@renderer/components/BackupCreateButton";
 import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useGameRuntimeState } from "@renderer/stores/useGameRuntimeStore";
+import { PrimaryGameActions } from "@renderer/components/PrimaryGameActions";
+import { selectIsGameBundleInstallRunning, useGameBundleStore } from "@renderer/stores/useGameBundleStore";
 
 export function WorkspaceReadyView({ repository }: { repository: Extract<WorkspaceStatus, { status: "ready" }> }): React.JSX.Element {
     const t = useTranslate();
     const channels = getEffectiveGameChannels(repository.config.customGameChannels);
     const selectedChannel = findGameChannel(channels, repository.config.selectedChannelId);
-    const [gameState, setGameState] = useState<GameBundleState>({ status: "loading" });
-    const [gameBundleInstallProgress, setGameBundleInstallProgress] = useState<GameBundleInstallProgress>({ status: "idle" });
-    const [backupProgress, setBackupProgress] = useState<BackupProgress>({ status: "idle" });
-    const [backupSummary, setBackupSummary] = useState<BackupSummary>({ backups: [], latestBackup: null });
-    const [runtime, setRuntime] = useState<GameRuntimeState>({ status: "idle" });
-    const [versionsOpened, setVersionsOpened] = useState(false);
-    const [backupsOpened, setBackupsOpened] = useState(false);
-    const [isCheckingLatest, setCheckingLatest] = useState(false);
-    const [availableReleases, setAvailableReleases] = useState<GithubRelease[]>([]);
-    const [isLoadingReleaseNotes, setLoadingReleaseNotes] = useState(false);
-    const previousRuntimeStatus = useRef<GameRuntimeState["status"]>("idle");
-    const gameBundleIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.gameBundles.map((gameBundle) => gameBundle.id) : []), [gameState]);
-
     const openModal = useModalOpen();
 
-    const applyGameState = useCallback((nextState: GameBundleState): void => {
-        setGameState(nextState);
-        if (nextState.status === "ready") setBackupSummary(nextState.backups);
-        if (nextState.status !== "ready" || !nextState.updateAvailable) setAvailableReleases([]);
-    }, []);
+    const gameState = useGameBundleStore((state) => state.state);
+    const installProgress = useGameBundleStore((state) => state.installProgress);
+    const backupProgress = useGameBundleStore((state) => state.backupProgress);
+    const backupSummary = useGameBundleStore((state) => state.backupSummary);
+    const isCheckingLatest = useGameBundleStore((state) => state.isCheckingLatest);
+    const isInstallingGameBundle = useGameBundleStore((state) => state.isInstallingGameBundle);
+    const availableReleases = useGameBundleStore((state) => state.releases);
+    const isLoadingReleases = useGameBundleStore((state) => state.isLoadingReleases);
+    const isLoadingReleaseNotes = useGameBundleStore((state) => state.isLoadingReleaseNotes);
+    const loadGame = useGameBundleStore((state) => state.load);
+    const refreshGame = useGameBundleStore((state) => state.refresh);
+    const loadReleases = useGameBundleStore((state) => state.loadReleases);
+    const installLatestGameBundle = useGameBundleStore((state) => state.installLatestGameBundle);
+    const setActiveGameBundle = useGameBundleStore((state) => state.setActiveGameBundle);
+    const deleteGameBundle = useGameBundleStore((state) => state.deleteGameBundle);
+    const restoreBackup = useGameBundleStore((state) => state.restoreBackup);
+    const deleteBackup = useGameBundleStore((state) => state.deleteBackup);
+    const renameBackup = useGameBundleStore((state) => state.renameBackup);
+    const setReleaseNotesLoading = useGameBundleStore((state) => state.setReleaseNotesLoading);
+    const installRunning = useGameBundleStore(selectIsGameBundleInstallRunning);
+    const fileOperationRunning = useGameBundleStore((state) => state.isFileOperationRunning);
 
-    const refreshGameState = useCallback(
-        async (refreshLatest = true, forceRefresh = false): Promise<void> => {
-            if (refreshLatest) setCheckingLatest(true);
-            try {
-                applyGameState(await window.api.game.getState({ refreshLatest, forceRefresh }));
-            } catch (error) {
-                setGameState({ status: "error", message: error instanceof Error ? error.message : String(error) });
-            } finally {
-                if (refreshLatest) setCheckingLatest(false);
-            }
-        },
-        [applyGameState]
-    );
-
-    useEffect(() => {
-        const unsubscribeProgress = window.api.game.onGameBundleInstallProgress(setGameBundleInstallProgress);
-        const unsubscribeRuntime = window.api.game.onRuntimeChanged(setRuntime);
-        const unsubscribeBackupProgress = window.api.game.onBackupProgress(setBackupProgress);
-        const unsubscribeBackups = window.api.game.onBackupSummaryChanged((update: BackupSummaryUpdate) => {
-            setGameState((currentState) => {
-                if (currentState.status !== "ready" || currentState.gameBundle?.id !== update.gameBundleId) return currentState;
-                return { ...currentState, backups: update.summary };
-            });
-            setBackupSummary(update.summary);
-        });
-        const unsubscribeSaves = window.api.game.onSaveSummaryChanged((update: GameSaveSummaryUpdate) => {
-            setGameState((currentState) => {
-                if (currentState.status !== "ready" || currentState.gameBundle?.id !== update.gameBundleId) return currentState;
-                return { ...currentState, saves: update.saves };
-            });
-        });
-        const unsubscribeSaveActivity = window.api.game.onSaveActivityChanged((update) => {
-            setGameState((currentState) => {
-                if (currentState.status !== "ready" || currentState.gameBundle?.id !== update.gameBundleId) return currentState;
-                return { ...currentState, savesStable: update.stable };
-            });
-        });
-        window.api.game
-            .getRuntimeState()
-            .then(setRuntime)
-            .catch((error) => console.error("Failed to read game runtime", error));
-        return () => {
-            unsubscribeProgress();
-            unsubscribeRuntime();
-            unsubscribeSaves();
-            unsubscribeSaveActivity();
-            unsubscribeBackupProgress();
-            unsubscribeBackups();
-        };
-    }, []);
+    const [versionsOpened, setVersionsOpened] = useState(false);
+    const [backupsOpened, setBackupsOpened] = useState(false);
+    const gameChannelId = gameState.status === "ready" ? gameState.channel.id : "";
 
     useEffect(() => {
-        const previousStatus = previousRuntimeStatus.current;
-        previousRuntimeStatus.current = runtime.status;
-        if (previousStatus === "running" && runtime.status === "idle") void refreshGameState(false);
-    }, [refreshGameState, runtime.status]);
+        queueMicrotask(() => void loadGame());
+    }, [loadGame, repository.path, selectedChannel.id]);
 
     useEffect(() => {
-        let disposed = false;
-
-        const loadLocalStateThenCheckLatest = async (): Promise<void> => {
-            setGameState({ status: "loading" });
-            setAvailableReleases([]);
-            setCheckingLatest(false);
-
-            try {
-                const localState = await window.api.game.getState({ refreshLatest: false });
-                if (disposed) return;
-                applyGameState(localState);
-
-                if (localState.status !== "ready") return;
-
-                setCheckingLatest(true);
-                try {
-                    const latestState = await window.api.game.getState({ refreshLatest: true, forceRefresh: false });
-                    if (!disposed) applyGameState(latestState);
-                } catch (error) {
-                    if (!disposed) {
-                        setGameState((currentState) =>
-                            currentState.status === "ready"
-                                ? {
-                                      ...currentState,
-                                      latestRelease: null,
-                                      latestReleaseError: error instanceof Error ? error.message : String(error),
-                                      updateAvailable: false
-                                  }
-                                : { status: "error", message: error instanceof Error ? error.message : String(error) }
-                        );
-                    }
-                } finally {
-                    if (!disposed) setCheckingLatest(false);
-                }
-            } catch (error) {
-                if (!disposed) setGameState({ status: "error", message: error instanceof Error ? error.message : String(error) });
-            }
-        };
-
-        queueMicrotask(() => void loadLocalStateThenCheckLatest());
-
-        return () => {
-            disposed = true;
-        };
-    }, [applyGameState, repository.path, selectedChannel.id]);
+        if (!versionsOpened) return;
+        queueMicrotask(() => void loadReleases());
+    }, [versionsOpened, gameChannelId, loadReleases]);
 
     const activeGameBundle = gameState.status === "ready" ? gameState.gameBundle : null;
+    const activeGameBundleId = activeGameBundle?.id ?? null;
     const hasInstalledVersions = gameState.status === "ready" && gameState.gameBundles.length > 0;
+    const latestRelease = gameState.status === "ready" ? gameState.latestRelease : null;
+    const latestReleaseError = gameState.status === "ready" ? gameState.latestReleaseError : null;
+    const updateAvailable = gameState.status === "ready" && gameState.updateAvailable;
+    const saveSummary = gameState.status === "ready" ? gameState.saves : null;
+    const worlds = saveSummary?.worlds ?? [];
+    const currentWorld = saveSummary?.currentWorld ?? null;
+    const gameBundleIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.gameBundles.map((gameBundle) => gameBundle.id) : []), [gameState]);
+    const latestInstalledId = latestRelease !== null && gameBundleIds.has(latestRelease.id) ? latestRelease.id : null;
+    const updateReleases = useMemo(() => (activeGameBundle === null ? [] : getUpdateReleases(activeGameBundle, availableReleases)), [activeGameBundle, availableReleases]);
 
-    const [isInstallingGameBundle, setInstalling] = useState(false);
+    const runtimeState = useGameRuntimeState();
+    const gameRunning = runtimeState.status === "running";
+    const backupsEnabled = useConfigStore((state) => state.backupsEnabled);
+
     const openInstallModal = (release: GithubRelease | null): void => {
         if (release === null) return;
         openModal({
@@ -172,96 +90,35 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
             hasInstalledVersions,
             onConfirm: async (release, copyUserdata, removeOlderGameBundles) => {
                 setVersionsOpened(false);
-
-                setInstalling(true);
-                try {
-                    const result = await window.api.game.installLatestGameBundle({ releaseId: release.id, makeActive: true, copyUserdata, removeOlderGameBundles });
-                    result.status === "installed" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
-                } finally {
-                    setInstalling(false);
-                }
+                await installLatestGameBundle({ releaseId: release.id, makeActive: true, copyUserdata, removeOlderGameBundles });
             }
         });
     };
 
-    const latestRelease = gameState.status === "ready" ? gameState.latestRelease : null;
-    const latestReleaseError = gameState.status === "ready" ? gameState.latestReleaseError : null;
-    const updateAvailable = gameState.status === "ready" && gameState.updateAvailable;
-    const activeGameBundleId = activeGameBundle?.id ?? null;
-    const latestInstalledId = latestRelease !== null && gameBundleIds.has(latestRelease.id) ? latestRelease.id : null;
-    const updateReleases = useMemo(() => (activeGameBundle === null ? [] : getUpdateReleases(activeGameBundle, availableReleases)), [activeGameBundle, availableReleases]);
-    const installRunning = isGameBundleInstallRunning(isInstallingGameBundle, gameBundleInstallProgress);
-    const gameRunning = runtime.status === "running";
-    const saveSummary = gameState.status === "ready" ? gameState.saves : null;
-    const worlds = saveSummary?.worlds ?? [];
-    const currentWorld = saveSummary?.currentWorld ?? null;
-    const savesStable = gameState.status !== "ready" || gameState.savesStable;
-
-    const launchGame = async (worldName?: string): Promise<void> => {
-        const result = await window.api.game.launchActiveGameBundle(worldName === undefined ? {} : { worldName });
-        if (result.status === "unavailable") setGameState({ status: "error", message: result.message });
-        else setRuntime(result.runtime);
-    };
-
-    const stopGame = async (): Promise<void> => {
-        const result = await window.api.game.stop();
-        setRuntime(result.runtime);
-        if (result.status === "error") setGameState({ status: "error", message: result.message });
-    };
-
-    const createBackup = async (worldName?: string): Promise<void> => {
-        const result = await window.api.game.createManualBackup(worldName === undefined ? {} : { worldName });
-        if (result.status === "created") setBackupSummary(result.summary);
-        else if (result.status === "error") setGameState({ status: "error", message: result.message });
-        else if (result.status === "blocked") console.info(`[game-backup] ${result.message}`);
-    };
-
-    const restoreBackup = async (backupId: string): Promise<void> => {
-        const result = await window.api.game.restoreBackup(backupId);
-        if (result.status === "restored") {
-            setBackupSummary(result.summary);
-            await refreshGameState(false);
-        } else if (result.status === "error") setGameState({ status: "error", message: result.message });
-    };
-
-    const deleteBackup = async (backup: BackupInstanceInfo): Promise<void> => {
-        const result = await window.api.game.deleteBackup(backup.id);
-        if (result.status === "deleted") setBackupSummary(result.summary);
-        else if (result.status === "error") setGameState({ status: "error", message: result.message });
-    };
-
     const requestDeleteBackup = (backup: BackupInstanceInfo, skipConfirmation: boolean): void => {
-        if (skipConfirmation) void deleteBackup(backup);
-        else openModal({ kind: "delete-backup", backup, onConfirm: deleteBackup });
+        if (skipConfirmation) void deleteBackup(backup.id);
+        else openModal({ kind: "delete-backup", backup, onConfirm: (backup) => deleteBackup(backup.id) });
     };
 
-    const renameBackup = async (backupId: string, comment: string): Promise<void> => {
-        const result = await window.api.game.renameBackup(backupId, comment);
-        if (result.status === "renamed") setBackupSummary(result.summary);
-        else if (result.status === "error") setGameState({ status: "error", message: result.message });
+    const refreshVersions = async (): Promise<void> => {
+        await Promise.all([refreshGame(true, true), loadReleases(true)]);
     };
 
     const showUpdateChanges = async (): Promise<void> => {
         if (activeGameBundle === null || latestRelease === null) return;
+
         let releases = availableReleases;
         if (releases.length === 0) {
-            setLoadingReleaseNotes(true);
+            setReleaseNotesLoading(true);
             try {
-                releases = await window.api.game.getReleases();
-                setAvailableReleases(releases);
-            } catch (error) {
-                console.error("Failed to load update release notes", error);
-                setAvailableReleases([]);
-                releases = [];
+                releases = await loadReleases();
             } finally {
-                setLoadingReleaseNotes(false);
+                setReleaseNotesLoading(false);
             }
         }
 
         openModal({ kind: "release-notes", notes: toUpdateReleaseNotesTarget(activeGameBundle, latestRelease, getUpdateReleases(activeGameBundle, releases), t) });
     };
-
-    const backupsEnabled = useConfigStore((state) => state.backupsEnabled);
 
     return (
         <>
@@ -269,27 +126,29 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                 opened={backupsOpened}
                 summary={backupSummary}
                 gameRunning={gameRunning}
+                actionDisabled={fileOperationRunning}
                 onClose={() => setBackupsOpened(false)}
-                onRestore={restoreBackup}
+                onRestore={async (backupId) => {
+                    await restoreBackup(backupId);
+                }}
                 onDelete={requestDeleteBackup}
-                onRename={renameBackup}
+                onRename={async (backupId, comment) => {
+                    await renameBackup(backupId, comment);
+                }}
             />
             <VersionsDrawer
                 opened={versionsOpened}
                 state={gameState}
                 gameBundleIds={gameBundleIds}
+                releases={availableReleases}
+                isLoadingReleases={isLoadingReleases}
                 isInstallingGameBundle={isInstallingGameBundle}
+                actionDisabled={fileOperationRunning}
                 onClose={() => setVersionsOpened(false)}
-                onRefresh={() => refreshGameState(true, true)}
+                onRefresh={refreshVersions}
                 onRequestInstall={openInstallModal}
-                onSetActive={async (gameBundleId) => {
-                    const result = await window.api.game.setActiveGameBundle(gameBundleId);
-                    result.status === "updated" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
-                }}
-                onDelete={async (gameBundle, deleteUserdata) => {
-                    const result = await window.api.game.deleteGameBundle(gameBundle.id, { deleteUserdata });
-                    result.status === "deleted" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
-                }}
+                onSetActive={setActiveGameBundle}
+                onDelete={(gameBundle, deleteUserdata) => deleteGameBundle(gameBundle.id, { deleteUserdata })}
             />
             <Stack className="home-dashboard" gap="lg">
                 <Card withBorder radius="lg" p="xl" className="repository-card home-hero-card">
@@ -339,19 +198,19 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                             <Alert variant="light" color="red" title={t("home.gameState.error.title")}>
                                 <Group justify="space-between" gap="sm">
                                     <Text size="sm">{t("home.version.checkFailed", { message: gameState.latestReleaseError })}</Text>
-                                    <Button size="xs" variant="light" loading={isCheckingLatest} onClick={() => void refreshGameState(true, true)}>
+                                    <Button size="xs" variant="light" loading={isCheckingLatest} onClick={() => void refreshGame(true, true)}>
                                         {t("home.action.checkAgain")}
                                     </Button>
                                 </Group>
                             </Alert>
                         )}
-                        {(isInstallingGameBundle || gameBundleInstallProgress.status !== "idle") && <GameBundleInstallProgressCard progress={gameBundleInstallProgress} />}
+                        {(isInstallingGameBundle || installProgress.status !== "idle") && <GameBundleInstallProgressCard progress={installProgress} />}
                         {activeGameBundle === null && gameState.status === "ready" && !installRunning && (
                             <GameBundlePrompt
                                 description={latestRelease === null ? t("home.install.noRelease") : t("home.install.description")}
                                 installLabel={t("home.action.install")}
                                 loading={isInstallingGameBundle}
-                                disabled={latestRelease === null}
+                                disabled={latestRelease === null || fileOperationRunning}
                                 onInstall={() => openInstallModal(latestRelease)}
                                 onOpenVersions={() => setVersionsOpened(true)}
                             />
@@ -366,13 +225,13 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                                 isChecking={isCheckingLatest}
                                 isInstallingGameBundle={isInstallingGameBundle}
                                 isLoadingReleaseNotes={isLoadingReleaseNotes}
+                                actionDisabled={fileOperationRunning}
                                 latestInstalledId={latestInstalledId}
                                 onInstall={() => openInstallModal(latestRelease)}
                                 onActivateLatest={async (gameBundleId) => {
-                                    const result = await window.api.game.setActiveGameBundle(gameBundleId);
-                                    result.status === "updated" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
+                                    await setActiveGameBundle(gameBundleId);
                                 }}
-                                onCheckAgain={() => refreshGameState(true, true)}
+                                onCheckAgain={() => refreshGame(true, true)}
                                 onOpenVersions={() => setVersionsOpened(true)}
                                 onShowUpdateChanges={() => void showUpdateChanges()}
                             />
@@ -383,34 +242,18 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                             progress={backupProgress}
                             latestBackup={backupSummary.latestBackup}
                             gameRunning={gameRunning}
+                            actionDisabled={fileOperationRunning}
                             onOpenBackups={() => setBackupsOpened(true)}
-                            onRestore={restoreBackup}
+                            onRestore={async (backupId) => {
+                                await restoreBackup(backupId);
+                            }}
                             onDelete={requestDeleteBackup}
-                            onRename={renameBackup}
+                            onRename={async (backupId, comment) => {
+                                await renameBackup(backupId, comment);
+                            }}
                         />
-                        <Group justify="space-between" align="center" wrap="nowrap">
-                            <Group gap="xs" wrap="wrap">
-                                <Button
-                                    size="md"
-                                    color={gameRunning ? "orange" : "green"}
-                                    disabled={activeGameBundle === null}
-                                    leftSection={gameRunning ? "■" : "▶"}
-                                    onClick={() => void (gameRunning ? stopGame() : launchGame())}
-                                >
-                                    {gameRunning ? t("home.action.stop") : t("home.action.play")}
-                                </Button>
-                                <LastWorldButton activeGameBundleAvailable={activeGameBundle !== null} gameRunning={gameRunning} worlds={worlds} currentWorld={currentWorld} onLaunch={launchGame} />
-                            </Group>
-                            <BackupCreateButton
-                                enabled={backupsEnabled}
-                                activeGameBundleAvailable={activeGameBundle !== null}
-                                worlds={worlds}
-                                currentWorld={currentWorld}
-                                savesStable={savesStable}
-                                backupBusy={backupProgress.status === "creating" || backupProgress.status === "restoring"}
-                                onCreate={createBackup}
-                            />
-                        </Group>
+
+                        <PrimaryGameActions />
                     </Stack>
                 </Card>
             </Stack>

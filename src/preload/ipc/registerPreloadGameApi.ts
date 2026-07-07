@@ -15,6 +15,7 @@ import { GameSaveSummaryUpdate } from "../../shared/GameSaveSummaryUpdate";
 import { GameSaveActivityUpdate } from "../../shared/GameSaveActivityUpdate";
 import { BackupProgress } from "../../shared/backups/types/BackupProgress";
 import { BackupSummaryUpdate } from "../../shared/backups/types/BackupSummaryUpdate";
+import { GameFileOperationState } from "../../shared/game-bundle/GameFileOperationState";
 
 export function registerPreloadGameApi(): GameApi {
     return {
@@ -32,6 +33,12 @@ export function registerPreloadGameApi(): GameApi {
         restoreBackup: (backupId: string): Promise<EBackupRestoreResult> => ipcRenderer.invoke(Bridge.Game.restoreBackup, backupId),
         deleteBackup: (backupId: string): Promise<EBackupDeleteResult> => ipcRenderer.invoke(Bridge.Game.deleteBackup, backupId),
         renameBackup: (backupId: string, comment: string): Promise<EBackupRenameResult> => ipcRenderer.invoke(Bridge.Game.renameBackup, backupId, comment),
+        getFileOperation: () => ipcRenderer.invoke(Bridge.Game.getFileOperation),
+        onFileOperationChanged: (callback: (operation: GameFileOperationState) => void) => {
+            const listener = (_event: IpcRendererEvent, operation: GameFileOperationState): void => callback(operation);
+            ipcRenderer.on(Bridge.Game.fileOperationChanged, listener);
+            return () => ipcRenderer.removeListener(Bridge.Game.fileOperationChanged, listener);
+        },
         onGameBundleInstallProgress: (callback: (progress: GameBundleInstallProgress) => void) => {
             const listener = (_event: IpcRendererEvent, progress: GameBundleInstallProgress): void => callback(progress);
             ipcRenderer.on(Bridge.Game.gameBundleInstallProgress, listener);

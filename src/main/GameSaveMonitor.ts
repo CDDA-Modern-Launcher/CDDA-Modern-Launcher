@@ -1,13 +1,13 @@
 import { type FSWatcher, watch } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join, normalize } from "node:path";
-import { listWorldDirectories } from "../utils/listWorldDirectories";
-import { getKeySaveFileKind } from "./getKeySaveFileKind";
-import { directoryExists } from "../utils/directoryExists";
-import { listExistingKeySaveFiles } from "../utils/listExistingKeySaveFiles";
-import { GameSaveActivityUpdate } from "../../shared/GameSaveActivityUpdate";
+import { listWorldDirectories } from "./utils/listWorldDirectories";
+import { getKeySaveFileKind } from "./utils/getKeySaveFileKind";
+import { directoryExists } from "./utils/directoryExists";
+import { listExistingKeySaveFiles } from "./utils/listExistingKeySaveFiles";
+import { GameSaveActivityUpdate } from "../shared/GameSaveActivityUpdate";
 import { BrowserWindow } from "electron";
-import { Bridge } from "../../shared/bridge-api/Bridge";
+import { Bridge } from "../shared/bridge-api/Bridge";
 
 type GameSaveMonitorOptions = {
     userdataPath: string;

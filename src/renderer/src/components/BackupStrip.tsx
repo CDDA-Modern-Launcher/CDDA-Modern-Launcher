@@ -12,6 +12,7 @@ export function BackupStrip(props: {
     progress: BackupProgress;
     latestBackup: BackupInstanceInfo | null;
     gameRunning: boolean;
+    actionDisabled: boolean;
     onOpenBackups: () => void;
     onRestore: (backupId: string) => Promise<void>;
     onDelete: (backup: BackupInstanceInfo, skipConfirmation: boolean) => void;
@@ -41,7 +42,7 @@ export function BackupStrip(props: {
 
     const backup = props.latestBackup;
     if (backup === null) return null;
-    const restoreDisabled = props.gameRunning;
+    const restoreDisabled = props.gameRunning || props.actionDisabled;
 
     return (
         <Card withBorder radius="md" p="sm" className="backup-strip">
@@ -72,13 +73,13 @@ export function BackupStrip(props: {
                                 {t("backup.action.restore")}
                             </Button>
                         </Tooltip>
-                        <RenameBackupButton backup={backup} onRename={props.onRename} />
+                        <RenameBackupButton backup={backup} disabled={props.actionDisabled} onRename={props.onRename} />
                     </Group>
                     <Group gap="xs" wrap="nowrap">
                         <Button size="xs" variant="subtle" onClick={props.onOpenBackups}>
                             {t("backup.action.manage")}
                         </Button>
-                        <Button size="xs" variant="subtle" color="red" onClick={(event) => props.onDelete(backup, event.shiftKey)}>
+                        <Button size="xs" variant="subtle" color="red" disabled={props.actionDisabled} onClick={(event) => props.onDelete(backup, event.shiftKey)}>
                             {t("backup.action.delete")}
                         </Button>
                     </Group>

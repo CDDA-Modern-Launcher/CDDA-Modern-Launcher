@@ -21,6 +21,7 @@ import { EGameBundleDeleteResult } from "../game-bundle/EGameBundleDeleteResult"
 import { EGameLaunchResult } from "../launch/EGameLaunchResult";
 import { EGameStopResult } from "../launch/EGameStopResult";
 import { GameBundleInstallProgress } from "../game-bundle/GameBundleInstallProgress";
+import { GameFileOperationState } from "../game-bundle/GameFileOperationState";
 import { EGameFolderOpenResult } from "../EGameFolderOpenResult";
 
 export type GameApi = {
@@ -38,6 +39,8 @@ export type GameApi = {
     restoreBackup: (backupId: string) => Promise<EBackupRestoreResult>;
     deleteBackup: (backupId: string) => Promise<EBackupDeleteResult>;
     renameBackup: (backupId: string, comment: string) => Promise<EBackupRenameResult>;
+    getFileOperation: () => Promise<GameFileOperationState>;
+    onFileOperationChanged: (callback: (operation: GameFileOperationState) => void) => () => void;
     onGameBundleInstallProgress: (callback: (progress: GameBundleInstallProgress) => void) => () => void;
     onRuntimeChanged: (callback: (runtime: GameRuntimeState) => void) => () => void;
     onSaveSummaryChanged: (callback: (update: GameSaveSummaryUpdate) => void) => () => void;

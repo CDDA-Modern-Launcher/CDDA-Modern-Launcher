@@ -1,16 +1,16 @@
 import { app, BrowserWindow } from "electron";
 
-import { AppSettings } from "../settings/AppSettings";
-import { DEFAULT_LOCALE } from "../../shared/Const";
-import { LocaleOption } from "../../shared/localization/types/LocaleOption";
-import { LocalizationBundle } from "../../shared/localization/types/LocalizationBundle";
-import { LoadedLocale } from "../../shared/localization/types/LoadedLocale";
-import { FormatArgs } from "../../shared/FormatArgs";
-import { BUILT_IN_LOCALES } from "../../shared/localization/BUILT_IN_LOCALES";
-import { mergeMessages } from "../../shared/localization/mergeMessages";
-import { normalizeLocale } from "../../shared/localization/normalizeLocale";
-import { formatMessage } from "../../shared/formatMessage";
-import { Bridge } from "../../shared/bridge-api/Bridge";
+import { AppSettings } from "./settings/AppSettings";
+import { DEFAULT_LOCALE } from "../shared/Const";
+import { LocaleOption } from "../shared/localization/types/LocaleOption";
+import { LocalizationBundle } from "../shared/localization/types/LocalizationBundle";
+import { LoadedLocale } from "../shared/localization/types/LoadedLocale";
+import { FormatArgs } from "../shared/FormatArgs";
+import { BUILT_IN_LOCALES } from "../shared/localization/BUILT_IN_LOCALES";
+import { mergeMessages } from "../shared/localization/mergeMessages";
+import { normalizeLocale } from "../shared/localization/normalizeLocale";
+import { formatMessage } from "../shared/formatMessage";
+import { Bridge } from "../shared/bridge-api/Bridge";
 
 export class LocalizationService {
     private readonly builtInLocales = new Map<string, LoadedLocale>();
@@ -52,6 +52,12 @@ export class LocalizationService {
     t(key: string, variables: FormatArgs = {}): string {
         const value = this.getBundle().messages[key] ?? key;
         return formatMessage(value, variables);
+    }
+
+    broadcast(bundle = this.getBundle()): void {
+        for (const window of BrowserWindow.getAllWindows()) {
+            window.webContents.send(Bridge.Localization.onChanged, bundle);
+        }
     }
 
     private resolveInitialLocale(savedLocale: string | null): string {
@@ -120,11 +126,5 @@ export class LocalizationService {
 
     private hasLocale(locale: string): boolean {
         return this.builtInLocales.has(locale);
-    }
-
-    broadcast(bundle = this.getBundle()): void {
-        for (const window of BrowserWindow.getAllWindows()) {
-            window.webContents.send(Bridge.Localization.onChanged, bundle);
-        }
     }
 }

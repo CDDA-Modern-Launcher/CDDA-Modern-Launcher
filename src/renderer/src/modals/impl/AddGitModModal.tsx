@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { Alert, Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
 import { useModalClose } from "@renderer/modals/useModalStore";
@@ -40,6 +40,15 @@ function Content({ onClose }: ContentProps): React.JSX.Element {
 
     const isRepositoryReady = repository.status === "ready" && repoStatus === "ready";
 
+    const handleConfirmClick = useCallback(async () => {
+        try {
+            await installModFn(gitUrl);
+            onClose();
+        } catch (e) {
+            console.log("Cannot install mod from git", e);
+        }
+    }, [gitUrl, installModFn, onClose]);
+
     return (
         <Stack gap="md">
             <Text size="sm" c="dimmed">
@@ -66,7 +75,7 @@ function Content({ onClose }: ContentProps): React.JSX.Element {
                 <Button variant="subtle" onClick={onClose} disabled={busyAction === "install"}>
                     {t("common.cancel")}
                 </Button>
-                <Button onClick={() => installModFn(gitUrl)} disabled={!isRepositoryReady || gitUrl.trim().length === 0 || busyAction === "install"} loading={busyAction === "install"}>
+                <Button onClick={handleConfirmClick} disabled={!isRepositoryReady || gitUrl.trim().length === 0 || busyAction === "install"} loading={busyAction === "install"}>
                     {t("contentSheet.mods.install.button")}
                 </Button>
             </Group>

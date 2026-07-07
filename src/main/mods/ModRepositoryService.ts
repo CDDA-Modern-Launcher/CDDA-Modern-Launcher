@@ -6,13 +6,10 @@ import { BrowserWindow, shell } from "electron";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 
-import type { LocalizationService } from "../localization/LocalizationService";
+import type { LocalizationService } from "../LocalizationService";
 import { WorkspaceService } from "../repository/WorkspaceService";
-import { normalizeModDisplayName, readValidatedModInfo } from "./modInfo";
 import { getChannelModRepositoryPath, getChannelModsPath, getChannelModTempPath, getModPath } from "./modRepositoryPaths";
-import { parseModSourceUrl } from "./modSourceUrl";
 import { WorkspaceStatus } from "../../shared/workspace/WorkspaceStatus";
-import { MOD_REPOSITORY_REGISTRY_FILE_NAME, MOD_REPOSITORY_SCHEMA_VERSION } from "../../shared/Const";
 import { ModInfo } from "../../shared/mods/ModInfo";
 import { ModRegistry } from "../../shared/mods/ModRegistry";
 import { ModInstanceInfo } from "../../shared/mods/ModInstanceInfo";
@@ -27,6 +24,9 @@ import { ModRepositoryChangedEvent } from "../../shared/mods/ModRepositoryChange
 import { ModRepositoryNoticeEvent } from "../../shared/mods/ModRepositoryNoticeEvent";
 import { isNodeError } from "../utils/isNodeError";
 import { Bridge } from "../../shared/bridge-api/Bridge";
+import { normalizeModDisplayName } from "./normalizeModDisplayName";
+import { readValidatedModInfo } from "./readValidatedModInfo";
+import { parseModSourceUrl } from "./parseModSourceUrl";
 
 export class ModRepositoryService {
     private checking = false;
@@ -35,8 +35,6 @@ export class ModRepositoryService {
         private readonly repositoryService: WorkspaceService,
         private readonly localizationService: LocalizationService
     ) {}
-
-    private readonly t = (key: string, variables?: Record<string, string | number>): string => this.localizationService.t(key, variables);
 
     async getState(): Promise<ModRepositoryState> {
         return this.buildState();
@@ -56,7 +54,7 @@ export class ModRepositoryService {
             return { status: "error", message: context.message, state };
         }
 
-        let parsedSource: ReturnType<typeof parseModSourceUrl>;
+        let parsedSource: string;
 
         try {
             parsedSource = parseModSourceUrl(sourceUrl, this.t);
@@ -76,7 +74,7 @@ export class ModRepositoryService {
                 fs,
                 http,
                 dir: tempDir,
-                url: parsedSource.normalizedUrl,
+                url: parsedSource,
                 singleBranch: true,
                 depth: 1
             });
@@ -100,8 +98,7 @@ export class ModRepositoryService {
                 schemaVersion: 1,
                 id: modInfo.id,
                 displayName: modInfo.name,
-                sourceUrl: parsedSource.normalizedUrl,
-                provider: parsedSource.provider,
+                sourceUrl: parsedSource,
                 defaultBranch: branch,
                 trackingRef: `refs/remotes/origin/${branch}`,
                 installedCommit,
@@ -309,6 +306,8 @@ export class ModRepositoryService {
         return { status: "opened" };
     }
 
+    private readonly t = (key: string, variables?: Record<string, string | number>): string => this.localizationService.t(key, variables);
+
     private async checkOne(repositoryPath: string, channelId: string, mod: ModInfo): Promise<ModInfo> {
         const modDir = this.getModDir(repositoryPath, channelId, mod);
         const now = new Date().toISOString();
@@ -486,7 +485,7 @@ export class ModRepositoryService {
     }
 
     private getRegistryPath(repositoryPath: string, channelId: string): string {
-        return join(getChannelModRepositoryPath(repositoryPath, channelId), MOD_REPOSITORY_REGISTRY_FILE_NAME);
+        return join(getChannelModRepositoryPath(repositoryPath, channelId), "mods.json");
     }
 
     private getModDir(repositoryPath: string, channelId: string, mod: ModInfo): string {
@@ -519,7 +518,7 @@ export class ModRepositoryService {
 }
 
 function createEmptyRegistry(): ModRegistry {
-    return { schemaVersion: MOD_REPOSITORY_SCHEMA_VERSION, mods: {} };
+    return { schemaVersion: 1, mods: {} };
 }
 
 function normalizeRegistry(value: unknown): ModRegistry {
@@ -540,7 +539,7 @@ function normalizeRegistry(value: unknown): ModRegistry {
         }
     }
 
-    return { schemaVersion: MOD_REPOSITORY_SCHEMA_VERSION, mods };
+    return { schemaVersion: 1, mods };
 }
 
 function normalizeInstalledMod(value: unknown): ModInfo | null {
@@ -562,7 +561,6 @@ function normalizeInstalledMod(value: unknown): ModInfo | null {
         id: candidate.id,
         displayName: normalizeModDisplayName(candidate.displayName, candidate.id),
         sourceUrl: candidate.sourceUrl,
-        provider: candidate.provider === "github" || candidate.provider === "gitlab" || candidate.provider === "generic" ? candidate.provider : "generic",
         defaultBranch,
         trackingRef: typeof candidate.trackingRef === "string" && candidate.trackingRef.length > 0 ? candidate.trackingRef : `refs/remotes/origin/${defaultBranch}`,
         installedCommit: typeof candidate.installedCommit === "string" ? candidate.installedCommit : "",

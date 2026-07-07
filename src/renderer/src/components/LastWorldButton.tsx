@@ -6,18 +6,20 @@ import { useTranslate } from "@renderer/localization/useLocaleStore";
 export function LastWorldButton({
     activeGameBundleAvailable,
     gameRunning,
+    actionDisabled,
     worlds,
     currentWorld,
     onLaunch
 }: {
     activeGameBundleAvailable: boolean;
     gameRunning: boolean;
+    actionDisabled: boolean;
     worlds: GameWorldInfo[];
     currentWorld: GameWorldInfo | null;
     onLaunch: (worldName?: string) => Promise<void>;
 }): React.JSX.Element {
     const t = useTranslate();
-    const disabled = !activeGameBundleAvailable || gameRunning || worlds.length === 0;
+    const disabled = !activeGameBundleAvailable || gameRunning || actionDisabled || worlds.length === 0;
     const tooltip = gameRunning ? t("home.action.loadWorldTooltipRunning") : t("home.action.loadWorldTooltip");
 
     if (worlds.length <= 1) {

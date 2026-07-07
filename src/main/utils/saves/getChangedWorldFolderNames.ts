@@ -1,4 +1,4 @@
-import type { GameSaveSettledActivity } from "../../game/GameSaveMonitor";
+import type { GameSaveSettledActivity } from "../../GameSaveMonitor";
 
 export function getChangedWorldFolderNames(activity: GameSaveSettledActivity): string[] {
     const folders = new Set<string>();

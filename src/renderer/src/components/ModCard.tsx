@@ -35,7 +35,7 @@ export function ModCard({
                             </Badge>
                         </Group>
                         <Text size="xs" c="dimmed">
-                            {mod.id} · {mod.provider} · {mod.defaultBranch}
+                            {mod.id} · {mod.sourceUrl} · {mod.defaultBranch}
                         </Text>
                     </Stack>
                 </Group>
