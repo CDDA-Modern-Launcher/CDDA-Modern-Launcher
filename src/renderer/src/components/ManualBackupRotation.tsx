@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo } from "react";
 import { ComboboxItem, ComboboxLikeRenderOptionInput, Select, Text, Tooltip } from "@mantine/core";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { isBackupRotationLimit } from "../../../shared/backups/isBackupRotationLimit";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function ManualBackupRotation(): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     const manualBackupRotationLimit = useConfigStore((state) => state.manualBackupRotationLimit);
     const setManualBackupRotationLimit = useConfigStore((state) => state.setManualBackupRotationLimit);
@@ -46,7 +46,7 @@ export function ManualBackupRotation(): React.JSX.Element {
 }
 
 function Renderer({ option }: ComboboxLikeRenderOptionInput<ComboboxItem>): React.ReactNode {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     if (option.value === "disabled") {
         return (

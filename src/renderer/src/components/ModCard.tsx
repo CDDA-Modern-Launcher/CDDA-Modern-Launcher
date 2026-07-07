@@ -1,9 +1,9 @@
 import { ModInstanceInfo } from "../../../shared/mods/ModInstanceInfo";
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
 import { getModStatusColor } from "@renderer/utils/getModStatusColor";
 import { getModStatusKey } from "@renderer/utils/getModStatusKey";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function ModCard({
     mod,
@@ -20,7 +20,7 @@ export function ModCard({
     onRemove: (mod: ModInstanceInfo) => Promise<void>;
     onOpenFolder: (mod: ModInstanceInfo) => Promise<void>;
 }): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const busy = busyAction === `update:${mod.id}` || busyAction === `remove:${mod.id}`;
 
     return (

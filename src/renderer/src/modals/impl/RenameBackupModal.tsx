@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from "react";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { Button, Group, Modal, Stack, Text, TextInput, Title } from "@mantine/core";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 type Defined = Extract<ModalPayload, { kind: "rename-backup" }>;
 
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function RenameBackupModal({ backup, onConfirm }: Props): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const [close, _backup, clean] = useModalCloseWithLatch(backup);
 
     return (
@@ -27,7 +27,7 @@ interface ContentProps extends Props {
 }
 
 function Content({ backup, onClose, onConfirm }: ContentProps): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const [value, setValue] = useState(backup?.comment ?? "");
 
     const onConfirmClick = useCallback(

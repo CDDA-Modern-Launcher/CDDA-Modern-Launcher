@@ -4,6 +4,7 @@ import { useConfigStore } from "@renderer/stores/useConfigStore";
 import { useAppearanceStore } from "@renderer/stores/useAppearanceStore";
 import { useModsSheetStore } from "@renderer/stores/useModsSheetStore";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
+import { useLocaleStoreMount } from "@renderer/localization/useLocaleStore";
 
 export function Root(): React.JSX.Element {
     // Appearance settings bridge
@@ -13,6 +14,9 @@ export function Root(): React.JSX.Element {
     // Repository settings bridge
     const mountConfig = useConfigStore((state) => state.mount);
     useEffect(() => mountConfig(), [mountConfig]);
+
+    const mountLocale = useLocaleStoreMount();
+    useEffect(() => mountLocale(), [mountLocale]);
 
     const mountWorkspace = useWorkspaceStore((state) => state.mount);
     useEffect(() => mountWorkspace(), [mountWorkspace]);

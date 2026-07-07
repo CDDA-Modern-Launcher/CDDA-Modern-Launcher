@@ -1,12 +1,12 @@
 import { Distributive } from "../../../shared/distributive/Distributive";
 import { GithubRelease } from "../../../shared/GithubRelease";
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
 import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { formatDate } from "@renderer/utils/formatDate";
 import { toInstalledReleaseNotesTarget } from "@renderer/utils/toInstalledReleaseNotesTarget";
 import { useModalOpen } from "@renderer/modals/useModalStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 interface Props {
     distributive: Distributive;
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function InstallCard({ distributive, release, onSetActive, onConfirmDelete }: Props): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     const openModal = useModalOpen();
 

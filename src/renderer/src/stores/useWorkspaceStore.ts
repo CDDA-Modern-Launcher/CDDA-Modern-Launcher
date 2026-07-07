@@ -1,15 +1,14 @@
 import { create } from "zustand";
 import { WorkspaceStatus } from "../../../shared/workspace/WorkspaceStatus";
+import { IMountableState } from "@renderer/types/IMountableState";
 
-interface State {
+interface State extends IMountableState {
     workspaceStatus: WorkspaceStatus;
 
     isSelectingRepository: boolean;
     setSelectingRepository: (isSelectingRepository: boolean) => void;
     selectRepository: () => Promise<void>;
     setSelectedChannel: (channelId: string) => Promise<void>;
-
-    mount: () => () => void;
 }
 
 export const useWorkspaceStore = create<State>((set) => ({

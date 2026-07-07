@@ -1,7 +1,7 @@
-import {GameWorldInfo} from "../../../shared/GameWorldInfo";
+import { GameWorldInfo } from "../../../shared/GameWorldInfo";
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Button, Menu, Stack, Text, Tooltip } from "@mantine/core";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function LastWorldButton({
     activeInstallAvailable,
@@ -16,7 +16,7 @@ export function LastWorldButton({
     currentWorld: GameWorldInfo | null;
     onLaunch: (worldName?: string) => Promise<void>;
 }): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const disabled = !activeInstallAvailable || gameRunning || worlds.length === 0;
     const tooltip = gameRunning ? t("home.action.loadWorldTooltipRunning") : t("home.action.loadWorldTooltip");
 

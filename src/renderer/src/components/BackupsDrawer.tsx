@@ -1,11 +1,11 @@
 import { BackupSummary } from "../../../shared/backups/types/BackupSummary";
 import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstanceInfo";
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Alert, Badge, Button, Card, Drawer, Group, Stack, Text, Title, Tooltip } from "@mantine/core";
 import { formatBackupTimestamp } from "@renderer/utils/formatBackupTimestamp";
 
 import { RenameBackupButton } from "@renderer/components/RenameBackupButton";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function BackupsDrawer(props: {
     opened: boolean;
@@ -16,7 +16,7 @@ export function BackupsDrawer(props: {
     onDelete: (backup: BackupInstanceInfo, skipConfirmation: boolean) => void;
     onRename: (backupId: string, comment: string) => Promise<void>;
 }): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     return (
         <Drawer opened={props.opened} onClose={props.onClose} position="right" size={520} title={<Title order={3}>{t("backups.title")}</Title>}>
             <Stack gap="md">

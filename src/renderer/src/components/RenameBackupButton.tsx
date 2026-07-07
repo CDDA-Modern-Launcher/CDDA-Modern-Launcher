@@ -1,11 +1,11 @@
 import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstanceInfo";
 import React, { useCallback } from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Button } from "@mantine/core";
 import { useModalOpen } from "@renderer/modals/useModalStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function RenameBackupButton({ backup, onRename }: { backup: BackupInstanceInfo; onRename: (backupId: string, comment: string) => Promise<void> }): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     const openModal = useModalOpen();
 

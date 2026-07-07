@@ -1,11 +1,11 @@
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Alert, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
 import { REPOSITORY_CONFIG_FILE_NAME } from "../../../shared/Const";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function WorkspaceInvalidView(): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const repository = useWorkspaceStore((state) => state.workspaceStatus);
     const isSelecting = useWorkspaceStore((state) => state.isSelectingRepository);
     const onSelectRepositoryClick = useWorkspaceStore((state) => state.selectRepository);

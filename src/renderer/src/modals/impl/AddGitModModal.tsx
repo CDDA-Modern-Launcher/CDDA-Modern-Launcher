@@ -1,17 +1,17 @@
 import React, { useState } from "react";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { Alert, Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { useModalClose } from "@renderer/modals/useModalStore";
 import { useModsSheetStore } from "@renderer/stores/useModsSheetStore";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 interface Props {
     opened: boolean;
 }
 
 export function AddGitModModal({ opened }: Props): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const close = useModalClose();
 
     return (
@@ -26,7 +26,7 @@ interface ContentProps {
 }
 
 function Content({ onClose }: ContentProps): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     const [gitUrl, setGitUrl] = useState("");
 

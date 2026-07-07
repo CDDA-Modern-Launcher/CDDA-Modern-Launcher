@@ -1,11 +1,11 @@
 import { GithubRelease } from "../../../shared/GithubRelease";
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { formatDate } from "@renderer/utils/formatDate";
 import { toReleaseNotesTarget } from "@renderer/utils/toReleaseNotesTarget";
 import { useModalOpen } from "@renderer/modals/useModalStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 interface Props {
     release: GithubRelease;
@@ -15,7 +15,7 @@ interface Props {
 }
 
 export function DistributiveReleaseCard({ release, isInstalled, isInstalling, onRequestInstall }: Props): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     const openModal = useModalOpen();
 

@@ -1,7 +1,5 @@
 import { Drawer, Title } from "@mantine/core";
 import type React from "react";
-
-import { useLocalization } from "../localization/LocalizationContext";
 import { getEffectiveGameChannels } from "../../../shared/game-channel/getEffectiveGameChannels";
 import { findGameChannel } from "../../../shared/game-channel/findGameChannel";
 import { PlaceholderContent } from "@renderer/components/PlaceholderContent";
@@ -9,6 +7,7 @@ import { ModsContent } from "@renderer/components/ModsContent";
 import { TContentSheetKind } from "@renderer/types/TContentSheetKind";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 const contentTitleKeyByKind: Record<TContentSheetKind, string> = {
     mods: "contentSheet.mods.title",
@@ -22,7 +21,7 @@ type ContentSheetProps = {
 };
 
 export function ContentSheet({ kind, onClose }: ContentSheetProps): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     const repository = useWorkspaceStore((state) => state.workspaceStatus);
 

@@ -1,9 +1,9 @@
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Anchor, Box, Group, Modal, Stack, Text, Title } from "@mantine/core";
 import { formatDate } from "@renderer/utils/formatDate";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 type Defined = Extract<ModalPayload, { kind: "release-notes" }>;
 
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function ReleaseNotesModal({ notes }: Props): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const [close, _notes, clean] = useModalCloseWithLatch(notes);
 
     const body = _notes?.body.trim() ?? "";

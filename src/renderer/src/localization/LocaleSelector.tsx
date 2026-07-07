@@ -1,11 +1,12 @@
 import { Group, Image, Select, Text } from "@mantine/core";
 import React, { useMemo } from "react";
-
-import { useLocalization } from "./LocalizationContext";
 import { LocaleOption } from "../../../shared/localization/types/LocaleOption";
+import { useLocaleInfo, useSetLocale, useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function LocaleSelector(): React.JSX.Element | null {
-    const { selectedLocale, effectiveLocale, options, setLocale, t } = useLocalization();
+    const { selectedLocale, effectiveLocale, options } = useLocaleInfo();
+    const t = useTranslate();
+    const setLocale = useSetLocale();
 
     const data = useMemo(() => options.map((option) => ({ value: option.locale, label: option.nativeName })), [options]);
 

@@ -1,10 +1,10 @@
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Card, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import { REPOSITORY_CONFIG_FILE_NAME } from "../../../shared/Const";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function WorkspaceLoadingView({ path }: { path: string }): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     return (
         <Card withBorder radius="lg" p="xl" className="repository-card">
             <Group gap="lg" wrap="nowrap">

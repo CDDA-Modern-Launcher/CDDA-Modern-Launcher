@@ -1,14 +1,13 @@
 import { ActionIcon, Divider, Drawer, Group, Loader, Stack, Text, Title, Tooltip } from "@mantine/core";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-
-import { useLocalization } from "../localization/LocalizationContext";
 import { GithubRelease } from "../../../shared/GithubRelease";
 import { DistributiveState } from "../../../shared/distributive/DistributiveState";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { DistributiveReleaseCard } from "@renderer/components/DistributiveReleaseCard";
 import { InstallCard } from "@renderer/components/InstallCard";
 import { Distributive } from "../../../shared/distributive/Distributive";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 interface Props {
     opened: boolean;
@@ -23,7 +22,7 @@ interface Props {
 }
 
 export function VersionsDrawer({ opened, state, installedIds, isInstalling, onClose, onRefresh, onRequestInstall, onSetActive, onDelete }: Props): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const [releases, setReleases] = useState<GithubRelease[]>([]);
     const [isLoadingReleases, setLoadingReleases] = useState(false);
     const releaseById = useMemo(() => new Map(releases.map((release) => [release.id, release])), [releases]);

@@ -1,15 +1,15 @@
 import React from "react";
 import { LocaleSelector } from "@renderer/localization/LocaleSelector";
 import { Group, Select, Text } from "@mantine/core";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { SheetSection } from "@renderer/components/SheetSection";
 import { ThemeIcon } from "@renderer/components/ThemeIcon";
 import { getThemeOptions } from "@renderer/utils/getThemeOptions";
 import { isAppTheme } from "../../../shared/appearance/isAppTheme";
 import { useAppearanceStore } from "@renderer/stores/useAppearanceStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function SettingsSheetTitle(): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     const themeSource = useAppearanceStore((state) => state.theme);
     const setThemeSource = useAppearanceStore((state) => state.setThemeSource);

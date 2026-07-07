@@ -1,7 +1,5 @@
 import { Button, Group, Menu, Paper, Text, Tooltip } from "@mantine/core";
 import React, { useCallback, useEffect, useState } from "react";
-
-import { useLocalization } from "../localization/LocalizationContext";
 import { WorkspaceStatus } from "../../../shared/workspace/WorkspaceStatus";
 import { getEffectiveGameChannels } from "../../../shared/game-channel/getEffectiveGameChannels";
 import { findGameChannel } from "../../../shared/game-channel/findGameChannel";
@@ -10,6 +8,7 @@ import { ModRepositoryState } from "../../../shared/mods/ModRepositoryState";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { GameChannelDefinition } from "../../../shared/game-channel/GameChannelDefinition";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 type LauncherDockProps = {
     onOpenSettings: () => void;
@@ -19,7 +18,7 @@ type LauncherDockProps = {
 };
 
 export function LauncherDock({ onOpenSettings, onOpenMods, onOpenSoundpack, onOpenTileset }: LauncherDockProps): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const repository = useWorkspaceStore((state) => state.workspaceStatus);
     const isReady = repository.status === "ready";
     const channels = isReady ? getEffectiveGameChannels(repository.config.customGameChannels) : [];
@@ -111,7 +110,7 @@ export function LauncherDock({ onOpenSettings, onOpenMods, onOpenSoundpack, onOp
 }
 
 function ItemView({ channel, selectedChannel }: { channel: GameChannelDefinition; selectedChannel: GameChannelDefinition | null }): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     const onSelectChannel = useWorkspaceStore((state) => state.setSelectedChannel);
 

@@ -1,10 +1,10 @@
 import React, { useCallback } from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Switch, Tooltip } from "@mantine/core";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function BackupEnabledSwitch(): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const backupsEnabled = useConfigStore((state) => state.backupsEnabled);
     const setBackupsEnabled = useConfigStore((state) => state.setBackupsEnabled);
 

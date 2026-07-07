@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { ModRepositoryState } from "../../../shared/mods/ModRepositoryState";
 import { ModRepositoryNoticeEvent } from "../../../shared/mods/ModRepositoryNoticeEvent";
 import { compareMods } from "@renderer/utils/compareMods";
@@ -11,9 +10,10 @@ import { ContentSection } from "@renderer/components/ContentSection";
 import { ModCard } from "@renderer/components/ModCard";
 import { useModalOpen } from "@renderer/modals/useModalStore";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function ModsContent({ selectedChannelName }: { selectedChannelName: string | null }): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const repository = useWorkspaceStore((state) => state.workspaceStatus);
     const [state, setState] = useState<ModRepositoryState>({ status: "unconfigured", mods: [], checking: false });
     const [mainError, setMainError] = useState<string | null>(null);

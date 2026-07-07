@@ -1,7 +1,7 @@
-import {GameWorldInfo} from "../../../shared/GameWorldInfo";
+import { GameWorldInfo } from "../../../shared/GameWorldInfo";
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { ActionIcon, Menu, Stack, Text, Tooltip } from "@mantine/core";
+import { TLocalizeFn, useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function BackupCreateButton({
     enabled,
@@ -20,7 +20,7 @@ export function BackupCreateButton({
     backupBusy: boolean;
     onCreate: (worldName?: string) => Promise<void>;
 }): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const backupableWorlds = worlds.filter((world) => world.characterName !== null);
     const disabled = !enabled || !activeInstallAvailable || backupableWorlds.length === 0 || !savesStable || backupBusy;
     const tooltip = getBackupButtonTooltip(t, enabled, activeInstallAvailable, backupableWorlds.length, savesStable, backupBusy);
@@ -62,7 +62,7 @@ export function BackupCreateButton({
     );
 }
 
-function getBackupButtonTooltip(t: ReturnType<typeof useLocalization>["t"], enabled: boolean, activeInstallAvailable: boolean, backupableWorldCount: number, savesStable: boolean, backupBusy: boolean): string {
+function getBackupButtonTooltip(t: TLocalizeFn, enabled: boolean, activeInstallAvailable: boolean, backupableWorldCount: number, savesStable: boolean, backupBusy: boolean): string {
     if (!enabled) return t("home.backup.disabledTooltip");
     if (!activeInstallAvailable) return t("home.backup.noInstallTooltip");
     if (backupableWorldCount === 0) return t("home.backup.noSaveTooltip");

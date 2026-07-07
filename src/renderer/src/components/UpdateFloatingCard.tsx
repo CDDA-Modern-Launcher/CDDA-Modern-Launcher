@@ -1,16 +1,14 @@
 import { Alert, Button, Group, Paper, Progress, Stack, Text } from "@mantine/core";
 import React, { useEffect, useMemo, useState } from "react";
-
-import { useLocalization } from "../localization/LocalizationContext";
+import { TLocalizeFn, useTranslate } from "@renderer/localization/useLocaleStore";
 
 type UpdateState = Awaited<ReturnType<typeof window.api.updater.getState>>;
-type Translate = ReturnType<typeof useLocalization>["t"];
 
 function isVisibleState(state: UpdateState): boolean {
     return state.status !== "idle" && state.status !== "not-available" && state.status !== "skipped";
 }
 
-function getTitle(state: UpdateState, t: Translate): string {
+function getTitle(state: UpdateState, t: TLocalizeFn): string {
     switch (state.status) {
         case "checking":
             return t("updater.title.checking");
@@ -27,7 +25,7 @@ function getTitle(state: UpdateState, t: Translate): string {
     }
 }
 
-function getDescription(state: UpdateState, t: Translate): string {
+function getDescription(state: UpdateState, t: TLocalizeFn): string {
     switch (state.status) {
         case "checking":
             return t("updater.description.checking");
@@ -45,7 +43,7 @@ function getDescription(state: UpdateState, t: Translate): string {
 }
 
 export function UpdateFloatingCard(): React.JSX.Element | null {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const [state, setState] = useState<UpdateState>({ status: "idle" });
 
     useEffect(() => {

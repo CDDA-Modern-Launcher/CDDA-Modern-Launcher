@@ -8,7 +8,6 @@ import { LauncherDock } from "./components/LauncherDock";
 import { UpdateFloatingCard } from "./components/UpdateFloatingCard";
 import { TContentSheetKind } from "@renderer/types/TContentSheetKind";
 import { ModalsProvider } from "@mantine/modals";
-import { LocalizationProvider } from "@renderer/localization/LocalizationProvider";
 import { MantineProvider } from "@mantine/core";
 import { useAppearanceStore } from "@renderer/stores/useAppearanceStore";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
@@ -33,21 +32,19 @@ export default function App(): React.JSX.Element {
     return (
         <MantineProvider forceColorScheme={colorTheme}>
             <ModalsProvider modalProps={defaultModalProps}>
-                <LocalizationProvider>
-                    <UpdateFloatingCard />
+                <UpdateFloatingCard />
 
-                    <SettingsSheet opened={settingsOpened} onClose={settings.close} />
+                <SettingsSheet opened={settingsOpened} onClose={settings.close} />
 
-                    <ContentSheet kind={contentKind} onClose={() => setContentKind(null)} />
+                <ContentSheet kind={contentKind} onClose={() => setContentKind(null)} />
 
-                    <main className="app-shell">
-                        <WorkspaceView />
-                    </main>
+                <main className="app-shell">
+                    <WorkspaceView />
+                </main>
 
-                    <LauncherDock onOpenSettings={openSettings} onOpenMods={() => openContent("mods")} onOpenSoundpack={() => openContent("soundpack")} onOpenTileset={() => openContent("tileset")} />
+                <LauncherDock onOpenSettings={openSettings} onOpenMods={() => openContent("mods")} onOpenSoundpack={() => openContent("soundpack")} onOpenTileset={() => openContent("tileset")} />
 
-                    <ModalManager />
-                </LocalizationProvider>
+                <ModalManager />
             </ModalsProvider>
         </MantineProvider>
     );

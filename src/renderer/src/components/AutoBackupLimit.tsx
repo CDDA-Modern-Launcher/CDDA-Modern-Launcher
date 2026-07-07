@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo } from "react";
 import { isAutoBackupLimit } from "../../../shared/backups/isAutoBackupLimit";
 import { ComboboxItem, ComboboxLikeRenderOptionInput, Select, Text, Tooltip } from "@mantine/core";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function AutoBackupLimit(): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     const autoBackupLimit = useConfigStore((state) => state.autoBackupLimit);
     const backupsEnabled = useConfigStore((state) => state.backupsEnabled);
@@ -46,7 +46,7 @@ export function AutoBackupLimit(): React.JSX.Element {
 }
 
 function Renderer({ option }: ComboboxLikeRenderOptionInput<ComboboxItem>): React.ReactNode {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     if (option.value === "disabled") {
         return (

@@ -2,14 +2,13 @@ import { create } from "zustand";
 import { TAppThemeSource } from "../../../shared/appearance/TAppThemeSource";
 import { TAppTheme } from "../../../shared/appearance/TAppTheme";
 import { AppearanceBundle } from "../../../shared/bridge-api/AppearanceApi";
+import { IMountableState } from "@renderer/types/IMountableState";
 
-interface State {
+interface State extends IMountableState {
     themeSource: TAppThemeSource;
     setThemeSource: (themeSource: TAppThemeSource) => Promise<AppearanceBundle>;
 
     theme: TAppTheme;
-
-    mount: () => () => void;
 }
 
 export const useAppearanceStore = create<State>()((set) => ({

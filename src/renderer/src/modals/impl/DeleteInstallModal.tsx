@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Button, Checkbox, Group, Modal, Stack, Text, Title } from "@mantine/core";
 import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 type Defined = Extract<ModalPayload, { kind: "delete-install" }>;
 
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function DeleteInstallModal({ distributive, onConfirm }: Props): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const [close, _distributive, clean] = useModalCloseWithLatch(distributive);
 
     return (
@@ -28,7 +28,7 @@ interface ContentProps extends Props {
 }
 
 function Content({ distributive, onConfirm, onClose }: ContentProps): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const [deleteUserdata, setDeleteUserdata] = useState(true);
 
     return (

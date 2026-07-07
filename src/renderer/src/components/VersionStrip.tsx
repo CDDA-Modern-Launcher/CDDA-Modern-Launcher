@@ -1,11 +1,10 @@
 import { Anchor, Button, Card, Group, Stack, Text } from "@mantine/core";
 import type React from "react";
 import { useState } from "react";
-
-import { useLocalization } from "../localization/LocalizationContext";
 import { GithubRelease } from "../../../shared/GithubRelease";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { getUpdateAction } from "@renderer/utils/getUpdateAction";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function VersionStrip(props: {
     currentVersion: string;
@@ -23,7 +22,7 @@ export function VersionStrip(props: {
     onOpenVersions: () => void;
     onShowUpdateChanges: () => void;
 }): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const [isActivatingLatest, setActivatingLatest] = useState(false);
     const updateAction = getUpdateAction(props.updateAvailable, props.latestRelease, props.latestInstalledId);
 

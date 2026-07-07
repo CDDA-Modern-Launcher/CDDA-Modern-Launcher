@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo } from "react";
 import { ComboboxItem, ComboboxLikeRenderOptionInput, Select, Text } from "@mantine/core";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { isAutoBackupCooldown } from "../../../shared/backups/isAutoBackupCooldown";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function AutoBackupCooldown(): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     const autoBackupCooldown = useConfigStore((state) => state.autoBackupCooldown);
     const backupsEnabled = useConfigStore((state) => state.backupsEnabled);

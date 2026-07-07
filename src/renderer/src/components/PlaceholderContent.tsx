@@ -1,9 +1,9 @@
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Alert, Button, Stack, Text } from "@mantine/core";
 
 import { ContentSection } from "@renderer/components/ContentSection";
 import { TContentSheetKind } from "@renderer/types/TContentSheetKind";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 const contentPrimaryActionKeyByKind: Record<TContentSheetKind, string> = {
     mods: "contentSheet.mods.primaryAction",
@@ -18,7 +18,7 @@ const contentDescriptionKeyByKind: Record<TContentSheetKind, string> = {
 };
 
 export function PlaceholderContent({ kind, selectedChannelName }: { kind: TContentSheetKind; selectedChannelName: string | null }): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     return (
         <Stack gap="xl">

@@ -1,10 +1,11 @@
 import { create } from "zustand";
 import { ModRepositoryState } from "../../../shared/mods/ModRepositoryState";
 import { ModRepositoryNoticeEvent } from "../../../shared/mods/ModRepositoryNoticeEvent";
+import { IMountableState } from "@renderer/types/IMountableState";
 
 type TBusyAction = null | "install";
 
-interface State {
+interface State extends IMountableState {
     error: string | null;
     setError: (error: string | null) => void;
 
@@ -15,8 +16,6 @@ interface State {
     setState: (state: ModRepositoryState) => void;
 
     installModFromGit: (gitUrl: string) => Promise<boolean>;
-
-    mount: () => () => void;
 }
 
 export const useModsSheetStore = create<State>((set) => ({

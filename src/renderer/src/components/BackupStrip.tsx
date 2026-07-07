@@ -1,10 +1,10 @@
 import { BackupProgress } from "../../../shared/backups/types/BackupProgress";
 import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstanceInfo";
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Badge, Button, Card, Group, Progress, Stack, Text, Tooltip } from "@mantine/core";
 import { formatBackupTimestamp } from "@renderer/utils/formatBackupTimestamp";
 import { RenameBackupButton } from "@renderer/components/RenameBackupButton";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function BackupStrip(props: {
     enabled: boolean;
@@ -17,7 +17,7 @@ export function BackupStrip(props: {
     onDelete: (backup: BackupInstanceInfo, skipConfirmation: boolean) => void;
     onRename: (backupId: string, comment: string) => Promise<void>;
 }): React.JSX.Element | null {
-    const { t } = useLocalization();
+    const t = useTranslate();
     if (!props.enabled || !props.activeInstallAvailable) return null;
     if (props.progress.status === "idle" && props.latestBackup === null) return null;
 

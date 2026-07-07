@@ -1,6 +1,6 @@
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Alert, Button, Group, Stack, Text } from "@mantine/core";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 type InstallPromptProps = {
     description: string;
@@ -12,7 +12,7 @@ type InstallPromptProps = {
 };
 
 export function InstallPrompt(props: InstallPromptProps): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     return (
         <Alert variant="light" color="blue" title={t("home.install.title")}>
             <Stack gap="sm">

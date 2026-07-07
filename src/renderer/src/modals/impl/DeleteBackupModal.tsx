@@ -1,8 +1,8 @@
 import React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Button, Group, Modal, Stack, Text, Title } from "@mantine/core";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 type Defined = Extract<ModalPayload, { kind: "delete-backup" }>;
 
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function DeleteBackupModal({ backup, onConfirm }: Props): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const [close, _backup, clean] = useModalCloseWithLatch(backup);
 
     return (

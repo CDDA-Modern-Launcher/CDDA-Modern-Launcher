@@ -3,14 +3,13 @@ import { DEFAULT_RELEASE_ASSET_VARIANT } from "../../../shared/release-asset/DEF
 import { DEFAULT_BACKUP_SETTINGS } from "../../../shared/backups/DEFAULT_BACKUP_SETTINGS";
 import { getErrorMessage } from "../../../shared/getErrorMessage";
 import { SettingsIPC, SettingsIPCSetter } from "../../../shared/SettingsIPC";
+import { IMountableState } from "@renderer/types/IMountableState";
 
-interface ConfigState extends SettingsIPC, SettingsIPCSetter {
+interface ConfigState extends SettingsIPC, SettingsIPCSetter, IMountableState {
     isLoaded: boolean;
     isLoading: boolean;
 
     error: string | null;
-
-    mount: () => () => void;
 }
 
 export const useConfigStore = create<ConfigState>()((set) => ({

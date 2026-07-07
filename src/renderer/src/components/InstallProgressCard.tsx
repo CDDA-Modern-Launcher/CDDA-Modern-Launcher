@@ -1,13 +1,13 @@
 import { InstallDistributiveProgress } from "../../../shared/distributive/InstallDistributiveProgress";
 import type React from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { Card, Group, Progress, Stack, Text } from "@mantine/core";
 import { getProgressTitle } from "@renderer/utils/getProgressTitle";
 import { getIndeterminateProgressValue } from "@renderer/utils/getIndeterminateProgressValue";
 import { getProgressDescription } from "@renderer/utils/getProgressDescription";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function InstallProgressCard({ progress }: { progress: InstallDistributiveProgress }): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const percent = progress.status === "downloading" || progress.status === "extracting" ? progress.percent : null;
     return (
         <Card withBorder radius="md" p="sm" className="install-progress-card">

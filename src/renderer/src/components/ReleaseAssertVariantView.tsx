@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo } from "react";
 import { Select } from "@mantine/core";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { isReleaseAssetVariant } from "../../../shared/release-asset/isReleaseAssetVariant";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function ReleaseAssertVariantView(): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
 
     const releaseAssetVariant = useConfigStore((state) => state.releaseAssetVariant);
     const setReleaseAssetVariant = useConfigStore((state) => state.setReleaseAssetVariant);

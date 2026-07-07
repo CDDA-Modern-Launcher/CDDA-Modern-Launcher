@@ -1,9 +1,9 @@
 import React, { useCallback, useState } from "react";
-import { useLocalization } from "@renderer/localization/LocalizationContext";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { Button, Checkbox, Group, Modal, Stack, Text, Title } from "@mantine/core";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
+import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 type Defined = Extract<ModalPayload, { kind: "install-options" }>;
 
@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function InstallOptionsModal({ release, hasInstalledVersions = false, onConfirm }: Props): React.JSX.Element {
-    const { t } = useLocalization();
+    const t = useTranslate();
     const [close, latchedRelease, clean] = useModalCloseWithLatch(release);
 
     const releaseName = !latchedRelease ? "" : getReleaseNameDisplay(latchedRelease.name);
@@ -41,8 +41,7 @@ interface ContentProps extends Props {
 }
 
 function InstallOptionsModalContent({ release, releaseName, hasInstalledVersions, onConfirm, onClose }: ContentProps): React.JSX.Element {
-    const { t } = useLocalization();
-
+    const t = useTranslate();
     const [installing, setInstalling] = useState(false);
     const [copy, setCopy] = useState(true);
     const [remove, setRemove] = useState(false);
