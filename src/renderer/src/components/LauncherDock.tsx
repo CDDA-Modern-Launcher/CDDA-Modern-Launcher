@@ -1,6 +1,5 @@
 import { Button, Group, Menu, Paper, Text, Tooltip } from "@mantine/core";
-import React, { useCallback, useEffect, useState } from "react";
-import { WorkspaceStatus } from "../../../shared/workspace/WorkspaceStatus";
+import React, { ReactNode, useCallback, useEffect, useState } from "react";
 import { getEffectiveGameChannels } from "../../../shared/game-channel/getEffectiveGameChannels";
 import { findGameChannel } from "../../../shared/game-channel/findGameChannel";
 import { GameBundleInstallProgress } from "../../../shared/game-bundle/GameBundleInstallProgress";
@@ -8,16 +7,10 @@ import { ModRepositoryState } from "../../../shared/mods/ModRepositoryState";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { GameChannelDefinition } from "../../../shared/game-channel/GameChannelDefinition";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { useOpenDrawerSimple } from "@renderer/stores/useDrawerStore";
 
-type LauncherDockProps = {
-    onOpenSettings: () => void;
-    onOpenMods: () => void;
-    onOpenSoundpack: () => void;
-    onOpenTileset: () => void;
-};
-
-export function LauncherDock({ onOpenSettings, onOpenMods, onOpenSoundpack, onOpenTileset }: LauncherDockProps): React.JSX.Element {
+export function LauncherDock(): ReactNode {
     const t = useTranslate();
     const repository = useWorkspaceStore((state) => state.workspaceStatus);
     const isReady = repository.status === "ready";
@@ -27,6 +20,7 @@ export function LauncherDock({ onOpenSettings, onOpenMods, onOpenSoundpack, onOp
     const [modRepositoryState, setModRepositoryState] = useState<ModRepositoryState>({ status: "unconfigured", mods: [], checking: false });
     const isGameBundleInstallInProgress = isGameBundleInstallBlockingProgress(gameBundleInstallProgress);
     const modIndicatorState = getModIndicatorState(modRepositoryState);
+    const openDrawer = useOpenDrawerSimple();
 
     useEffect(() => window.api.game.onGameBundleInstallProgress(setGameBundleInstallProgress), []);
 
@@ -75,28 +69,16 @@ export function LauncherDock({ onOpenSettings, onOpenMods, onOpenSoundpack, onOp
                             <Menu.Item disabled>{t("dock.game.addCustom")}</Menu.Item>
                         </Menu.Dropdown>
                     </Menu>
-                    <Tooltip label={getDockStatusTooltip(t, repository)} position="top">
-                        <Text size="xs" c="dimmed" className="launcher-dock__status">
-                            <span className={getDockStatusDotClassName(repository)} />
-                            {getDockStatusText(t, repository)}
-                        </Text>
-                    </Tooltip>
                 </Group>
 
                 <Group gap="xs" wrap="nowrap" className="launcher-dock__section launcher-dock__section--right">
-                    <Button variant="light" size="xs" radius="md" onClick={onOpenTileset} className="launcher-dock__button">
-                        {t("dock.tileset")}
-                    </Button>
-                    <Button variant="light" size="xs" radius="md" onClick={onOpenSoundpack} className="launcher-dock__button">
-                        {t("dock.soundpack")}
-                    </Button>
-                    <Button variant="light" size="xs" radius="md" onClick={onOpenMods} className="launcher-dock__button launcher-dock__mods-button">
+                    <Button variant="light" size="xs" radius="md" onClick={() => openDrawer("mods")} className="launcher-dock__button launcher-dock__mods-button">
                         {t("dock.mods")}
                         {modIndicatorState !== "idle" && <span className={`launcher-dock__mods-indicator launcher-dock__mods-indicator--${modIndicatorState}`} aria-hidden="true" />}
                     </Button>
 
                     <Tooltip label={t("dock.settings.tooltip")} position="top">
-                        <Button variant="filled" size="xs" radius="md" onClick={onOpenSettings} className="launcher-dock__settings-button">
+                        <Button variant="filled" size="xs" radius="md" onClick={() => openDrawer("settings")} className="launcher-dock__settings-button">
                             <span className="launcher-dock__settings-icon" aria-hidden="true">
                                 ⚙
                             </span>
@@ -140,47 +122,9 @@ function StackedMenuLabel({ title, description }: { title: string; description: 
     );
 }
 
-function getDockStatusText(t: (key: string) => string, repository: WorkspaceStatus): string {
-    if (repository.status === "ready") {
-        return t("dock.status.uiOnly");
-    }
-
-    if (repository.status === "invalid") {
-        return t("dock.status.repositoryInvalid");
-    }
-
-    return t("dock.status.repositoryMissing");
-}
-
-function getDockStatusTooltip(t: (key: string) => string, repository: WorkspaceStatus): string {
-    if (repository.status === "ready") {
-        return t("dock.status.tooltip.uiOnly");
-    }
-
-    if (repository.status === "invalid") {
-        return repository.message;
-    }
-
-    return t("dock.status.tooltip.repositoryMissing");
-}
-
-function getDockStatusDotClassName(repository: WorkspaceStatus): string {
-    const modifier = repository.status === "ready" ? "draft" : repository.status === "invalid" ? "error" : "missing";
-    return `launcher-dock__status-dot launcher-dock__status-dot--${modifier}`;
-}
-
 function getModIndicatorState(state: ModRepositoryState): "idle" | "checking" | "updates" {
-    if (state.status !== "ready") {
-        return "idle";
-    }
-
-    if (state.mods.some((mod) => mod.updateAvailable)) {
-        return "updates";
-    }
-
-    if (state.checking) {
-        return "checking";
-    }
-
+    if (state.status !== "ready") return "idle";
+    if (state.mods.some((mod) => mod.updateAvailable)) return "updates";
+    if (state.checking) return "checking";
     return "idle";
 }

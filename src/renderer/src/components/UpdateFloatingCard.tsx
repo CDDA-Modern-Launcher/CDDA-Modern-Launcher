@@ -1,6 +1,6 @@
 import { Alert, Button, Group, Paper, Progress, Stack, Text } from "@mantine/core";
 import React, { useEffect, useMemo, useState } from "react";
-import { TLocalizeFn, useTranslate } from "@renderer/localization/useLocaleStore";
+import { TLocalizeFn, useTranslate } from "@renderer/stores/useLocaleStore";
 
 type UpdateState = Awaited<ReturnType<typeof window.api.updater.getState>>;
 

@@ -7,7 +7,6 @@ import { useCallback, useEffect, useState } from "react";
 
 export type ModalPayload =
     | { kind: null }
-    | { kind: "delete-backup"; backup: BackupInstanceInfo; onConfirm: (backup: BackupInstanceInfo) => void }
     | { kind: "release-notes"; notes: ReleaseNotesTarget }
     | { kind: "delete-game-bundle"; gameBundle: GameBundle; onConfirm: (gameBundle: GameBundle, deleteUserdata: boolean) => void }
     | { kind: "game-bundle-options"; release: GithubRelease; hasInstalledVersions: boolean; onConfirm: (release: GithubRelease, copyUserdata: boolean, removeOlderGameBundles: boolean) => Promise<void> }

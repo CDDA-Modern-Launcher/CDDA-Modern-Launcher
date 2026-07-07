@@ -1,7 +1,7 @@
 import { GameWorldInfo } from "../../../shared/GameWorldInfo";
 import type React from "react";
 import { ActionIcon, Menu, Stack, Text, Tooltip } from "@mantine/core";
-import { TLocalizeFn, useTranslate } from "@renderer/localization/useLocaleStore";
+import { TLocalizeFn, useTranslate } from "@renderer/stores/useLocaleStore";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
 
 interface Props {

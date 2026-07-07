@@ -1,7 +1,7 @@
 import { GameWorldInfo } from "../../../shared/GameWorldInfo";
 import type React from "react";
 import { Button, Menu, Stack, Text, Tooltip } from "@mantine/core";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 export function LastWorldButton({
     activeGameBundleAvailable,

@@ -4,7 +4,7 @@ import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { formatUpdateReleaseNotes } from "@renderer/utils/formatUpdateReleaseNotes";
 import { ReleaseNotesTarget } from "@renderer/types/ReleaseNotesTarget";
-import { TLocalizeFn } from "@renderer/localization/useLocaleStore";
+import { TLocalizeFn } from "@renderer/stores/useLocaleStore";
 
 export function toUpdateReleaseNotesTarget(activeGameBundle: GameBundle, latestRelease: GithubRelease, updateReleases: GithubRelease[], t: TLocalizeFn): ReleaseNotesTarget {
     return {

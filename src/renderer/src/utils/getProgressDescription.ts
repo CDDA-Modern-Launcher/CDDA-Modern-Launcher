@@ -1,6 +1,6 @@
 import { GameBundleInstallProgress } from "../../../shared/game-bundle/GameBundleInstallProgress";
 import { formatBytes } from "@renderer/utils/formatBytes";
-import { TLocalizeFn } from "@renderer/localization/useLocaleStore";
+import { TLocalizeFn } from "@renderer/stores/useLocaleStore";
 
 export function getProgressDescription(progress: GameBundleInstallProgress, t: TLocalizeFn): string {
     if (progress.status === "downloading")

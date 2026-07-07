@@ -2,22 +2,24 @@ import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstance
 import React, { useCallback } from "react";
 import { Button } from "@mantine/core";
 import { useModalOpen } from "@renderer/modals/useModalStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { useGameBackupStore } from "@renderer/stores/useGameBackupStore";
 
-export function RenameBackupButton({ backup, disabled = false, onRename }: { backup: BackupInstanceInfo; disabled?: boolean; onRename: (backupId: string, comment: string) => Promise<void> }): React.JSX.Element {
+export function RenameBackupButton({ backup, disabled = false }: { backup: BackupInstanceInfo; disabled?: boolean }): React.JSX.Element {
     const t = useTranslate();
 
     const openModal = useModalOpen();
+    const renameBackup = useGameBackupStore((state) => state.rename);
 
     const handleClick = useCallback(async () => {
         openModal({
             kind: "rename-backup",
             backup,
             onConfirm: async (backup, comment) => {
-                await onRename(backup.id, comment);
+                await renameBackup(backup.id, comment);
             }
         });
-    }, [backup, onRename, openModal]);
+    }, [backup, openModal, renameBackup]);
 
     return (
         <>

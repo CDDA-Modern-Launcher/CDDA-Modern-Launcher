@@ -5,7 +5,7 @@ import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { formatDate } from "@renderer/utils/formatDate";
 import { toReleaseNotesTarget } from "@renderer/utils/toReleaseNotesTarget";
 import { useModalOpen } from "@renderer/modals/useModalStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 interface Props {
     release: GithubRelease;

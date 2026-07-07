@@ -3,7 +3,7 @@ import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { Button, Checkbox, Group, Modal, Stack, Text, Title } from "@mantine/core";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 type Defined = Extract<ModalPayload, { kind: "game-bundle-options" }>;
 

@@ -1,7 +1,7 @@
 import type React from "react";
 import { Card, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import { REPOSITORY_CONFIG_FILE_NAME } from "../../../shared/Const";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 export function WorkspaceLoadingView({ path }: { path: string }): React.JSX.Element {
     const t = useTranslate();

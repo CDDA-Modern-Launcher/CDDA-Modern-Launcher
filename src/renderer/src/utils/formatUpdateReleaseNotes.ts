@@ -1,7 +1,7 @@
 import { GithubRelease } from "../../../shared/GithubRelease";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { formatDate } from "@renderer/utils/formatDate";
-import { TLocalizeFn } from "@renderer/localization/useLocaleStore";
+import { TLocalizeFn } from "@renderer/stores/useLocaleStore";
 
 export function formatUpdateReleaseNotes(releases: GithubRelease[], t: TLocalizeFn): string {
     if (releases.length === 0) return t("releaseNotes.modal.emptyUpdateRange");

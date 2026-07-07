@@ -3,7 +3,7 @@ import { Anchor, Box, Group, Modal, Stack, Text, Title } from "@mantine/core";
 import { formatDate } from "@renderer/utils/formatDate";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 type Defined = Extract<ModalPayload, { kind: "release-notes" }>;
 

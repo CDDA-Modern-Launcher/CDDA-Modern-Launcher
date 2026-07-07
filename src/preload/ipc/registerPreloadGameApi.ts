@@ -16,10 +16,16 @@ import { GameSaveActivityUpdate } from "../../shared/GameSaveActivityUpdate";
 import { BackupProgress } from "../../shared/backups/types/BackupProgress";
 import { BackupSummaryUpdate } from "../../shared/backups/types/BackupSummaryUpdate";
 import { GameFileOperationState } from "../../shared/game-bundle/GameFileOperationState";
+import { GameBundleState } from "../../shared/game-bundle/GameBundleState";
 
 export function registerPreloadGameApi(): GameApi {
     return {
         getState: (options?: boolean | { refreshLatest?: boolean; forceRefresh?: boolean }) => ipcRenderer.invoke(Bridge.Game.getState, options),
+        onStateChanged: (callback: (state: GameBundleState) => void) => {
+            const listener = (_event: IpcRendererEvent, state: GameBundleState): void => callback(state);
+            ipcRenderer.on(Bridge.Game.stateChanged, listener);
+            return () => ipcRenderer.removeListener(Bridge.Game.stateChanged, listener);
+        },
         getReleases: (forceRefresh?: boolean) => ipcRenderer.invoke(Bridge.Game.getReleases, forceRefresh),
         installLatestGameBundle: (options: GameBundleInstallOptions) => ipcRenderer.invoke(Bridge.Game.installLatestGameBundle, options),
         setActiveGameBundle: (gameBundleId: string) => ipcRenderer.invoke(Bridge.Game.setActiveGameBundle, gameBundleId),

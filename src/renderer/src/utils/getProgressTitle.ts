@@ -1,6 +1,6 @@
 import { GameBundleInstallProgress } from "../../../shared/game-bundle/GameBundleInstallProgress";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
-import { TLocalizeFn } from "@renderer/localization/useLocaleStore";
+import { TLocalizeFn } from "@renderer/stores/useLocaleStore";
 
 export function getProgressTitle(progress: GameBundleInstallProgress, t: TLocalizeFn): string {
     if (progress.status === "downloading") return t("install.progress.downloading", { version: getReleaseNameDisplay(progress.releaseName) });

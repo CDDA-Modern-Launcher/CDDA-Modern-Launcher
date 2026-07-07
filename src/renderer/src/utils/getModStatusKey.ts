@@ -1,6 +1,7 @@
 import { ModInstanceInfo } from "../../../shared/mods/ModInstanceInfo";
+import { LocaleKeys } from "../../../shared/localization/types/LocaleFile";
 
-export function getModStatusKey(mod: ModInstanceInfo): string {
+export function getModStatusKey(mod: ModInstanceInfo): LocaleKeys {
     if (mod.status === "update-available") return "contentSheet.mods.status.updateAvailable";
     if (mod.status === "blocked-by-local-changes") return "contentSheet.mods.status.blockedByLocalChanges";
     if (mod.status === "missing-local-copy") return "contentSheet.mods.status.missingLocalCopy";

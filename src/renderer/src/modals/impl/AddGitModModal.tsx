@@ -2,9 +2,9 @@ import React, { useCallback, useState } from "react";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { Alert, Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
 import { useModalClose } from "@renderer/modals/useModalStore";
-import { useModsSheetStore } from "@renderer/stores/useModsSheetStore";
+import { useModsStore } from "@renderer/stores/useModsStore";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 interface Props {
     opened: boolean;
@@ -32,11 +32,11 @@ function Content({ onClose }: ContentProps): React.JSX.Element {
 
     const repository = useWorkspaceStore((state) => state.workspaceStatus);
 
-    const error = useModsSheetStore((state) => state.error);
-    const setError = useModsSheetStore((state) => state.setError);
-    const busyAction = useModsSheetStore((state) => state.busyAction);
-    const repoStatus = useModsSheetStore((state) => state.state.status);
-    const installModFn = useModsSheetStore((state) => state.installModFromGit);
+    const error = useModsStore((state) => state.error);
+    const setError = useModsStore((state) => state.setError);
+    const busyAction = useModsStore((state) => state.busyAction);
+    const repoStatus = useModsStore((state) => state.state.status);
+    const installModFn = useModsStore((state) => state.installModFromGit);
 
     const isRepositoryReady = repository.status === "ready" && repoStatus === "ready";
 

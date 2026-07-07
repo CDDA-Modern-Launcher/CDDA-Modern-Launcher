@@ -96,8 +96,8 @@ export class GameBackupService {
             await rm(tempPath, { recursive: true, force: true });
             this.setProgress({ status: "completed" }, true);
             queueMicrotask(() => this.setProgress({ status: "idle" }, true));
-            const summary = await this.emitSummary(context.gameBundle);
-            return { status: "restored", summary };
+            await this.emitSummary(context.gameBundle);
+            return { status: "restored" };
         } catch (error) {
             await rm(tempPath, { recursive: true, force: true });
             const message = error instanceof Error ? error.message : String(error);
@@ -113,7 +113,8 @@ export class GameBackupService {
         const backup = await findBackup(gameBundle, backupId);
         if (backup === null) return { status: "unavailable", message: this.t("backup.error.notFound") };
         await rm(backup.path, { recursive: true, force: true });
-        return { status: "deleted", summary: await this.emitSummary(gameBundle) };
+        await this.emitSummary(gameBundle);
+        return { status: "deleted" };
     }
 
     async renameBackup(gameBundle: GameBundle | null, backupId: string, comment: string): Promise<EBackupRenameResult> {
@@ -124,7 +125,7 @@ export class GameBackupService {
         await writeFile(join(backup.path, BACKUP_INFO_FILE_NAME), `${JSON.stringify(updated, null, 2)}\n`, "utf8");
         const summary = await this.emitSummary(gameBundle);
         const renamed = summary.backups.find((candidate) => candidate.id === backupId);
-        return renamed === undefined ? { status: "unavailable", message: this.t("backup.error.notFound") } : { status: "renamed", summary, backup: renamed };
+        return renamed === undefined ? { status: "unavailable", message: this.t("backup.error.notFound") } : { status: "renamed", backup: renamed };
     }
 
     stop(): void {
@@ -172,7 +173,7 @@ export class GameBackupService {
             const backup = summary.backups.find((candidate) => candidate.id === id);
             this.setProgress({ status: "completed" }, true);
             queueMicrotask(() => this.setProgress({ status: "idle" }, true));
-            return backup === undefined ? { status: "error", message: this.t("backup.error.createdBackupMissing") } : { status: "created", summary, backup };
+            return backup === undefined ? { status: "error", message: this.t("backup.error.createdBackupMissing") } : { status: "created", backup };
         } catch (error) {
             await rm(backupPath, { recursive: true, force: true });
             const message = error instanceof Error ? error.message : String(error);

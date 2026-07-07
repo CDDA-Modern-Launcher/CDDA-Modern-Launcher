@@ -16,7 +16,7 @@ export function setupGameBundleIpc(gameBundleService: GameBundleService, localiz
     ipcMain.handle(Bridge.Game.getState, (_event, request: GameStateRequest) => {
         const refreshLatest = typeof request === "boolean" ? request : request?.refreshLatest === true;
         const forceRefresh = typeof request === "object" && request?.forceRefresh === true;
-        return gameBundleService.getState(refreshLatest, forceRefresh);
+        return gameBundleService.getStateAndEmit(refreshLatest, forceRefresh);
     });
     ipcMain.handle(Bridge.Game.getReleases, (_event, forceRefresh: boolean | undefined) => gameBundleService.getReleases(forceRefresh === true));
     ipcMain.handle(Bridge.Game.installLatestGameBundle, (_event, options: GameBundleInstallOptions) => gameBundleService.installLatestGameBundle(options));

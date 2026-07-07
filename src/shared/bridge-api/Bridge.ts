@@ -38,6 +38,7 @@ export const Bridge = {
     },
     Game: {
         getState: "game:get-state",
+        stateChanged: "game:state-changed",
         getReleases: "game:get-releases",
         installLatestGameBundle: "game:install-latest-bundle",
         setActiveGameBundle: "game:set-active-bundle",

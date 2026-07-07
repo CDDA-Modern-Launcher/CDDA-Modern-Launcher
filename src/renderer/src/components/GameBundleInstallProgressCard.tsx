@@ -1,14 +1,23 @@
-import { GameBundleInstallProgress } from "../../../shared/game-bundle/GameBundleInstallProgress";
 import type React from "react";
 import { Card, Group, Progress, Stack, Text } from "@mantine/core";
 import { getProgressTitle } from "@renderer/utils/getProgressTitle";
 import { getIndeterminateProgressValue } from "@renderer/utils/getIndeterminateProgressValue";
 import { getProgressDescription } from "@renderer/utils/getProgressDescription";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
 
-export function GameBundleInstallProgressCard({ progress }: { progress: GameBundleInstallProgress }): React.JSX.Element {
+export function GameBundleInstallProgressCard(): React.JSX.Element | null {
     const t = useTranslate();
+
+    const progress = useGameBundleInstallStore((state) => state.progress);
+    const isInstallingGameBundle = useGameBundleInstallStore((state) => state.isInstalling);
+
+    if (!isInstallingGameBundle || progress.status === "idle") {
+        return null;
+    }
+
     const percent = progress.status === "downloading" || progress.status === "extracting" ? progress.percent : null;
+
     return (
         <Card withBorder radius="md" p="sm" className="game-bundle-install-progress-card">
             <Stack gap="xs">

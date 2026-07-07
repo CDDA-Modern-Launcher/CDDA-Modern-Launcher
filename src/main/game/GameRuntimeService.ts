@@ -31,7 +31,7 @@ export class GameRuntimeService {
     }
 
     async launch(gameBundle: GameBundle | null, options: GameLaunchOptions = {}, onLaunched: (gameBundle: GameBundle) => Promise<void>): Promise<EGameLaunchResult> {
-        if (this.runtime.status === "running") return { status: "already-running", runtime: this.runtime };
+        if (this.runtime.status === "running") return { status: "already-running" };
         if (gameBundle === null) return { status: "unavailable", message: this.localizationService.t("game.error.noGameBundle") };
 
         const executablePath = await this.resolveExecutablePath(gameBundle);
@@ -46,21 +46,21 @@ export class GameRuntimeService {
         this.process = child;
         this.preferredWorldByGameBundleId.set(gameBundle.id, worldName ?? null);
         await onLaunched(gameBundle);
-        const runtime = this.setState({ status: "running", pid: child.pid ?? 0, gameBundleId: gameBundle.id, worldName: worldName ?? null });
+        this.setState({ status: "running", pid: child.pid ?? 0, gameBundleId: gameBundle.id, worldName: worldName ?? null });
         child.once("exit", () => this.finishProcess(child));
         child.once("error", () => this.finishProcess(child));
-        return { status: "launched", runtime };
+        return { status: "launched" };
     }
 
     stop(): EGameStopResult {
-        if (this.process === null || this.runtime.status !== "running") return { status: "not-running", runtime: this.runtime };
+        if (this.process === null || this.runtime.status !== "running") return { status: "not-running" };
         try {
             this.process.kill();
-            const runtime = this.setState({ status: "idle" });
+            this.setState({ status: "idle" });
             this.process = null;
-            return { status: "stopped", runtime };
+            return { status: "stopped" };
         } catch (error) {
-            return { status: "error", message: error instanceof Error ? error.message : String(error), runtime: this.runtime };
+            return { status: "error", message: error instanceof Error ? error.message : String(error) };
         }
     }
 

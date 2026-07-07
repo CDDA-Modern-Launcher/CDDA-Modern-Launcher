@@ -4,8 +4,9 @@ import { LocalizationBundle } from "../../../shared/localization/types/Localizat
 import { TMountFn } from "@renderer/types/TMountFn";
 import { FormatArgs } from "../../../shared/FormatArgs";
 import { formatMessage } from "../../../shared/formatMessage";
+import { LocaleKeys } from "../../../shared/localization/types/LocaleFile";
 
-export type TLocalizeFn = (key: string, variables?: FormatArgs) => string;
+export type TLocalizeFn = (key: LocaleKeys, variables?: FormatArgs) => string;
 type TSetLocaleFn = (locale: string) => Promise<void>;
 
 interface State extends IMountableState {
@@ -66,4 +67,8 @@ export function useLocaleInfo(): Pick<LocalizationBundle, "selectedLocale" | "ef
 
 export function useTranslate(): TLocalizeFn {
     return useLocaleStore((state) => state.localize);
+}
+
+export function translate(key: LocaleKeys, variables?: FormatArgs): string {
+    return useLocaleStore.getState().localize(key, variables);
 }

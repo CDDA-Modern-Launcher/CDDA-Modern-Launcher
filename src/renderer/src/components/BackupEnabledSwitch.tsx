@@ -1,7 +1,7 @@
 import React, { useCallback } from "react";
 import { Switch, Tooltip } from "@mantine/core";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 export function BackupEnabledSwitch(): React.JSX.Element {
     const t = useTranslate();

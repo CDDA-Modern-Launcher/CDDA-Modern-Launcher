@@ -119,14 +119,6 @@ code {
     white-space: nowrap;
 }
 
-.launcher-dock__status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background-color: var(--mantine-color-green-6);
-    box-shadow: 0 0 0 4px rgba(64, 192, 87, 0.12);
-}
-
 .launcher-dock__settings-button {
     flex-shrink: 0;
 }
@@ -189,21 +181,6 @@ code {
 .launcher-dock__menu-label {
     display: block;
     min-width: 0;
-}
-
-.launcher-dock__status-dot--draft {
-    background-color: var(--mantine-color-blue-6);
-    box-shadow: 0 0 0 4px rgba(34, 139, 230, 0.12);
-}
-
-.launcher-dock__status-dot--missing {
-    background-color: var(--mantine-color-gray-6);
-    box-shadow: 0 0 0 4px rgba(134, 142, 150, 0.12);
-}
-
-.launcher-dock__status-dot--error {
-    background-color: var(--mantine-color-red-6);
-    box-shadow: 0 0 0 4px rgba(250, 82, 82, 0.12);
 }
 
 .home-repository-badge {

@@ -52,7 +52,6 @@ export const EN_LOCALE = {
         "updater.error.checkFailed": "Cannot check for updates right now. Please try again later.",
         "updater.error.notDownloaded": "Update is not downloaded yet.",
         "dock.fork.placeholder": "CDDA",
-        "dock.status.uiOnly": "UI draft",
         "dock.theme.system": "System",
         "dock.content": "Content",
         "dock.settings.tooltip": "Open launcher settings",
@@ -87,10 +86,6 @@ export const EN_LOCALE = {
         "dock.game.unavailable": "No repository",
         "dock.game.menuTitle": "Game platform",
         "dock.game.addCustom": "Add custom platform…",
-        "dock.status.repositoryInvalid": "Repository issue",
-        "dock.status.repositoryMissing": "No repository",
-        "dock.status.tooltip.uiOnly": "The status dot is reserved for game bundle/update health. It is neutral while game business logic is not connected.",
-        "dock.status.tooltip.repositoryMissing": "Select a local repository before choosing a game platform.",
         "home.eyebrow": "Selected game",
         "home.description": "Manage the selected game bundle, quick launch, and last-world details.",
         "home.status.noGameBundle": "Not installed",
@@ -240,7 +235,7 @@ export const EN_LOCALE = {
         "backup.action.save": "Save",
         "backup.delete.title": "Delete backup",
         "backup.delete.description": "Backup “{title}” for world {world} / {character} will be deleted. This action cannot be undone.",
-        "backup.delete.shiftHint": "Tip: Shift-click the delete button to delete a backup without this confirmation.",
+        "confirmation.shiftHint": "Tip: Shift-click the button to skip this confirmation.",
         "backup.rename.title": "Backup title",
         "backup.rename.label": "Comment / title",
         "backup.rename.description": "After renaming, the backup is treated as manual and no longer participates in auto-backup rotation.",
@@ -296,6 +291,7 @@ export const EN_LOCALE = {
         "contentSheet.mods.status.error": "Error",
         "common.delete": "Delete",
         "common.update": "Update",
+        "common.restore": "Restore",
         "contentSheet.mods.update.forceConfirmTitle": "Update and discard local changes",
         "contentSheet.mods.remove.confirmTitle": "Remove mod",
         "contentSheet.mods.channelHint": "This mod library applies only to the {channel} channel.",
@@ -345,6 +341,8 @@ export const EN_LOCALE = {
         "contentSheet.mods.url.placeholder": "https://github.com/example/cdda-example-mod.git",
         "channel.experimental": "Experimental",
         "channel.stable": "Stable",
-        "channel.custom": "Custom"
+        "channel.custom": "Custom",
+        "backup.action.restoreConfirm.title": "Restore backup?",
+        "backup.action.restoreConfirm.message": "Current saves will be replaced with the selected backup. Comment: {comment}"
     }
 } satisfies LocaleFile;

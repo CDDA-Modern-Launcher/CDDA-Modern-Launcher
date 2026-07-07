@@ -85,6 +85,12 @@ export class GameBundleService {
         };
     }
 
+    async getStateAndEmit(refreshLatest = false, forceRefresh = false): Promise<GameBundleState> {
+        const state = await this.getState(refreshLatest, forceRefresh);
+        this.events.emitGameState(state);
+        return state;
+    }
+
     async getReleases(forceRefresh = false): Promise<GithubRelease[]> {
         const repository = await this.workspaceService.getWorkspaceStatus();
         return repository.status === "ready" ? this.releases.fetch(getSelectedChannel(repository.config), forceRefresh) : [];
@@ -106,11 +112,15 @@ export class GameBundleService {
         if (this.operations.isRunning()) return this.operations.busyResult<EGameLaunchResult>();
         const state = await this.getState(false);
         if (state.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repositoryNotReady") };
-        return this.runtime.launch(state.gameBundle, options, (gameBundle) => this.saves.updateActiveGameBundle(gameBundle));
+        const result = await this.runtime.launch(state.gameBundle, options, (gameBundle) => this.saves.updateActiveGameBundle(gameBundle));
+        if (result.status === "launched" || result.status === "already-running") void this.emitState(false);
+        return result;
     }
 
     stopGame(): EGameStopResult {
-        return this.runtime.stop();
+        const result = this.runtime.stop();
+        if (result.status === "stopped" || result.status === "not-running") void this.emitState(false);
+        return result;
     }
 
     getRuntimeState(): GameRuntimeState {
@@ -147,7 +157,9 @@ export class GameBundleService {
         return this.operations.run("restoring-backup", async () => {
             const context = await this.saves.getBackupContext();
             if (context === null) return { status: "unavailable", message: this.localizationService.t("game.error.noGameBundle") };
-            return this.backups.restoreBackup(context, backupId);
+            const result = await this.backups.restoreBackup(context, backupId);
+            if (result.status === "restored") void this.emitState(false);
+            return result;
         });
     }
 
@@ -181,7 +193,8 @@ export class GameBundleService {
             if (existingGameBundle !== undefined) {
                 if (options.makeActive) await this.setActiveGameBundleUnlocked(existingGameBundle.id);
                 this.completeInstall(release.name);
-                return { status: "installed", state: await this.getStateWithLatestRelease(releases[0] ?? null), bundle: existingGameBundle };
+                await this.emitStateWithLatestRelease(releases[0] ?? null);
+                return { status: "installed", bundle: existingGameBundle };
             }
 
             const gameBundle = await this.releases.install(repository.path, repository.config, channel, release, options, gameBundlesBefore);
@@ -189,7 +202,8 @@ export class GameBundleService {
             if (options.removeOlderGameBundles) await this.registry.removeOlder(repository.path, config, channel.id, gameBundle.id, true);
             await this.releases.cleanupDownloads(repository.path, channel.id);
             this.completeInstall(release.name);
-            return { status: "installed", state: await this.getStateWithLatestRelease(releases[0] ?? null), bundle: gameBundle };
+            await this.emitStateWithLatestRelease(releases[0] ?? null);
+            return { status: "installed", bundle: gameBundle };
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             console.error("[game-bundle] failed to install game bundle release", error);
@@ -205,7 +219,8 @@ export class GameBundleService {
         const gameBundles = await this.registry.read(repository.path, repository.config, channel.id);
         if (!gameBundles.some((gameBundle) => gameBundle.id === gameBundleId)) return { status: "error", message: this.localizationService.t("game.error.gameBundleMissing") };
         await this.activateBundle(repository.path, repository.config, channel.id, gameBundleId);
-        return { status: "updated", state: await this.getStateWithLatestRelease(await this.safeFindLatest(channel)) };
+        await this.emitStateWithLatestRelease(await this.safeFindLatest(channel));
+        return { status: "updated" };
     }
 
     private async deleteGameBundleUnlocked(gameBundleId: string, options: GameBundleDeleteOptions): Promise<EGameBundleDeleteResult> {
@@ -216,7 +231,14 @@ export class GameBundleService {
         if (gameBundle === undefined) return { status: "error", message: this.localizationService.t("game.error.gameBundleMissing") };
         if (gameBundle.isActive) return { status: "blocked", message: this.localizationService.t("game.error.activeGameBundleDeleteBlocked") };
         await this.registry.delete(gameBundle, options.deleteUserdata);
-        return { status: "deleted", state: await this.getState(false) };
+        await this.emitState(false);
+        return { status: "deleted" };
+    }
+
+    private async emitState(refreshLatest = false, forceRefresh = false): Promise<GameBundleState> {
+        const state = await this.getState(refreshLatest, forceRefresh);
+        this.events.emitGameState(state);
+        return state;
     }
 
     private async findGameBundle(gameBundleId: string): Promise<GameBundle | null> {
@@ -224,10 +246,11 @@ export class GameBundleService {
         return state.status === "ready" ? (state.gameBundles.find((gameBundle) => gameBundle.id === gameBundleId) ?? null) : null;
     }
 
-    private async getStateWithLatestRelease(latestRelease: GithubRelease | null): Promise<GameBundleState> {
+    private async emitStateWithLatestRelease(latestRelease: GithubRelease | null): Promise<void> {
         const state = await this.getState(false);
-        if (state.status !== "ready") return state;
-        return { ...state, latestRelease, latestReleaseError: null, updateAvailable: latestRelease !== null && state.gameBundle !== null && latestRelease.id !== state.gameBundle.id };
+        this.events.emitGameState(
+            state.status !== "ready" ? state : { ...state, latestRelease, latestReleaseError: null, updateAvailable: latestRelease !== null && state.gameBundle !== null && latestRelease.id !== state.gameBundle.id }
+        );
     }
 
     private async readLatestRelease(channel: ReturnType<typeof getSelectedChannel>, refreshLatest: boolean, forceRefresh: boolean): Promise<{ release: GithubRelease | null; error: string | null }> {

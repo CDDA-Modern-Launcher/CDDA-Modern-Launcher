@@ -3,7 +3,7 @@ import { Button, Checkbox, Group, Modal, Stack, Text, Title } from "@mantine/cor
 import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 type Defined = Extract<ModalPayload, { kind: "delete-game-bundle" }>;
 

@@ -6,12 +6,12 @@ import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { formatDate } from "@renderer/utils/formatDate";
 import { toInstalledReleaseNotesTarget } from "@renderer/utils/toInstalledReleaseNotesTarget";
 import { useModalOpen } from "@renderer/modals/useModalStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 interface Props {
     gameBundle: GameBundle;
     release: GithubRelease | null;
-    onSetActive: (gameBundleId: string) => Promise<void>;
+    onSetActive: (gameBundleId: string) => Promise<boolean>;
     actionDisabled: boolean;
     onConfirmDelete: (gameBundleId: GameBundle, deleteUserdata: boolean) => void;
 }

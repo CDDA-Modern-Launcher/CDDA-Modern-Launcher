@@ -2,7 +2,7 @@ import React, { useCallback, useMemo } from "react";
 import { ComboboxItem, ComboboxLikeRenderOptionInput, Select, Text, Tooltip } from "@mantine/core";
 import { isBackupRotationLimit } from "../../../shared/backups/isBackupRotationLimit";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 export function ManualBackupRotation(): React.JSX.Element {
     const t = useTranslate();

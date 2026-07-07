@@ -1,6 +1,5 @@
 import React, { useEffect } from "react";
 import { useModalInfo } from "@renderer/modals/useModalStore";
-import { DeleteBackupModal } from "@renderer/modals/impl/DeleteBackupModal";
 import { GameBundleInstallOptionsModal } from "@renderer/modals/impl/GameBundleInstallOptionsModal";
 import { ReleaseNotesModal } from "@renderer/modals/impl/ReleaseNotesModal";
 import { DeleteGameBundleModal } from "@renderer/modals/impl/DeleteGameBundleModal";
@@ -17,8 +16,6 @@ export function ModalManager(): React.JSX.Element {
     return (
         <>
             <ReleaseNotesModal notes={modal.kind === "release-notes" ? modal.notes : undefined} />
-
-            <DeleteBackupModal backup={modal.kind === "delete-backup" ? modal.backup : undefined} onConfirm={modal.kind === "delete-backup" ? modal.onConfirm : undefined} />
 
             <DeleteGameBundleModal gameBundle={modal.kind === "delete-game-bundle" ? modal.gameBundle : undefined} onConfirm={modal.kind === "delete-game-bundle" ? modal.onConfirm : undefined} />
 

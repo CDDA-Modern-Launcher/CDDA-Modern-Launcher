@@ -1,11 +1,23 @@
 import { GameWorldInfo } from "../../../shared/GameWorldInfo";
 import type React from "react";
 import { Text } from "@mantine/core";
-import { TLocalizeFn, useTranslate } from "@renderer/localization/useLocaleStore";
+import { TLocalizeFn, useTranslate } from "@renderer/stores/useLocaleStore";
+import { useGameStateStore } from "@renderer/stores/useGameStateStore";
 
-export function SaveStatusLine({ activeGameBundleAvailable, world, worldCount }: { activeGameBundleAvailable: boolean; world: GameWorldInfo | null; worldCount: number }): React.JSX.Element {
+export function SaveStatusLine(): React.JSX.Element {
     const t = useTranslate();
-    const text = getSaveStatusText(t, activeGameBundleAvailable, world, worldCount);
+
+    const gameState = useGameStateStore((state) => state.state);
+
+    const activeGameBundle = gameState.status === "ready" ? gameState.gameBundle : null;
+    const activeGameBundleAvailable = activeGameBundle !== null;
+    const saveSummary = gameState.status === "ready" ? gameState.saves : null;
+    const worlds = saveSummary?.worlds ?? [];
+    const currentWorld = saveSummary?.currentWorld ?? null;
+    const worldCount = worlds.length;
+
+    const text = getSaveStatusText(t, activeGameBundleAvailable, currentWorld, worldCount);
+
     return <Text c="dimmed">{text}</Text>;
 }
 

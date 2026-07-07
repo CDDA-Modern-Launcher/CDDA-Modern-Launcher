@@ -2,7 +2,7 @@ import React, { useCallback, useState } from "react";
 import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { Button, Group, Modal, Stack, Text, TextInput, Title } from "@mantine/core";
 import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 type Defined = Extract<ModalPayload, { kind: "rename-backup" }>;
 

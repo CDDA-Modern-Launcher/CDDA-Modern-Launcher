@@ -2,25 +2,27 @@ import React from "react";
 import { Button, Group } from "@mantine/core";
 import { LastWorldButton } from "@renderer/components/LastWorldButton";
 import { BackupCreateButton } from "@renderer/components/BackupCreateButton";
-import { useGameRuntimeState } from "@renderer/stores/useGameRuntimeStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
-import { useGameBundleStore } from "@renderer/stores/useGameBundleStore";
+import { useIsGameRunning } from "@renderer/stores/useGameRuntimeStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { useGameStateStore } from "@renderer/stores/useGameStateStore";
+import { useGameBackupStore } from "@renderer/stores/useGameBackupStore";
+import { useGameFileOperationStore } from "@renderer/stores/useGameFileOperationStore";
+import { useGameCommandStore } from "@renderer/stores/useGameCommandStore";
 
 export function PrimaryGameActions(): React.JSX.Element {
     const t = useTranslate();
-    const runtimeState = useGameRuntimeState();
-    const gameState = useGameBundleStore((state) => state.state);
-    const backupProgress = useGameBundleStore((state) => state.backupProgress);
-    const fileOperationRunning = useGameBundleStore((state) => state.isFileOperationRunning);
-    const launchActiveGameBundle = useGameBundleStore((state) => state.launchActiveGameBundle);
-    const stopGame = useGameBundleStore((state) => state.stopGame);
-    const createManualBackup = useGameBundleStore((state) => state.createManualBackup);
+    const gameState = useGameStateStore((state) => state.state);
+    const backupProgress = useGameBackupStore((state) => state.progress);
+    const fileOperationRunning = useGameFileOperationStore((state) => state.isRunning);
+    const launchActiveGameBundle = useGameCommandStore((state) => state.launchActive);
+    const stopGame = useGameCommandStore((state) => state.stop);
+    const gameRunning = useIsGameRunning();
+    const createManualBackup = useGameBackupStore((state) => state.createManual);
 
     const activeGameBundle = gameState.status === "ready" ? gameState.gameBundle : null;
     const saveSummary = gameState.status === "ready" ? gameState.saves : null;
     const worlds = saveSummary?.worlds ?? [];
     const currentWorld = saveSummary?.currentWorld ?? null;
-    const gameRunning = runtimeState.status === "running";
     const savesStable = gameState.status !== "ready" || gameState.savesStable;
     const backupBusy = backupProgress.status === "creating" || backupProgress.status === "restoring" || fileOperationRunning;
     const launchDisabled = activeGameBundle === null || fileOperationRunning;

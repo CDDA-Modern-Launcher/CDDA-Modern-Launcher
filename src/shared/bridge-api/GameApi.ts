@@ -26,6 +26,7 @@ import { EGameFolderOpenResult } from "../EGameFolderOpenResult";
 
 export type GameApi = {
     getState: (options?: GameStateRequest) => Promise<GameBundleState>;
+    onStateChanged: (callback: (state: GameBundleState) => void) => () => void;
     getReleases: (forceRefresh?: boolean) => Promise<GithubRelease[]>;
     installLatestGameBundle: (options: GameBundleInstallOptions) => Promise<EGameBundleInstallResult>;
     setActiveGameBundle: (gameBundleId: string) => Promise<EGameBundleSetActiveResult>;

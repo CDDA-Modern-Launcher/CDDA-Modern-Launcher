@@ -51,7 +51,6 @@ export const RU_LOCALE = {
         "updater.error.checkFailed": "Сейчас не удалось проверить обновления. Попробуйте позже.",
         "updater.error.notDownloaded": "Обновление еще не загружено.",
         "dock.fork.placeholder": "CDDA",
-        "dock.status.uiOnly": "UI-набросок",
         "dock.theme.system": "Система",
         "dock.content": "Контент",
         "dock.settings.tooltip": "Открыть настройки лаунчера",
@@ -86,10 +85,6 @@ export const RU_LOCALE = {
         "dock.game.unavailable": "Нет репозитория",
         "dock.game.menuTitle": "Платформа игры",
         "dock.game.addCustom": "Добавить свою платформу…",
-        "dock.status.repositoryInvalid": "Проблема репозитория",
-        "dock.status.repositoryMissing": "Нет репозитория",
-        "dock.status.tooltip.uiOnly": "Точка статуса зарезервирована под состояние game bundle/обновлений игры. Пока бизнес-логика игры не подключена, она нейтральная.",
-        "dock.status.tooltip.repositoryMissing": "Выберите локальный репозиторий, чтобы переключать платформу игры.",
         "home.eyebrow": "Выбранная игра",
         "home.description": "Управление выбранной версией игры, быстрый запуск и сведения о последнем мире.",
         "home.status.noGameBundle": "Не установлено",
@@ -239,7 +234,7 @@ export const RU_LOCALE = {
         "backup.action.save": "Сохранить",
         "backup.delete.title": "Удаление бэкапа",
         "backup.delete.description": "Бэкап «{title}» для мира {world} / {character} будет удалён. Это действие нельзя отменить.",
-        "backup.delete.shiftHint": "Подсказка: Shift+клик по кнопке удаления удаляет бэкап без этого подтверждения.",
+        "confirmation.shiftHint": "Подсказка: Shift+клик по кнопке позволяет пропустить это подтверждение.",
         "backup.rename.title": "Название бэкапа",
         "backup.rename.label": "Комментарий / название",
         "backup.rename.description": "После изменения названия бэкап считается ручным и больше не участвует в ротации автобэкапов.",
@@ -295,6 +290,7 @@ export const RU_LOCALE = {
         "contentSheet.mods.status.error": "Ошибка",
         "common.delete": "Удалить",
         "common.update": "Обновить",
+        "common.restore": "Восстановить",
         "contentSheet.mods.update.forceConfirmTitle": "Обновление с потерей локальных изменений",
         "contentSheet.mods.remove.confirmTitle": "Удаление мода",
         "contentSheet.mods.channelHint": "Эта библиотека модов относится только к каналу {channel}.",
@@ -344,6 +340,8 @@ export const RU_LOCALE = {
         "contentSheet.mods.url.placeholder": "https://github.com/example/cdda-example-mod.git",
         "channel.experimental": "Экспериментальная",
         "channel.stable": "Стабильная",
-        "channel.custom": "Пользовательская"
+        "channel.custom": "Пользовательская",
+        "backup.action.restoreConfirm.title": "Восстановить бэкап?",
+        "backup.action.restoreConfirm.message": "Текущие сохранения будут заменены выбранным бэкапом. Комментарий: {comment}"
     }
 } satisfies LocaleFileImpl;

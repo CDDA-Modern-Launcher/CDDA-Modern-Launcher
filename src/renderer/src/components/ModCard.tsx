@@ -1,27 +1,48 @@
 import { ModInstanceInfo } from "../../../shared/mods/ModInstanceInfo";
-import type React from "react";
+import { ReactNode } from "react";
 import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
 import { getModStatusColor } from "@renderer/utils/getModStatusColor";
 import { getModStatusKey } from "@renderer/utils/getModStatusKey";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { useModsStore } from "@renderer/stores/useModsStore";
+import { modals } from "@mantine/modals";
+import { useShallow } from "zustand/react/shallow";
 
-export function ModCard({
-    mod,
-    busyAction,
-    onUpdate,
-    onForceUpdate,
-    onRemove,
-    onOpenFolder
-}: {
+interface Props {
     mod: ModInstanceInfo;
-    busyAction: string | null;
-    onUpdate: (mod: ModInstanceInfo) => Promise<void>;
-    onForceUpdate: (mod: ModInstanceInfo) => Promise<void>;
-    onRemove: (mod: ModInstanceInfo) => Promise<void>;
-    onOpenFolder: (mod: ModInstanceInfo) => Promise<void>;
-}): React.JSX.Element {
+}
+
+export function ModCard({ mod }: Props): ReactNode {
     const t = useTranslate();
-    const busy = busyAction === `update:${mod.id}` || busyAction === `remove:${mod.id}`;
+    const { update, remove, openFolder, busyAction, busyModId } = useModsStore(
+        useShallow((state) => ({
+            update: state.update,
+            remove: state.remove,
+            openFolder: state.openFolder,
+            busyAction: state.busyAction,
+            busyModId: state.busyModId
+        }))
+    );
+
+    const forceUpdateMod = (mod: ModInstanceInfo): void => {
+        modals.openConfirmModal({
+            title: t("contentSheet.mods.update.forceConfirmTitle"),
+            children: <Text size="sm">{t("contentSheet.mods.update.forceConfirm", { name: mod.displayName })}</Text>,
+            labels: { confirm: t("common.update"), cancel: t("common.cancel") },
+            confirmProps: { color: "red" },
+            onConfirm: () => void update(mod, true)
+        });
+    };
+
+    const removeMod = (mod: ModInstanceInfo): void => {
+        modals.openConfirmModal({
+            title: t("contentSheet.mods.remove.confirmTitle"),
+            children: <Text size="sm">{t("contentSheet.mods.remove.confirm", { name: mod.displayName })}</Text>,
+            labels: { confirm: t("common.delete"), cancel: t("common.cancel") },
+            confirmProps: { color: "red" },
+            onConfirm: () => void remove(mod)
+        });
+    };
 
     return (
         <Card withBorder radius="md" p="md">
@@ -57,18 +78,19 @@ export function ModCard({
                 )}
 
                 <Group gap="xs">
-                    <Button size="xs" variant="light" onClick={() => onUpdate(mod)} disabled={busy} loading={busyAction === `update:${mod.id}`}>
+                    <Button size="xs" variant="light" onClick={() => update(mod)} disabled={busyAction !== null} loading={busyModId === mod.id && busyAction === "update"}>
                         {t("contentSheet.mods.update.button")}
                     </Button>
                     {mod.hasLocalChanges && (
-                        <Button size="xs" variant="light" color="red" onClick={() => onForceUpdate(mod)} disabled={busy}>
+                        <Button size="xs" variant="light" color="red" onClick={() => forceUpdateMod(mod)} disabled={busyAction !== null}>
+                            {/* todo: tooltip */}
                             {t("contentSheet.mods.update.forceButton")}
                         </Button>
                     )}
-                    <Button size="xs" variant="subtle" onClick={() => onOpenFolder(mod)} disabled={busy}>
+                    <Button size="xs" variant="subtle" onClick={() => openFolder(mod)} disabled={busyAction !== null}>
                         {t("contentSheet.selection.openFolder")}
                     </Button>
-                    <Button size="xs" variant="subtle" color="red" onClick={() => onRemove(mod)} disabled={busy} loading={busyAction === `remove:${mod.id}`}>
+                    <Button size="xs" variant="subtle" color="red" onClick={() => removeMod(mod)} disabled={busyAction !== null} loading={busyModId === mod.id && busyAction === "remove"}>
                         {t("contentSheet.mods.remove.button")}
                     </Button>
                 </Group>

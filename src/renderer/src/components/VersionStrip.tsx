@@ -1,86 +1,140 @@
 import { Anchor, Button, Card, Group, Stack, Text } from "@mantine/core";
-import type React from "react";
-import { useState } from "react";
-import { GithubRelease } from "../../../shared/GithubRelease";
+import { ReactNode, useMemo, useState } from "react";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { getUpdateAction } from "@renderer/utils/getUpdateAction";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { useGameStateStore } from "@renderer/stores/useGameStateStore";
+import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
+import { selectIsGameBundleInstallRunning, useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
+import { getUpdateReleases } from "@renderer/utils/getUpdateReleases";
+import { useGameReleasesStore } from "@renderer/stores/useGameReleasesStore";
+import { useGameFileOperationStore } from "@renderer/stores/useGameFileOperationStore";
+import { GithubRelease } from "../../../shared/GithubRelease";
+import { useModalOpen } from "@renderer/modals/useModalStore";
+import { useOpenDrawerSimple } from "@renderer/stores/useDrawerStore";
+import { toUpdateReleaseNotesTarget } from "@renderer/utils/toUpdateReleaseNotesTarget";
 
-export function VersionStrip(props: {
-    currentVersion: string;
-    latestRelease: GithubRelease | null;
-    latestReleaseError: string | null;
-    updateAvailable: boolean;
-    updateReleases: GithubRelease[];
-    isChecking: boolean;
-    isInstallingGameBundle: boolean;
-    isLoadingReleaseNotes: boolean;
-    actionDisabled: boolean;
-    latestInstalledId: string | null;
-    onInstall: () => void;
-    onActivateLatest: (gameBundleId: string) => Promise<void>;
-    onCheckAgain: () => Promise<void>;
-    onOpenVersions: () => void;
-    onShowUpdateChanges: () => void;
-}): React.JSX.Element {
+export function VersionStrip(): ReactNode {
     const t = useTranslate();
+    const openModal = useModalOpen();
+    const openDrawer = useOpenDrawerSimple();
+
+    const gameState = useGameStateStore((state) => state.state);
+    const installRunning = useGameBundleInstallStore(selectIsGameBundleInstallRunning);
+    const availableReleases = useGameReleasesStore((state) => state.releases);
+    const isCheckingLatest = useGameStateStore((state) => state.isCheckingLatest);
+    const isInstallingGameBundle = useGameBundleInstallStore((state) => state.isInstalling);
+    const isLoadingReleaseNotes = useGameReleasesStore((state) => state.isLoadingReleaseNotes);
+    const fileOperationRunning = useGameFileOperationStore((state) => state.isRunning);
+    const installLatestGameBundle = useGameBundleInstallStore((state) => state.installLatest);
+    const setActiveGameBundle = useGameBundleInstallStore((state) => state.setActive);
+    const refreshGame = useGameStateStore((state) => state.refresh);
+    const loadReleases = useGameReleasesStore((state) => state.load);
+    const setReleaseNotesLoading = useGameReleasesStore((state) => state.setReleaseNotesLoading);
+
+    const activeGameBundle = gameState.status === "ready" ? gameState.gameBundle : null;
+    const latestRelease = gameState.status === "ready" ? gameState.latestRelease : null;
+    const latestReleaseError = gameState.status === "ready" ? gameState.latestReleaseError : null;
+    const updateAvailable = gameState.status === "ready" && gameState.updateAvailable;
+    const hasInstalledVersions = gameState.status === "ready" && gameState.gameBundles.length > 0;
+
+    const gameBundleIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.gameBundles.map((gameBundle) => gameBundle.id) : []), [gameState]);
+    const latestInstalledId = latestRelease !== null && gameBundleIds.has(latestRelease.id) ? latestRelease.id : null;
+
+    // const updateReleases = useMemo(() => (activeGameBundle === null ? [] : getUpdateReleases(activeGameBundle, availableReleases)), [activeGameBundle, availableReleases]);
+
     const [isActivatingLatest, setActivatingLatest] = useState(false);
-    const updateAction = getUpdateAction(props.updateAvailable, props.latestRelease, props.latestInstalledId);
+
+    const updateAction = getUpdateAction(updateAvailable, latestRelease, latestInstalledId);
+
+    const openInstallModal = (release: GithubRelease | null): void => {
+        if (release === null) return;
+        openModal({
+            kind: "game-bundle-options",
+            release,
+            hasInstalledVersions,
+            onConfirm: async (release, copyUserdata, removeOlderGameBundles) => {
+                await installLatestGameBundle({ releaseId: release.id, makeActive: true, copyUserdata, removeOlderGameBundles });
+            }
+        });
+    };
+    const showUpdateChanges = async (): Promise<void> => {
+        if (activeGameBundle === null || latestRelease === null) return;
+
+        let releases = availableReleases;
+        if (releases.length === 0) {
+            setReleaseNotesLoading(true);
+            try {
+                releases = await loadReleases();
+            } finally {
+                setReleaseNotesLoading(false);
+            }
+        }
+
+        openModal({ kind: "release-notes", notes: toUpdateReleaseNotesTarget(activeGameBundle, latestRelease, getUpdateReleases(activeGameBundle, releases), t) });
+    };
 
     const activateLatest = async (): Promise<void> => {
-        if (props.latestInstalledId === null) return;
+        if (latestInstalledId === null) return;
         setActivatingLatest(true);
         try {
-            await props.onActivateLatest(props.latestInstalledId);
+            await setActiveGameBundle(latestInstalledId);
         } finally {
             setActivatingLatest(false);
         }
     };
+
+    if (!activeGameBundle || installRunning) return null;
+    const currentVersion = getReleaseDisplayName(activeGameBundle);
 
     return (
         <Card withBorder radius="md" p="sm" className="home-version-strip">
             <Group justify="space-between" gap="sm" wrap="nowrap">
                 <Stack gap={2} className="home-version-strip__text">
                     <Text size="sm" fw={700}>
-                        {t("home.version.current", { version: props.currentVersion })}
+                        {t("home.version.current", { version: currentVersion })}
                     </Text>
+
                     <Group gap={6} wrap="wrap">
-                        <Text size="xs" c={props.latestReleaseError !== null ? "red" : props.updateAvailable ? "blue" : "dimmed"}>
-                            {props.isChecking
+                        <Text size="xs" c={latestReleaseError !== null ? "red" : updateAvailable ? "blue" : "dimmed"}>
+                            {isCheckingLatest
                                 ? t("home.version.checking")
-                                : props.latestReleaseError !== null
-                                  ? t("home.version.checkFailed", { message: props.latestReleaseError })
-                                  : props.updateAvailable && props.latestRelease !== null
+                                : latestReleaseError !== null
+                                  ? t("home.version.checkFailed", { message: latestReleaseError })
+                                  : updateAvailable && latestRelease !== null
                                     ? t("home.version.updateAvailable", {
-                                          currentVersion: props.currentVersion,
-                                          latestVersion: getReleaseNameDisplay(props.latestRelease.name)
+                                          currentVersion: currentVersion,
+                                          latestVersion: getReleaseNameDisplay(latestRelease.name)
                                       })
-                                    : props.latestRelease === null
+                                    : latestRelease === null
                                       ? t("home.version.latestUnknown")
                                       : t("home.version.latestInstalled")}
                         </Text>
-                        <Anchor component="button" type="button" size="xs" disabled={props.isChecking || props.actionDisabled} onClick={() => void props.onCheckAgain()}>
+                        <Anchor component="button" type="button" size="xs" disabled={isCheckingLatest || fileOperationRunning} onClick={() => void refreshGame(true, true)}>
                             {t("home.action.checkAgain")}
                         </Anchor>
-                        {props.updateAvailable && props.latestRelease !== null && (
-                            <Anchor component="button" type="button" size="xs" disabled={props.isLoadingReleaseNotes || props.actionDisabled} onClick={props.onShowUpdateChanges}>
-                                {props.isLoadingReleaseNotes ? t("home.action.loadingUpdateChanges") : t("home.action.showUpdateChanges")}
+                        {updateAvailable && latestRelease !== null && (
+                            <Anchor component="button" type="button" size="xs" disabled={isLoadingReleaseNotes || fileOperationRunning} onClick={showUpdateChanges}>
+                                {isLoadingReleaseNotes ? t("home.action.loadingUpdateChanges") : t("home.action.showUpdateChanges")}
                             </Anchor>
                         )}
                     </Group>
                 </Stack>
+
                 <Group gap="xs" wrap="nowrap">
                     {updateAction === "activate" && (
-                        <Button size="xs" variant="light" loading={isActivatingLatest} disabled={props.actionDisabled} onClick={() => void activateLatest()}>
+                        <Button size="xs" variant="light" loading={isActivatingLatest} disabled={fileOperationRunning} onClick={() => void activateLatest()}>
                             {t("home.action.activateLatest")}
                         </Button>
                     )}
+
                     {updateAction === "install" && (
-                        <Button size="xs" variant="light" loading={props.isInstallingGameBundle} disabled={props.actionDisabled} onClick={props.onInstall}>
+                        <Button size="xs" variant="light" loading={isInstallingGameBundle} disabled={fileOperationRunning} onClick={() => openInstallModal(latestRelease)}>
                             {t("home.action.installUpdate")}
                         </Button>
                     )}
-                    <Button size="xs" variant="subtle" onClick={props.onOpenVersions}>
+
+                    <Button size="xs" variant="subtle" onClick={() => openDrawer("game-bundles")}>
                         {t("home.action.openVersions")}
                     </Button>
                 </Group>

@@ -2,7 +2,7 @@ import type React from "react";
 import { Alert, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
 import { REPOSITORY_CONFIG_FILE_NAME } from "../../../shared/Const";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
-import { useTranslate } from "@renderer/localization/useLocaleStore";
+import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 export function WorkspaceInvalidView(): React.JSX.Element {
     const t = useTranslate();

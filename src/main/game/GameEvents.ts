@@ -8,12 +8,17 @@ import { GameSaveSummaryUpdate } from "../../shared/GameSaveSummaryUpdate";
 import { GameRuntimeState } from "../../shared/GameRuntimeState";
 import { GameBundleInstallProgress } from "../../shared/game-bundle/GameBundleInstallProgress";
 import { GameFileOperationState } from "../../shared/game-bundle/GameFileOperationState";
+import { GameBundleState } from "../../shared/game-bundle/GameBundleState";
 
 export class GameEvents {
     private lastInstallProgressKey = "";
     private lastInstallProgressAt = 0;
     private lastBackupProgressKey = "";
     private lastBackupProgressAt = 0;
+
+    emitGameState(state: GameBundleState): void {
+        this.send(Bridge.Game.stateChanged, state);
+    }
 
     emitFileOperation(operation: GameFileOperationState): void {
         this.send(Bridge.Game.fileOperationChanged, operation);
