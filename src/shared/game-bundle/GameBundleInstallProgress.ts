@@ -1,4 +1,4 @@
-export type InstallProgress =
+export type GameBundleInstallProgress =
     | { status: "idle" }
     | { status: "resolving-release"; releaseName?: string }
     | { status: "downloading"; releaseName: string; percent: number | null; transferredBytes: number; totalBytes: number | null }

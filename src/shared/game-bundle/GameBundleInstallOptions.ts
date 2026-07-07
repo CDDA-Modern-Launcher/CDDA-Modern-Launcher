@@ -1,6 +1,6 @@
-export type InstallOptions = {
+export type GameBundleInstallOptions = {
     releaseId?: string;
     makeActive: boolean;
     copyUserdata: boolean;
-    removeOlderInstalls: boolean;
+    removeOlderGameBundles: boolean;
 };

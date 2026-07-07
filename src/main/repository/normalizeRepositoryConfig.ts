@@ -19,7 +19,7 @@ export function normalizeRepositoryConfig(config: Partial<RepositoryConfig>): Re
         schemaVersion: 1,
         selectedChannelId,
         customGameChannels: customChannels,
-        activeInstallByChannel: normalizeStringRecord(config.activeInstallByChannel),
+        activeGameBundleByChannel: normalizeStringRecord(config.activeGameBundleByChannel),
         releaseAssetVariant: isReleaseAssetVariant(config.releaseAssetVariant) ? config.releaseAssetVariant : DEFAULT_RELEASE_ASSET_VARIANT,
         backupsEnabled: typeof config.backupsEnabled === "boolean" ? config.backupsEnabled : DEFAULT_BACKUP_SETTINGS.backupsEnabled,
         autoBackupLimit: isAutoBackupLimit(config.autoBackupLimit) ? config.autoBackupLimit : DEFAULT_BACKUP_SETTINGS.autoBackupLimit,

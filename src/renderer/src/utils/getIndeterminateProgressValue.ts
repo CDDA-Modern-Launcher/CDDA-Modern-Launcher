@@ -1,6 +1,6 @@
-import { InstallProgress } from "../../../shared/distributive/InstallProgress";
+import { GameBundleInstallProgress } from "../../../shared/game-bundle/GameBundleInstallProgress";
 
-export function getIndeterminateProgressValue(progress: InstallProgress): number {
+export function getIndeterminateProgressValue(progress: GameBundleInstallProgress): number {
     if (progress.status === "extracting") return 58;
     if (progress.status === "preparing-saves") return 76;
     if (progress.status === "finalizing") return 90;

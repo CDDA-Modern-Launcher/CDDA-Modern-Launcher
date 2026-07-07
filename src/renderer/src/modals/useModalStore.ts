@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstanceInfo";
-import { GameBundle } from "../../../shared/distributive/GameBundle";
+import { GameBundle } from "../../../shared/game-bundle/GameBundle";
 import { GithubRelease } from "../../../shared/GithubRelease";
 import { ReleaseNotesTarget } from "@renderer/types/ReleaseNotesTarget";
 import { useCallback, useEffect, useState } from "react";
@@ -9,8 +9,8 @@ export type ModalPayload =
     | { kind: null }
     | { kind: "delete-backup"; backup: BackupInstanceInfo; onConfirm: (backup: BackupInstanceInfo) => void }
     | { kind: "release-notes"; notes: ReleaseNotesTarget }
-    | { kind: "delete-install"; distributive: GameBundle; onConfirm: (distributive: GameBundle, deleteUserdata: boolean) => void }
-    | { kind: "install-options"; release: GithubRelease; hasInstalledVersions: boolean; onConfirm: (release: GithubRelease, copyUserdata: boolean, removeOlderInstalls: boolean) => Promise<void> }
+    | { kind: "delete-game-bundle"; gameBundle: GameBundle; onConfirm: (gameBundle: GameBundle, deleteUserdata: boolean) => void }
+    | { kind: "game-bundle-options"; release: GithubRelease; hasInstalledVersions: boolean; onConfirm: (release: GithubRelease, copyUserdata: boolean, removeOlderGameBundles: boolean) => Promise<void> }
     | { kind: "add-git-mod" }
     | { kind: "rename-backup"; backup: BackupInstanceInfo; onConfirm: (backup: BackupInstanceInfo, comment: string) => Promise<void> };
 

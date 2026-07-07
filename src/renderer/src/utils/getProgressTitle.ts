@@ -1,8 +1,8 @@
-import { InstallProgress } from "../../../shared/distributive/InstallProgress";
+import { GameBundleInstallProgress } from "../../../shared/game-bundle/GameBundleInstallProgress";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { TLocalizeFn } from "@renderer/localization/useLocaleStore";
 
-export function getProgressTitle(progress: InstallProgress, t: TLocalizeFn): string {
+export function getProgressTitle(progress: GameBundleInstallProgress, t: TLocalizeFn): string {
     if (progress.status === "downloading") return t("install.progress.downloading", { version: getReleaseNameDisplay(progress.releaseName) });
     if (progress.status === "extracting") return t("install.progress.extracting", { version: getReleaseNameDisplay(progress.releaseName) });
     if (progress.status === "preparing-saves") return t("install.progress.preparingSaves");

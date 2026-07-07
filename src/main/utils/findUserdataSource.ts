@@ -1,5 +1,5 @@
-import { GameBundle } from "../../shared/distributive/GameBundle";
+import { GameBundle } from "../../shared/game-bundle/GameBundle";
 
-export function findUserdataSource(installs: GameBundle[], activeInstallId: string | undefined): GameBundle | null {
-    return (activeInstallId === undefined ? undefined : installs.find((install) => install.id === activeInstallId)) ?? installs[0] ?? null;
+export function findUserdataSource(gameBundles: GameBundle[], activeGameBundleId: string | undefined): GameBundle | null {
+    return (activeGameBundleId === undefined ? undefined : gameBundles.find((gameBundle) => gameBundle.id === activeGameBundleId)) ?? gameBundles[0] ?? null;
 }

@@ -2,26 +2,26 @@ import { ActionIcon, Divider, Drawer, Group, Loader, Stack, Text, Title, Tooltip
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GithubRelease } from "../../../shared/GithubRelease";
-import { GameBundleState } from "../../../shared/distributive/GameBundleState";
+import { GameBundleState } from "../../../shared/game-bundle/GameBundleState";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
-import { DistributiveReleaseCard } from "@renderer/components/DistributiveReleaseCard";
-import { InstallCard } from "@renderer/components/InstallCard";
-import { GameBundle } from "../../../shared/distributive/GameBundle";
+import { GameBundleReleaseCard } from "@renderer/components/GameBundleReleaseCard";
+import { GameBundleCard } from "@renderer/components/GameBundleCard";
+import { GameBundle } from "../../../shared/game-bundle/GameBundle";
 import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 interface Props {
     opened: boolean;
     state: GameBundleState;
-    installedIds: Set<string>;
-    isInstalling: boolean;
+    gameBundleIds: Set<string>;
+    isInstallingGameBundle: boolean;
     onClose: () => void;
     onRefresh: () => Promise<void>;
     onRequestInstall: (release: GithubRelease) => void;
-    onSetActive: (installId: string) => Promise<void>;
-    onDelete: (distributive: GameBundle, deleteUserdata: boolean) => Promise<void>;
+    onSetActive: (gameBundleId: string) => Promise<void>;
+    onDelete: (gameBundle: GameBundle, deleteUserdata: boolean) => Promise<void>;
 }
 
-export function VersionsDrawer({ opened, state, installedIds, isInstalling, onClose, onRefresh, onRequestInstall, onSetActive, onDelete }: Props): React.JSX.Element {
+export function VersionsDrawer({ opened, state, gameBundleIds, isInstallingGameBundle, onClose, onRefresh, onRequestInstall, onSetActive, onDelete }: Props): React.JSX.Element {
     const t = useTranslate();
     const [releases, setReleases] = useState<GithubRelease[]>([]);
     const [isLoadingReleases, setLoadingReleases] = useState(false);
@@ -77,7 +77,9 @@ export function VersionsDrawer({ opened, state, installedIds, isInstalling, onCl
                                 {t("versions.installed.empty")}
                             </Text>
                         ) : (
-                            state.gameBundles.map((dis) => <InstallCard key={dis.id} distributive={dis} release={releaseById.get(dis.id) ?? null} onSetActive={onSetActive} onConfirmDelete={onDelete} />)
+                            state.gameBundles.map((gameBundle) => (
+                                <GameBundleCard key={gameBundle.id} gameBundle={gameBundle} release={releaseById.get(gameBundle.id) ?? null} onSetActive={onSetActive} onConfirmDelete={onDelete} />
+                            ))
                         )}
                     </Stack>
                     <Divider />
@@ -93,7 +95,13 @@ export function VersionsDrawer({ opened, state, installedIds, isInstalling, onCl
                                 </Text>
                             ) : (
                                 releases.map((release) => (
-                                    <DistributiveReleaseCard key={release.id} release={release} isInstalled={installedIds.has(release.id)} isInstalling={isInstalling} onRequestInstall={onRequestInstall} />
+                                    <GameBundleReleaseCard
+                                        key={release.id}
+                                        release={release}
+                                        isGameBundleReady={gameBundleIds.has(release.id)}
+                                        isInstallingGameBundle={isInstallingGameBundle}
+                                        onRequestInstall={onRequestInstall}
+                                    />
                                 ))
                             )}
                         </Stack>

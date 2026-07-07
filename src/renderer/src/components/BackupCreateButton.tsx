@@ -5,7 +5,7 @@ import { TLocalizeFn, useTranslate } from "@renderer/localization/useLocaleStore
 
 export function BackupCreateButton({
     enabled,
-    activeInstallAvailable,
+    activeGameBundleAvailable,
     worlds,
     currentWorld,
     savesStable,
@@ -13,7 +13,7 @@ export function BackupCreateButton({
     onCreate
 }: {
     enabled: boolean;
-    activeInstallAvailable: boolean;
+    activeGameBundleAvailable: boolean;
     worlds: GameWorldInfo[];
     currentWorld: GameWorldInfo | null;
     savesStable: boolean;
@@ -22,8 +22,8 @@ export function BackupCreateButton({
 }): React.JSX.Element {
     const t = useTranslate();
     const backupableWorlds = worlds.filter((world) => world.characterName !== null);
-    const disabled = !enabled || !activeInstallAvailable || backupableWorlds.length === 0 || !savesStable || backupBusy;
-    const tooltip = getBackupButtonTooltip(t, enabled, activeInstallAvailable, backupableWorlds.length, savesStable, backupBusy);
+    const disabled = !enabled || !activeGameBundleAvailable || backupableWorlds.length === 0 || !savesStable || backupBusy;
+    const tooltip = getBackupButtonTooltip(t, enabled, activeGameBundleAvailable, backupableWorlds.length, savesStable, backupBusy);
     const icon = (
         <ActionIcon size={42} variant="light" disabled={disabled} aria-label={t("home.backup.createTooltip")}>
             💾
@@ -62,9 +62,9 @@ export function BackupCreateButton({
     );
 }
 
-function getBackupButtonTooltip(t: TLocalizeFn, enabled: boolean, activeInstallAvailable: boolean, backupableWorldCount: number, savesStable: boolean, backupBusy: boolean): string {
+function getBackupButtonTooltip(t: TLocalizeFn, enabled: boolean, activeGameBundleAvailable: boolean, backupableWorldCount: number, savesStable: boolean, backupBusy: boolean): string {
     if (!enabled) return t("home.backup.disabledTooltip");
-    if (!activeInstallAvailable) return t("home.backup.noInstallTooltip");
+    if (!activeGameBundleAvailable) return t("home.backup.noInstallTooltip");
     if (backupableWorldCount === 0) return t("home.backup.noSaveTooltip");
     if (!savesStable) return t("home.backup.savingTooltip");
     if (backupBusy) return t("home.backup.busyTooltip");

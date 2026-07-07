@@ -1,8 +1,8 @@
-import { InstallProgress } from "../../../shared/distributive/InstallProgress";
+import { GameBundleInstallProgress } from "../../../shared/game-bundle/GameBundleInstallProgress";
 import { formatBytes } from "@renderer/utils/formatBytes";
 import { TLocalizeFn } from "@renderer/localization/useLocaleStore";
 
-export function getProgressDescription(progress: InstallProgress, t: TLocalizeFn): string {
+export function getProgressDescription(progress: GameBundleInstallProgress, t: TLocalizeFn): string {
     if (progress.status === "downloading")
         return t("install.progress.downloadingDescription", { size: formatBytes(progress.transferredBytes), total: progress.totalBytes === null ? "?" : formatBytes(progress.totalBytes) });
     if (progress.status === "extracting") return t("install.progress.extractingDescription", { version: progress.releaseName });

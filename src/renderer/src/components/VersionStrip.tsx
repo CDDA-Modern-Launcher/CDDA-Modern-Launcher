@@ -13,11 +13,11 @@ export function VersionStrip(props: {
     updateAvailable: boolean;
     updateReleases: GithubRelease[];
     isChecking: boolean;
-    isInstalling: boolean;
+    isInstallingGameBundle: boolean;
     isLoadingReleaseNotes: boolean;
     latestInstalledId: string | null;
     onInstall: () => void;
-    onActivateLatest: (installId: string) => Promise<void>;
+    onActivateLatest: (gameBundleId: string) => Promise<void>;
     onCheckAgain: () => Promise<void>;
     onOpenVersions: () => void;
     onShowUpdateChanges: () => void;
@@ -75,7 +75,7 @@ export function VersionStrip(props: {
                         </Button>
                     )}
                     {updateAction === "install" && (
-                        <Button size="xs" variant="light" loading={props.isInstalling} onClick={props.onInstall}>
+                        <Button size="xs" variant="light" loading={props.isInstallingGameBundle} onClick={props.onInstall}>
                             {t("home.action.installUpdate")}
                         </Button>
                     )}

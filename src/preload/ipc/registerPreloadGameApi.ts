@@ -1,15 +1,15 @@
 import { GameApi } from "../../shared/bridge-api/GameApi";
 import { ipcRenderer, type IpcRendererEvent } from "electron";
 import { Bridge } from "../../shared/bridge-api/Bridge";
-import { InstallOptions } from "../../shared/distributive/InstallOptions";
-import { GameBundleDeleteOptions } from "../../shared/distributive/GameBundleDeleteOptions";
+import { GameBundleInstallOptions } from "../../shared/game-bundle/GameBundleInstallOptions";
+import { GameBundleDeleteOptions } from "../../shared/game-bundle/GameBundleDeleteOptions";
 import { GameLaunchOptions } from "../../shared/launch/GameLaunchOptions";
 import { CreateManualBackupOptions } from "../../shared/backups/types/CreateManualBackupOptions";
 import { EBackupCreateResult } from "../../shared/backups/types/EBackupCreateResult";
 import { EBackupRestoreResult } from "../../shared/backups/types/EBackupRestoreResult";
 import { EBackupDeleteResult } from "../../shared/backups/types/EBackupDeleteResult";
 import { EBackupRenameResult } from "../../shared/backups/types/EBackupRenameResult";
-import { InstallProgress } from "../../shared/distributive/InstallProgress";
+import { GameBundleInstallProgress } from "../../shared/game-bundle/GameBundleInstallProgress";
 import { GameRuntimeState } from "../../shared/GameRuntimeState";
 import { GameSaveSummaryUpdate } from "../../shared/GameSaveSummaryUpdate";
 import { GameSaveActivityUpdate } from "../../shared/GameSaveActivityUpdate";
@@ -20,22 +20,22 @@ export function registerPreloadGameApi(): GameApi {
     return {
         getState: (options?: boolean | { refreshLatest?: boolean; forceRefresh?: boolean }) => ipcRenderer.invoke(Bridge.Game.getState, options),
         getReleases: (forceRefresh?: boolean) => ipcRenderer.invoke(Bridge.Game.getReleases, forceRefresh),
-        installLatest: (options: InstallOptions) => ipcRenderer.invoke(Bridge.Game.installLatest, options),
-        setActiveInstall: (installId: string) => ipcRenderer.invoke(Bridge.Game.setActiveInstall, installId),
-        deleteInstall: (installId: string, options: GameBundleDeleteOptions) => ipcRenderer.invoke(Bridge.Game.deleteInstall, installId, options),
+        installLatestGameBundle: (options: GameBundleInstallOptions) => ipcRenderer.invoke(Bridge.Game.installLatestGameBundle, options),
+        setActiveGameBundle: (gameBundleId: string) => ipcRenderer.invoke(Bridge.Game.setActiveGameBundle, gameBundleId),
+        deleteGameBundle: (gameBundleId: string, options: GameBundleDeleteOptions) => ipcRenderer.invoke(Bridge.Game.deleteGameBundle, gameBundleId, options),
         getRuntimeState: () => ipcRenderer.invoke(Bridge.Game.getRuntimeState),
-        launchActiveInstall: (options?: GameLaunchOptions) => ipcRenderer.invoke(Bridge.Game.launchActiveInstall, options),
+        launchActiveGameBundle: (options?: GameLaunchOptions) => ipcRenderer.invoke(Bridge.Game.launchActiveGameBundle, options),
         stop: () => ipcRenderer.invoke(Bridge.Game.stop),
-        openInstallFolder: (installId: string) => ipcRenderer.invoke(Bridge.Game.openInstallFolder, installId),
-        openSavesFolder: (installId: string) => ipcRenderer.invoke(Bridge.Game.openSavesFolder, installId),
+        openGameBundleFolder: (gameBundleId: string) => ipcRenderer.invoke(Bridge.Game.openGameBundleFolder, gameBundleId),
+        openSavesFolder: (gameBundleId: string) => ipcRenderer.invoke(Bridge.Game.openSavesFolder, gameBundleId),
         createManualBackup: (options?: CreateManualBackupOptions): Promise<EBackupCreateResult> => ipcRenderer.invoke(Bridge.Game.createManualBackup, options),
         restoreBackup: (backupId: string): Promise<EBackupRestoreResult> => ipcRenderer.invoke(Bridge.Game.restoreBackup, backupId),
         deleteBackup: (backupId: string): Promise<EBackupDeleteResult> => ipcRenderer.invoke(Bridge.Game.deleteBackup, backupId),
         renameBackup: (backupId: string, comment: string): Promise<EBackupRenameResult> => ipcRenderer.invoke(Bridge.Game.renameBackup, backupId, comment),
-        onInstallProgress: (callback: (progress: InstallProgress) => void) => {
-            const listener = (_event: IpcRendererEvent, progress: InstallProgress): void => callback(progress);
-            ipcRenderer.on(Bridge.Game.installProgress, listener);
-            return () => ipcRenderer.removeListener(Bridge.Game.installProgress, listener);
+        onGameBundleInstallProgress: (callback: (progress: GameBundleInstallProgress) => void) => {
+            const listener = (_event: IpcRendererEvent, progress: GameBundleInstallProgress): void => callback(progress);
+            ipcRenderer.on(Bridge.Game.gameBundleInstallProgress, listener);
+            return () => ipcRenderer.removeListener(Bridge.Game.gameBundleInstallProgress, listener);
         },
         onRuntimeChanged: (callback: (runtime: GameRuntimeState) => void) => {
             const listener = (_event: IpcRendererEvent, runtime: GameRuntimeState): void => callback(runtime);

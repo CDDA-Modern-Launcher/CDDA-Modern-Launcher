@@ -1,6 +1,6 @@
-import { GameBundle } from "../../../shared/distributive/GameBundle";
+import { GameBundle } from "../../../shared/game-bundle/GameBundle";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 
-export function getReleaseDisplayName(install: GameBundle): string {
-    return getReleaseNameDisplay(install.manifest.releaseName || install.manifest.releaseId);
+export function getReleaseDisplayName(gameBundle: GameBundle): string {
+    return getReleaseNameDisplay(gameBundle.manifest.releaseName || gameBundle.manifest.releaseId);
 }

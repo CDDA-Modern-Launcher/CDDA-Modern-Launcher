@@ -1,9 +1,9 @@
 import React, { useEffect } from "react";
 import { useModalInfo } from "@renderer/modals/useModalStore";
 import { DeleteBackupModal } from "@renderer/modals/impl/DeleteBackupModal";
-import { InstallOptionsModal } from "@renderer/modals/impl/InstallOptionsModal";
+import { GameBundleInstallOptionsModal } from "@renderer/modals/impl/GameBundleInstallOptionsModal";
 import { ReleaseNotesModal } from "@renderer/modals/impl/ReleaseNotesModal";
-import { DeleteInstallModal } from "@renderer/modals/impl/DeleteInstallModal";
+import { DeleteGameBundleModal } from "@renderer/modals/impl/DeleteGameBundleModal";
 import { AddGitModModal } from "@renderer/modals/impl/AddGitModModal";
 import { RenameBackupModal } from "@renderer/modals/impl/RenameBackupModal";
 
@@ -20,12 +20,12 @@ export function ModalManager(): React.JSX.Element {
 
             <DeleteBackupModal backup={modal.kind === "delete-backup" ? modal.backup : undefined} onConfirm={modal.kind === "delete-backup" ? modal.onConfirm : undefined} />
 
-            <DeleteInstallModal distributive={modal.kind === "delete-install" ? modal.distributive : undefined} onConfirm={modal.kind === "delete-install" ? modal.onConfirm : undefined} />
+            <DeleteGameBundleModal gameBundle={modal.kind === "delete-game-bundle" ? modal.gameBundle : undefined} onConfirm={modal.kind === "delete-game-bundle" ? modal.onConfirm : undefined} />
 
-            <InstallOptionsModal
-                release={modal.kind === "install-options" ? modal.release : undefined}
-                hasInstalledVersions={modal.kind === "install-options" ? modal.hasInstalledVersions : false}
-                onConfirm={modal.kind === "install-options" ? modal.onConfirm : undefined}
+            <GameBundleInstallOptionsModal
+                release={modal.kind === "game-bundle-options" ? modal.release : undefined}
+                hasInstalledVersions={modal.kind === "game-bundle-options" ? modal.hasInstalledVersions : false}
+                onConfirm={modal.kind === "game-bundle-options" ? modal.onConfirm : undefined}
             />
 
             <AddGitModModal opened={modal.kind === "add-git-mod"} />

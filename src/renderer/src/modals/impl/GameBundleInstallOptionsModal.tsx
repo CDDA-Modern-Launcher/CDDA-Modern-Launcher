@@ -5,7 +5,7 @@ import { defaultModalProps } from "@renderer/DefaultModalProps";
 import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
 import { useTranslate } from "@renderer/localization/useLocaleStore";
 
-type Defined = Extract<ModalPayload, { kind: "install-options" }>;
+type Defined = Extract<ModalPayload, { kind: "game-bundle-options" }>;
 
 interface Props {
     release: Defined["release"] | undefined;
@@ -13,7 +13,7 @@ interface Props {
     onConfirm: Defined["onConfirm"] | undefined;
 }
 
-export function InstallOptionsModal({ release, hasInstalledVersions = false, onConfirm }: Props): React.JSX.Element {
+export function GameBundleInstallOptionsModal({ release, hasInstalledVersions = false, onConfirm }: Props): React.JSX.Element {
     const t = useTranslate();
     const [close, latchedRelease, clean] = useModalCloseWithLatch(release);
 
@@ -22,7 +22,7 @@ export function InstallOptionsModal({ release, hasInstalledVersions = false, onC
     return (
         <Modal {...defaultModalProps} opened={!!release} onClose={close} title={<Title order={4}>{t("install.modal.title")}</Title>} onExitTransitionEnd={clean}>
             {latchedRelease && (
-                <InstallOptionsModalContent
+                <GameBundleInstallOptionsModalContent
                     key={latchedRelease.id ?? latchedRelease.name}
                     release={latchedRelease}
                     releaseName={releaseName}
@@ -40,7 +40,7 @@ interface ContentProps extends Props {
     onClose: () => void;
 }
 
-function InstallOptionsModalContent({ release, releaseName, hasInstalledVersions, onConfirm, onClose }: ContentProps): React.JSX.Element {
+function GameBundleInstallOptionsModalContent({ release, releaseName, hasInstalledVersions, onConfirm, onClose }: ContentProps): React.JSX.Element {
     const t = useTranslate();
     const [installing, setInstalling] = useState(false);
     const [copy, setCopy] = useState(true);
@@ -69,7 +69,7 @@ function InstallOptionsModalContent({ release, releaseName, hasInstalledVersions
             </Stack>
 
             {hasInstalledVersions && (
-                <Stack gap="xs" className="install-options">
+                <Stack gap="xs" className="game-bundle-options">
                     <Checkbox size="sm" checked={copy} onChange={(event) => setCopy(event.currentTarget.checked)} label={t("install.option.copyUserdata")} />
 
                     <Checkbox size="sm" checked={remove} onChange={(event) => setRemove(event.currentTarget.checked)} label={t("install.option.removeOldVersions")} />

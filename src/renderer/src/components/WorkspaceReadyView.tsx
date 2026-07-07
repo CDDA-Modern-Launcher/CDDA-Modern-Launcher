@@ -2,8 +2,8 @@ import { WorkspaceStatus } from "../../../shared/workspace/WorkspaceStatus";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getEffectiveGameChannels } from "../../../shared/game-channel/getEffectiveGameChannels";
 import { findGameChannel } from "../../../shared/game-channel/findGameChannel";
-import { GameBundleState } from "../../../shared/distributive/GameBundleState";
-import { InstallProgress } from "../../../shared/distributive/InstallProgress";
+import { GameBundleState } from "../../../shared/game-bundle/GameBundleState";
+import { GameBundleInstallProgress } from "../../../shared/game-bundle/GameBundleInstallProgress";
 import { BackupProgress } from "../../../shared/backups/types/BackupProgress";
 import { BackupSummary } from "../../../shared/backups/types/BackupSummary";
 import { GameRuntimeState } from "../../../shared/GameRuntimeState";
@@ -12,7 +12,7 @@ import { useModalOpen } from "@renderer/modals/useModalStore";
 import { BackupSummaryUpdate } from "../../../shared/backups/types/BackupSummaryUpdate";
 import { GameSaveSummaryUpdate } from "../../../shared/GameSaveSummaryUpdate";
 import { getUpdateReleases } from "@renderer/utils/getUpdateReleases";
-import { isInstallRunning } from "@renderer/utils/isInstallRunning";
+import { isGameBundleInstallRunning } from "@renderer/utils/isGameBundleInstallRunning";
 import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstanceInfo";
 import { toUpdateReleaseNotesTarget } from "@renderer/utils/toUpdateReleaseNotesTarget";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
@@ -22,8 +22,8 @@ import { Alert, Badge, Button, Card, Group, Loader, Stack, Text, Title } from "@
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { getGameChannelRepositoryUrl } from "../../../shared/game-channel/getGameChannelRepositoryUrl";
 import { SaveStatusLine } from "@renderer/components/SaveStatusLine";
-import { InstallProgressCard } from "@renderer/components/InstallProgressCard";
-import { InstallPrompt } from "@renderer/components/InstallPrompt";
+import { GameBundleInstallProgressCard } from "@renderer/components/GameBundleInstallProgressCard";
+import { GameBundlePrompt } from "@renderer/components/GameBundlePrompt";
 import { VersionStrip } from "@renderer/components/VersionStrip";
 import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { BackupStrip } from "@renderer/components/BackupStrip";
@@ -36,7 +36,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
     const channels = getEffectiveGameChannels(repository.config.customGameChannels);
     const selectedChannel = findGameChannel(channels, repository.config.selectedChannelId);
     const [gameState, setGameState] = useState<GameBundleState>({ status: "loading" });
-    const [installProgress, setInstallProgress] = useState<InstallProgress>({ status: "idle" });
+    const [gameBundleInstallProgress, setGameBundleInstallProgress] = useState<GameBundleInstallProgress>({ status: "idle" });
     const [backupProgress, setBackupProgress] = useState<BackupProgress>({ status: "idle" });
     const [backupSummary, setBackupSummary] = useState<BackupSummary>({ backups: [], latestBackup: null });
     const [runtime, setRuntime] = useState<GameRuntimeState>({ status: "idle" });
@@ -46,7 +46,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
     const [availableReleases, setAvailableReleases] = useState<GithubRelease[]>([]);
     const [isLoadingReleaseNotes, setLoadingReleaseNotes] = useState(false);
     const previousRuntimeStatus = useRef<GameRuntimeState["status"]>("idle");
-    const installedIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.gameBundles.map((install) => install.id) : []), [gameState]);
+    const gameBundleIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.gameBundles.map((gameBundle) => gameBundle.id) : []), [gameState]);
 
     const openModal = useModalOpen();
 
@@ -71,19 +71,19 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
     );
 
     useEffect(() => {
-        const unsubscribeProgress = window.api.game.onInstallProgress(setInstallProgress);
+        const unsubscribeProgress = window.api.game.onGameBundleInstallProgress(setGameBundleInstallProgress);
         const unsubscribeRuntime = window.api.game.onRuntimeChanged(setRuntime);
         const unsubscribeBackupProgress = window.api.game.onBackupProgress(setBackupProgress);
         const unsubscribeBackups = window.api.game.onBackupSummaryChanged((update: BackupSummaryUpdate) => {
             setGameState((currentState) => {
-                if (currentState.status !== "ready" || currentState.gameBundle?.id !== update.installId) return currentState;
+                if (currentState.status !== "ready" || currentState.gameBundle?.id !== update.gameBundleId) return currentState;
                 return { ...currentState, backups: update.summary };
             });
             setBackupSummary(update.summary);
         });
         const unsubscribeSaves = window.api.game.onSaveSummaryChanged((update: GameSaveSummaryUpdate) => {
             setGameState((currentState) => {
-                if (currentState.status !== "ready" || currentState.gameBundle?.id !== update.installId) return currentState;
+                if (currentState.status !== "ready" || currentState.gameBundle?.id !== update.gameBundleId) return currentState;
                 return { ...currentState, saves: update.saves };
             });
         });
@@ -160,22 +160,22 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
         };
     }, [applyGameState, repository.path, selectedChannel.id]);
 
-    const activeInstall = gameState.status === "ready" ? gameState.gameBundle : null;
+    const activeGameBundle = gameState.status === "ready" ? gameState.gameBundle : null;
     const hasInstalledVersions = gameState.status === "ready" && gameState.gameBundles.length > 0;
 
-    const [isInstalling, setInstalling] = useState(false);
+    const [isInstallingGameBundle, setInstalling] = useState(false);
     const openInstallModal = (release: GithubRelease | null): void => {
         if (release === null) return;
         openModal({
-            kind: "install-options",
+            kind: "game-bundle-options",
             release,
             hasInstalledVersions,
-            onConfirm: async (release, copyUserdata, removeOlderInstalls) => {
+            onConfirm: async (release, copyUserdata, removeOlderGameBundles) => {
                 setVersionsOpened(false);
 
                 setInstalling(true);
                 try {
-                    const result = await window.api.game.installLatest({ releaseId: release.id, makeActive: true, copyUserdata, removeOlderInstalls });
+                    const result = await window.api.game.installLatestGameBundle({ releaseId: release.id, makeActive: true, copyUserdata, removeOlderGameBundles });
                     result.status === "installed" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
                 } finally {
                     setInstalling(false);
@@ -187,10 +187,10 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
     const latestRelease = gameState.status === "ready" ? gameState.latestRelease : null;
     const latestReleaseError = gameState.status === "ready" ? gameState.latestReleaseError : null;
     const updateAvailable = gameState.status === "ready" && gameState.updateAvailable;
-    const activeInstallId = activeInstall?.id ?? null;
-    const latestInstalledId = latestRelease !== null && installedIds.has(latestRelease.id) ? latestRelease.id : null;
-    const updateReleases = useMemo(() => (activeInstall === null ? [] : getUpdateReleases(activeInstall, availableReleases)), [activeInstall, availableReleases]);
-    const installRunning = isInstallRunning(isInstalling, installProgress);
+    const activeGameBundleId = activeGameBundle?.id ?? null;
+    const latestInstalledId = latestRelease !== null && gameBundleIds.has(latestRelease.id) ? latestRelease.id : null;
+    const updateReleases = useMemo(() => (activeGameBundle === null ? [] : getUpdateReleases(activeGameBundle, availableReleases)), [activeGameBundle, availableReleases]);
+    const installRunning = isGameBundleInstallRunning(isInstallingGameBundle, gameBundleInstallProgress);
     const gameRunning = runtime.status === "running";
     const saveSummary = gameState.status === "ready" ? gameState.saves : null;
     const worlds = saveSummary?.worlds ?? [];
@@ -198,7 +198,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
     const savesStable = gameState.status !== "ready" || gameState.savesStable;
 
     const launchGame = async (worldName?: string): Promise<void> => {
-        const result = await window.api.game.launchActiveInstall(worldName === undefined ? {} : { worldName });
+        const result = await window.api.game.launchActiveGameBundle(worldName === undefined ? {} : { worldName });
         if (result.status === "unavailable") setGameState({ status: "error", message: result.message });
         else setRuntime(result.runtime);
     };
@@ -242,7 +242,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
     };
 
     const showUpdateChanges = async (): Promise<void> => {
-        if (activeInstall === null || latestRelease === null) return;
+        if (activeGameBundle === null || latestRelease === null) return;
         let releases = availableReleases;
         if (releases.length === 0) {
             setLoadingReleaseNotes(true);
@@ -258,7 +258,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
             }
         }
 
-        openModal({ kind: "release-notes", notes: toUpdateReleaseNotesTarget(activeInstall, latestRelease, getUpdateReleases(activeInstall, releases), t) });
+        openModal({ kind: "release-notes", notes: toUpdateReleaseNotesTarget(activeGameBundle, latestRelease, getUpdateReleases(activeGameBundle, releases), t) });
     };
 
     const backupsEnabled = useConfigStore((state) => state.backupsEnabled);
@@ -277,17 +277,17 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
             <VersionsDrawer
                 opened={versionsOpened}
                 state={gameState}
-                installedIds={installedIds}
-                isInstalling={isInstalling}
+                gameBundleIds={gameBundleIds}
+                isInstallingGameBundle={isInstallingGameBundle}
                 onClose={() => setVersionsOpened(false)}
                 onRefresh={() => refreshGameState(true, true)}
                 onRequestInstall={openInstallModal}
-                onSetActive={async (installId) => {
-                    const result = await window.api.game.setActiveInstall(installId);
+                onSetActive={async (gameBundleId) => {
+                    const result = await window.api.game.setActiveGameBundle(gameBundleId);
                     result.status === "updated" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
                 }}
-                onDelete={async (distributive, deleteUserdata) => {
-                    const result = await window.api.game.deleteInstall(distributive.id, { deleteUserdata });
+                onDelete={async (gameBundle, deleteUserdata) => {
+                    const result = await window.api.game.deleteGameBundle(gameBundle.id, { deleteUserdata });
                     result.status === "deleted" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
                 }}
             />
@@ -305,23 +305,23 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                                     <Badge component="button" variant="outline" className="home-repository-badge" onClick={() => void window.api.shell.openExternal(getGameChannelRepositoryUrl(selectedChannel))}>
                                         {selectedChannel.githubOwner}/{selectedChannel.githubRepo}
                                     </Badge>
-                                    {activeInstallId !== null && (
+                                    {activeGameBundleId !== null && (
                                         <>
-                                            <Button size="compact-xs" variant="subtle" onClick={() => void window.api.game.openInstallFolder(activeInstallId)}>
-                                                {t("home.action.openInstallFolder")}
+                                            <Button size="compact-xs" variant="subtle" onClick={() => void window.api.game.openGameBundleFolder(activeGameBundleId)}>
+                                                {t("home.action.openGameBundleFolder")}
                                             </Button>
-                                            <Button size="compact-xs" variant="subtle" onClick={() => void window.api.game.openSavesFolder(activeInstallId)}>
+                                            <Button size="compact-xs" variant="subtle" onClick={() => void window.api.game.openSavesFolder(activeGameBundleId)}>
                                                 {t("home.action.openSavesFolder")}
                                             </Button>
                                         </>
                                     )}
                                 </Group>
                             </Stack>
-                            <Badge color={activeInstall === null ? "gray" : updateAvailable ? "blue" : "green"} variant="light" size="lg">
-                                {activeInstall === null ? t("home.status.notInstalled") : updateAvailable ? t("home.status.updateAvailable") : t("home.status.installed")}
+                            <Badge color={activeGameBundle === null ? "gray" : updateAvailable ? "blue" : "green"} variant="light" size="lg">
+                                {activeGameBundle === null ? t("home.status.noGameBundle") : updateAvailable ? t("home.status.updateAvailable") : t("home.status.installed")}
                             </Badge>
                         </Group>
-                        <SaveStatusLine activeInstallAvailable={activeInstall !== null} world={currentWorld} worldCount={worlds.length} />
+                        <SaveStatusLine activeGameBundleAvailable={activeGameBundle !== null} world={currentWorld} worldCount={worlds.length} />
                         {gameState.status === "loading" && (
                             <Alert variant="light" color="blue" title={t("home.gameState.loading.title")}>
                                 <Group gap="sm">
@@ -335,7 +335,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                                 <Text size="sm">{gameState.message ?? t("home.gameState.error.description")}</Text>
                             </Alert>
                         )}
-                        {gameState.status === "ready" && gameState.latestReleaseError !== null && activeInstall === null && (
+                        {gameState.status === "ready" && gameState.latestReleaseError !== null && activeGameBundle === null && (
                             <Alert variant="light" color="red" title={t("home.gameState.error.title")}>
                                 <Group justify="space-between" gap="sm">
                                     <Text size="sm">{t("home.version.checkFailed", { message: gameState.latestReleaseError })}</Text>
@@ -345,31 +345,31 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                                 </Group>
                             </Alert>
                         )}
-                        {(isInstalling || installProgress.status !== "idle") && <InstallProgressCard progress={installProgress} />}
-                        {activeInstall === null && gameState.status === "ready" && !installRunning && (
-                            <InstallPrompt
+                        {(isInstallingGameBundle || gameBundleInstallProgress.status !== "idle") && <GameBundleInstallProgressCard progress={gameBundleInstallProgress} />}
+                        {activeGameBundle === null && gameState.status === "ready" && !installRunning && (
+                            <GameBundlePrompt
                                 description={latestRelease === null ? t("home.install.noRelease") : t("home.install.description")}
                                 installLabel={t("home.action.install")}
-                                loading={isInstalling}
+                                loading={isInstallingGameBundle}
                                 disabled={latestRelease === null}
                                 onInstall={() => openInstallModal(latestRelease)}
                                 onOpenVersions={() => setVersionsOpened(true)}
                             />
                         )}
-                        {activeInstall !== null && !installRunning && (
+                        {activeGameBundle !== null && !installRunning && (
                             <VersionStrip
-                                currentVersion={getReleaseDisplayName(activeInstall)}
+                                currentVersion={getReleaseDisplayName(activeGameBundle)}
                                 latestRelease={latestRelease}
                                 latestReleaseError={latestReleaseError}
                                 updateAvailable={updateAvailable}
                                 updateReleases={updateReleases}
                                 isChecking={isCheckingLatest}
-                                isInstalling={isInstalling}
+                                isInstallingGameBundle={isInstallingGameBundle}
                                 isLoadingReleaseNotes={isLoadingReleaseNotes}
                                 latestInstalledId={latestInstalledId}
                                 onInstall={() => openInstallModal(latestRelease)}
-                                onActivateLatest={async (installId) => {
-                                    const result = await window.api.game.setActiveInstall(installId);
+                                onActivateLatest={async (gameBundleId) => {
+                                    const result = await window.api.game.setActiveGameBundle(gameBundleId);
                                     result.status === "updated" ? setGameState(result.state) : setGameState({ status: "error", message: result.message });
                                 }}
                                 onCheckAgain={() => refreshGameState(true, true)}
@@ -379,7 +379,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                         )}
                         <BackupStrip
                             enabled={backupsEnabled}
-                            activeInstallAvailable={activeInstall !== null}
+                            activeGameBundleAvailable={activeGameBundle !== null}
                             progress={backupProgress}
                             latestBackup={backupSummary.latestBackup}
                             gameRunning={gameRunning}
@@ -393,17 +393,17 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                                 <Button
                                     size="md"
                                     color={gameRunning ? "orange" : "green"}
-                                    disabled={activeInstall === null}
+                                    disabled={activeGameBundle === null}
                                     leftSection={gameRunning ? "■" : "▶"}
                                     onClick={() => void (gameRunning ? stopGame() : launchGame())}
                                 >
                                     {gameRunning ? t("home.action.stop") : t("home.action.play")}
                                 </Button>
-                                <LastWorldButton activeInstallAvailable={activeInstall !== null} gameRunning={gameRunning} worlds={worlds} currentWorld={currentWorld} onLaunch={launchGame} />
+                                <LastWorldButton activeGameBundleAvailable={activeGameBundle !== null} gameRunning={gameRunning} worlds={worlds} currentWorld={currentWorld} onLaunch={launchGame} />
                             </Group>
                             <BackupCreateButton
                                 enabled={backupsEnabled}
-                                activeInstallAvailable={activeInstall !== null}
+                                activeGameBundleAvailable={activeGameBundle !== null}
                                 worlds={worlds}
                                 currentWorld={currentWorld}
                                 savesStable={savesStable}

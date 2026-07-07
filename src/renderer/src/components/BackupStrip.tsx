@@ -8,7 +8,7 @@ import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function BackupStrip(props: {
     enabled: boolean;
-    activeInstallAvailable: boolean;
+    activeGameBundleAvailable: boolean;
     progress: BackupProgress;
     latestBackup: BackupInstanceInfo | null;
     gameRunning: boolean;
@@ -18,7 +18,7 @@ export function BackupStrip(props: {
     onRename: (backupId: string, comment: string) => Promise<void>;
 }): React.JSX.Element | null {
     const t = useTranslate();
-    if (!props.enabled || !props.activeInstallAvailable) return null;
+    if (!props.enabled || !props.activeGameBundleAvailable) return null;
     if (props.progress.status === "idle" && props.latestBackup === null) return null;
 
     if (props.progress.status === "creating" || props.progress.status === "restoring") {

@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { WorkspaceStatus } from "../../../shared/workspace/WorkspaceStatus";
 import { getEffectiveGameChannels } from "../../../shared/game-channel/getEffectiveGameChannels";
 import { findGameChannel } from "../../../shared/game-channel/findGameChannel";
-import { InstallProgress } from "../../../shared/distributive/InstallProgress";
+import { GameBundleInstallProgress } from "../../../shared/game-bundle/GameBundleInstallProgress";
 import { ModRepositoryState } from "../../../shared/mods/ModRepositoryState";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { GameChannelDefinition } from "../../../shared/game-channel/GameChannelDefinition";
@@ -23,12 +23,12 @@ export function LauncherDock({ onOpenSettings, onOpenMods, onOpenSoundpack, onOp
     const isReady = repository.status === "ready";
     const channels = isReady ? getEffectiveGameChannels(repository.config.customGameChannels) : [];
     const selectedChannel = isReady ? findGameChannel(channels, repository.config.selectedChannelId) : null;
-    const [installProgress, setInstallProgress] = useState<InstallProgress>({ status: "idle" });
+    const [gameBundleInstallProgress, setGameBundleInstallProgress] = useState<GameBundleInstallProgress>({ status: "idle" });
     const [modRepositoryState, setModRepositoryState] = useState<ModRepositoryState>({ status: "unconfigured", mods: [], checking: false });
-    const isInstallingGame = isInstallBlockingProgress(installProgress);
+    const isGameBundleInstallInProgress = isGameBundleInstallBlockingProgress(gameBundleInstallProgress);
     const modIndicatorState = getModIndicatorState(modRepositoryState);
 
-    useEffect(() => window.api.game.onInstallProgress(setInstallProgress), []);
+    useEffect(() => window.api.game.onGameBundleInstallProgress(setGameBundleInstallProgress), []);
 
     useEffect(() => {
         let mounted = true;
@@ -60,9 +60,9 @@ export function LauncherDock({ onOpenSettings, onOpenMods, onOpenSoundpack, onOp
         <Paper withBorder radius="lg" shadow="xl" className="launcher-dock">
             <Group justify="space-between" gap="md" wrap="nowrap">
                 <Group gap="xs" wrap="nowrap" className="launcher-dock__section">
-                    <Menu shadow="md" width={310} position="top-start" disabled={!isReady || isInstallingGame}>
+                    <Menu shadow="md" width={310} position="top-start" disabled={!isReady || isGameBundleInstallInProgress}>
                         <Menu.Target>
-                            <Button variant="subtle" size="xs" radius="md" disabled={!isReady || isInstallingGame} className="launcher-dock__button launcher-dock__game-button">
+                            <Button variant="subtle" size="xs" radius="md" disabled={!isReady || isGameBundleInstallInProgress} className="launcher-dock__button launcher-dock__game-button">
                                 {selectedChannel === null ? t("dock.game.unavailable") : `${selectedChannel.shortName} · ${localizeChannelName(selectedChannel.channelName, t)}`}
                             </Button>
                         </Menu.Target>
@@ -125,7 +125,7 @@ function ItemView({ channel, selectedChannel }: { channel: GameChannelDefinition
     );
 }
 
-function isInstallBlockingProgress(progress: InstallProgress): boolean {
+function isGameBundleInstallBlockingProgress(progress: GameBundleInstallProgress): boolean {
     return progress.status === "resolving-release" || progress.status === "downloading" || progress.status === "extracting" || progress.status === "preparing-saves" || progress.status === "finalizing";
 }
 

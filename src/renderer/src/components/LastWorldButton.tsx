@@ -4,20 +4,20 @@ import { Button, Menu, Stack, Text, Tooltip } from "@mantine/core";
 import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 export function LastWorldButton({
-    activeInstallAvailable,
+    activeGameBundleAvailable,
     gameRunning,
     worlds,
     currentWorld,
     onLaunch
 }: {
-    activeInstallAvailable: boolean;
+    activeGameBundleAvailable: boolean;
     gameRunning: boolean;
     worlds: GameWorldInfo[];
     currentWorld: GameWorldInfo | null;
     onLaunch: (worldName?: string) => Promise<void>;
 }): React.JSX.Element {
     const t = useTranslate();
-    const disabled = !activeInstallAvailable || gameRunning || worlds.length === 0;
+    const disabled = !activeGameBundleAvailable || gameRunning || worlds.length === 0;
     const tooltip = gameRunning ? t("home.action.loadWorldTooltipRunning") : t("home.action.loadWorldTooltip");
 
     if (worlds.length <= 1) {

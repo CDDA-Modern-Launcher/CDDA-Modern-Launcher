@@ -10,16 +10,19 @@ const outputDir = path.join(projectRoot, ".snapshots");
 const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\./g, "-");
 const outputFile = path.join(outputDir, `source-${timestamp}.zip`);
 
-const excludedDirs = new Set([".git", ".idea", ".vscode", "node_modules", "build", "dist", "out", "coverage", ".snapshots", ".turbo", ".next", ".cache", ".parcel-cache", "workspace"]);
-
+const excludedDirs = new Set([".git", ".idea", ".vscode", "node_modules", ".snapshots", ".turbo", ".next", ".cache", ".parcel-cache"]);
+const excludedRootDirs = new Set(["build", "dist", "out", "coverage", "workspace"]);
 const excludedFiles = new Set([".DS_Store", "Thumbs.db", "npm-debug.log", "yarn-error.log", "pnpm-debug.log"]);
-
-const excludedExtensions = new Set([".log", ".tmp", ".temp"]);
+const excludedExtensions = new Set([".log", ".tmp", ".temp", ".zip"]);
 
 function shouldSkip(relativePath: string, dirent: fs.Dirent): boolean {
     const normalized = relativePath.split(path.sep).join("/");
 
     if (dirent.isDirectory()) {
+        if (excludedRootDirs.has(normalized)) {
+            return true;
+        }
+
         return excludedDirs.has(dirent.name);
     }
 

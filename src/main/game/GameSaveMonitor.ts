@@ -13,7 +13,7 @@ type GameSaveMonitorOptions = {
     userdataPath: string;
     settleDelayMs?: number;
     onSettled: (activity: GameSaveSettledActivity) => void | Promise<void>;
-    installId: string;
+    gameBundleId: string;
 };
 
 export type GameSaveSettledActivity = {
@@ -43,7 +43,7 @@ const WATCH_REBUILD_DELAY_MS = 300;
 const SAVE_DIRECTORY_NAME = "save";
 
 export class GameSaveMonitor {
-    private readonly installId: string;
+    private readonly gameBundleId: string;
     private readonly userdataPath: string;
     private readonly savePath: string;
     private readonly settleDelayMs: number;
@@ -63,7 +63,7 @@ export class GameSaveMonitor {
     private pendingPlayerSaveArchiveChange = false;
 
     constructor(options: GameSaveMonitorOptions) {
-        this.installId = options.installId;
+        this.gameBundleId = options.gameBundleId;
         this.userdataPath = normalize(options.userdataPath);
         this.savePath = join(this.userdataPath, SAVE_DIRECTORY_NAME);
         this.settleDelayMs = options.settleDelayMs ?? DEFAULT_SETTLE_DELAY_MS;
@@ -95,7 +95,7 @@ export class GameSaveMonitor {
     }
 
     private emitSaveActivityChanged(stable: boolean): void {
-        const update: GameSaveActivityUpdate = { gameBundleId: this.installId, stable };
+        const update: GameSaveActivityUpdate = { gameBundleId: this.gameBundleId, stable };
         for (const window of BrowserWindow.getAllWindows()) {
             window.webContents.send(Bridge.Game.saveActivityChanged, update);
         }

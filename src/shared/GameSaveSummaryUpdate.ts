@@ -1,6 +1,6 @@
 import { GameSaveSummary } from "./GameSaveSummary";
 
 export type GameSaveSummaryUpdate = {
-    installId: string;
+    gameBundleId: string;
     saves: GameSaveSummary;
 };

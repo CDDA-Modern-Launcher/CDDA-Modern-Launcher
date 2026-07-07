@@ -7,7 +7,7 @@ import { join } from "path";
 import icon from "../../resources/icon.png?asset";
 import { registerMainAppearanceApi } from "./ipc/registerMainAppearanceApi";
 import { GameBundleService } from "./game/GameBundleService";
-import { setupGameInstallationIpc } from "./ipc/setupGameInstallationIpc";
+import { setupGameBundleIpc } from "./ipc/setupGameBundleIpc";
 import { LocalizationService } from "./localization/LocalizationService";
 import { setupLocalizationIpc } from "./ipc/setupLocalizationIpc";
 import { ModRepositoryService } from "./mods/ModRepositoryService";
@@ -284,14 +284,14 @@ app.whenReady().then(async () => {
     const localizationService = new LocalizationService(settingsStore);
     await localizationService.initialize();
     const repositoryService = new WorkspaceService(settingsStore, localizationService);
-    const gameInstallationService = new GameBundleService(repositoryService, localizationService);
+    const gameBundleService = new GameBundleService(repositoryService, localizationService);
     const modRepositoryService = new ModRepositoryService(repositoryService, localizationService);
 
     await registerMainAppearanceApi(settingsStore);
     setupLocalizationIpc(localizationService);
     setupLauncherSettingsIpc(repositoryService);
     setupWorkspaceIpc(repositoryService, localizationService);
-    setupGameInstallationIpc(gameInstallationService, localizationService);
+    setupGameBundleIpc(gameBundleService, localizationService);
     setupModRepositoryIpc(modRepositoryService);
     setupUpdaterIpc(localizationService);
     setupShellIpc();

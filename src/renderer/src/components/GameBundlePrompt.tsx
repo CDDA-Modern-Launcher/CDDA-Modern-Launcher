@@ -2,7 +2,7 @@ import type React from "react";
 import { Alert, Button, Group, Stack, Text } from "@mantine/core";
 import { useTranslate } from "@renderer/localization/useLocaleStore";
 
-type InstallPromptProps = {
+type GameBundlePromptProps = {
     description: string;
     installLabel: string;
     loading: boolean;
@@ -11,7 +11,7 @@ type InstallPromptProps = {
     onOpenVersions: () => void;
 };
 
-export function InstallPrompt(props: InstallPromptProps): React.JSX.Element {
+export function GameBundlePrompt(props: GameBundlePromptProps): React.JSX.Element {
     const t = useTranslate();
     return (
         <Alert variant="light" color="blue" title={t("home.install.title")}>

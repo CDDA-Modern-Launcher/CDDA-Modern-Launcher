@@ -116,7 +116,7 @@ export class WorkspaceService {
         const config: RepositoryConfig = normalizeRepositoryConfig({
             selectedChannelId: DEFAULT_GAME_CHANNEL_ID,
             customGameChannels: [],
-            activeInstallByChannel: {}
+            activeGameBundleByChannel: {}
         });
 
         await this.writeConfig(path, config);

@@ -21,23 +21,23 @@ import { EBackupRestoreResult } from "../../shared/backups/types/EBackupRestoreR
 import { EBackupRenameResult } from "../../shared/backups/types/EBackupRenameResult";
 import { TReleaseAssetVariant } from "../../shared/release-asset/TReleaseAssetVariant";
 import { GameChannelDefinition } from "../../shared/game-channel/GameChannelDefinition";
-import { DOWNLOADS_DIRECTORY_NAME, INSTALL_MANIFEST_FILE_NAME, INSTALLS_DIRECTORY_NAME, USERDATA_DIRECTORY_NAME } from "../../shared/Const";
+import { DOWNLOADS_DIRECTORY_NAME, GAME_BUNDLE_MANIFEST_FILE_NAME, GAME_BUNDLES_DIRECTORY_NAME, USERDATA_DIRECTORY_NAME } from "../../shared/Const";
 import { GithubRelease } from "../../shared/GithubRelease";
-import { GameBundleManifest } from "../../shared/distributive/GameBundleManifest";
-import { GameBundle } from "../../shared/distributive/GameBundle";
+import { GameBundleManifest } from "../../shared/game-bundle/GameBundleManifest";
+import { GameBundle } from "../../shared/game-bundle/GameBundle";
 import { GameSaveSummaryUpdate } from "../../shared/GameSaveSummaryUpdate";
 import { GameRuntimeState } from "../../shared/GameRuntimeState";
 import { GameLaunchOptions } from "../../shared/launch/GameLaunchOptions";
 import { CreateManualBackupOptions } from "../../shared/backups/types/CreateManualBackupOptions";
-import { GameBundleState } from "../../shared/distributive/GameBundleState";
-import { InstallOptions } from "../../shared/distributive/InstallOptions";
-import { GameBundleDeleteOptions } from "../../shared/distributive/GameBundleDeleteOptions";
-import { EGameBundleInstallResult } from "../../shared/distributive/EGameBundleInstallResult";
-import { EGameBundleSetActiveResult } from "../../shared/distributive/EGameBundleSetActiveResult";
-import { EGameBundleDeleteResult } from "../../shared/distributive/EGameBundleDeleteResult";
+import { GameBundleState } from "../../shared/game-bundle/GameBundleState";
+import { GameBundleInstallOptions } from "../../shared/game-bundle/GameBundleInstallOptions";
+import { GameBundleDeleteOptions } from "../../shared/game-bundle/GameBundleDeleteOptions";
+import { EGameBundleInstallResult } from "../../shared/game-bundle/EGameBundleInstallResult";
+import { EGameBundleSetActiveResult } from "../../shared/game-bundle/EGameBundleSetActiveResult";
+import { EGameBundleDeleteResult } from "../../shared/game-bundle/EGameBundleDeleteResult";
 import { EGameLaunchResult } from "../../shared/launch/EGameLaunchResult";
 import { EGameStopResult } from "../../shared/launch/EGameStopResult";
-import { InstallProgress } from "../../shared/distributive/InstallProgress";
+import { GameBundleInstallProgress } from "../../shared/game-bundle/GameBundleInstallProgress";
 import { isNodeError } from "../utils/isNodeError";
 import { BrowserWindow } from "electron";
 import { Bridge } from "../../shared/bridge-api/Bridge";
@@ -53,7 +53,7 @@ import { toGameRelease } from "../utils/releases/toGameRelease";
 import { isGitHubUrl } from "../utils/releases/isGitHubUrl";
 import { getSelectedChannel } from "../utils/getSelectedChannel";
 import { safePathSegment } from "../utils/safePathSegment";
-import { isGameInstallManifest } from "../utils/isGameInstallManifest";
+import { isGameBundleManifest } from "../utils/isGameBundleManifest";
 import { findExecutable } from "../utils/findExecutable";
 import { findUserdataSource } from "../utils/findUserdataSource";
 import { resolveUserdataPath } from "../utils/resolveUserdataPath";
@@ -61,7 +61,7 @@ import { copyDirectoryContents } from "../utils/copyDirectoryContents";
 import { pathExists } from "../utils/pathExists";
 import { runCommand } from "../utils/runCommand";
 
-const KEEP_DOWNLOADED_DISTRIBUTIVES = 3;
+const KEEP_DOWNLOADED_GAME_BUNDLES = 3;
 
 export class GameBundleService {
     private runtimeState: GameRuntimeState = { status: "idle" };
@@ -69,8 +69,8 @@ export class GameBundleService {
     private readonly gitHubNetwork = new GitHubNetworkManager();
     private readonly backupService: GameBackupService;
     private activeSaveMonitor: GameSaveMonitor | null = null;
-    private activeSaveMonitorInstallId: string | null = null;
-    private readonly preferredWorldByInstallId = new Map<string, string | null>();
+    private activeSaveMonitorGameBundleId: string | null = null;
+    private readonly preferredWorldByGameBundleId = new Map<string, string | null>();
     private readonly latestBackupAtByWorld = new Map<string, number>();
 
     constructor(
@@ -84,8 +84,8 @@ export class GameBundleService {
         const repository = await this.repositoryService.getWorkspaceStatus();
         if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repositoryNotReady") };
         const channel = getSelectedChannel(repository.config);
-        const { installs } = await this.readInstallsAndRepairConfig(repository.path, repository.config, channel.id);
-        const activeInstall = installs.find((install) => install.isActive) ?? null;
+        const { gameBundles } = await this.readGameBundlesAndRepairConfig(repository.path, repository.config, channel.id);
+        const activeGameBundle = gameBundles.find((gameBundle) => gameBundle.isActive) ?? null;
         let latestRelease: GithubRelease | null = null;
         let latestReleaseError: string | null = null;
 
@@ -94,25 +94,25 @@ export class GameBundleService {
                 latestRelease = await this.findLatestRelease(channel, forceRefresh);
             } catch (error) {
                 latestReleaseError = error instanceof Error ? error.message : String(error);
-                console.error("[game-install] failed to check latest release", { channelId: channel.id, error });
+                console.error("[game-bundle] failed to check latest release", { channelId: channel.id, error });
             }
         }
 
-        await this.updateActiveSaveMonitor(activeInstall);
+        await this.updateActiveSaveMonitor(activeGameBundle);
 
         return {
             status: "ready",
             repositoryPath: repository.path,
             channel,
-            gameBundle: activeInstall,
-            gameBundles: installs,
+            gameBundle: activeGameBundle,
+            gameBundles: gameBundles,
             latestRelease,
             latestReleaseError,
-            updateAvailable: latestRelease !== null && activeInstall !== null && latestRelease.id !== activeInstall.id,
-            saves: activeInstall === null ? null : await readSaveSummary(activeInstall.userdataPath, this.preferredWorldByInstallId.get(activeInstall.id) ?? null),
-            backups: await this.backupService.getSummary(activeInstall),
+            updateAvailable: latestRelease !== null && activeGameBundle !== null && latestRelease.id !== activeGameBundle.id,
+            saves: activeGameBundle === null ? null : await readSaveSummary(activeGameBundle.userdataPath, this.preferredWorldByGameBundleId.get(activeGameBundle.id) ?? null),
+            backups: await this.backupService.getSummary(activeGameBundle),
             runtimeState: this.runtimeState,
-            savesStable: activeInstall === null || activeInstall.id !== this.activeSaveMonitorInstallId ? true : this.isActiveSaveStable()
+            savesStable: activeGameBundle === null || activeGameBundle.id !== this.activeSaveMonitorGameBundleId ? true : this.isActiveSaveStable()
         };
     }
 
@@ -121,45 +121,45 @@ export class GameBundleService {
         return repository.status === "ready" ? this.fetchReleases(getSelectedChannel(repository.config), forceRefresh) : [];
     }
 
-    async setActiveInstall(installId: string): Promise<EGameBundleSetActiveResult> {
+    async setActiveGameBundle(gameBundleId: string): Promise<EGameBundleSetActiveResult> {
         const repository = await this.repositoryService.getWorkspaceStatus();
         if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repositoryNotReady") };
         const channel = getSelectedChannel(repository.config);
-        const installs = await this.readGameBundles(repository.path, repository.config, channel.id);
-        if (!installs.some((install) => install.id === installId)) return { status: "error", message: this.localizationService.t("game.error.installMissing") };
+        const gameBundles = await this.readGameBundles(repository.path, repository.config, channel.id);
+        if (!gameBundles.some((gameBundle) => gameBundle.id === gameBundleId)) return { status: "error", message: this.localizationService.t("game.error.gameBundleMissing") };
         await this.repositoryService.saveConfig(repository.path, {
             ...repository.config,
-            activeInstallByChannel: {
-                ...repository.config.activeInstallByChannel,
-                [channel.id]: installId
+            activeGameBundleByChannel: {
+                ...repository.config.activeGameBundleByChannel,
+                [channel.id]: gameBundleId
             }
         });
         try {
             return { status: "updated", state: await this.getStateWithLatestRelease(await this.findLatestRelease(channel, false)) };
         } catch (error) {
-            console.error("[game-install] failed to check latest release after active install change", { channelId: channel.id, error });
+            console.error("[game-bundle] failed to check latest release after active game bundle change", { channelId: channel.id, error });
             return { status: "updated", state: await this.getState(false) };
         }
     }
 
-    async deleteInstall(installId: string, options: GameBundleDeleteOptions): Promise<EGameBundleDeleteResult> {
+    async deleteGameBundle(gameBundleId: string, options: GameBundleDeleteOptions): Promise<EGameBundleDeleteResult> {
         const repository = await this.repositoryService.getWorkspaceStatus();
         if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repositoryNotReady") };
         const channel = getSelectedChannel(repository.config);
-        const installs = await this.readGameBundles(repository.path, repository.config, channel.id);
-        const install = installs.find((candidate) => candidate.id === installId);
-        if (install === undefined) return { status: "error", message: this.localizationService.t("game.error.installMissing") };
-        if (install.isActive)
+        const gameBundles = await this.readGameBundles(repository.path, repository.config, channel.id);
+        const gameBundle = gameBundles.find((candidate) => candidate.id === gameBundleId);
+        if (gameBundle === undefined) return { status: "error", message: this.localizationService.t("game.error.gameBundleMissing") };
+        if (gameBundle.isActive)
             return {
                 status: "blocked",
-                message: this.localizationService.t("game.error.activeInstallDeleteBlocked")
+                message: this.localizationService.t("game.error.activeGameBundleDeleteBlocked")
             };
-        await rm(install.path, { recursive: true, force: true });
-        if (options.deleteUserdata) await rm(install.userdataPath, { recursive: true, force: true });
+        await rm(gameBundle.path, { recursive: true, force: true });
+        if (options.deleteUserdata) await rm(gameBundle.userdataPath, { recursive: true, force: true });
         return { status: "deleted", state: await this.getState(false) };
     }
 
-    async installLatest(options: InstallOptions): Promise<EGameBundleInstallResult> {
+    async installLatestGameBundle(options: GameBundleInstallOptions): Promise<EGameBundleInstallResult> {
         this.broadcastProgress({ status: "resolving-release" });
         const repository = await this.repositoryService.getWorkspaceStatus();
         if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repositoryNotReady") };
@@ -174,45 +174,45 @@ export class GameBundleService {
                     message: this.localizationService.t("game.error.noCompatibleReleaseAsset")
                 };
             }
-            const installsBefore = await this.readGameBundles(repository.path, repository.config, channel.id);
-            const existingInstall = installsBefore.find((install) => install.id === release.id);
-            if (existingInstall !== undefined) {
-                if (options.makeActive) await this.setActiveInstall(existingInstall.id);
+            const gameBundlesBefore = await this.readGameBundles(repository.path, repository.config, channel.id);
+            const existingGameBundle = gameBundlesBefore.find((gameBundle) => gameBundle.id === release.id);
+            if (existingGameBundle !== undefined) {
+                if (options.makeActive) await this.setActiveGameBundle(existingGameBundle.id);
                 this.broadcastProgress({ status: "completed", releaseName: release.name });
                 queueMicrotask(() => this.broadcastProgress({ status: "idle" }));
                 return {
                     status: "installed",
                     state: await this.getStateWithLatestRelease(releases[0] ?? null),
-                    bundle: existingInstall
+                    bundle: existingGameBundle
                 };
             }
-            const install = await this.installRelease(repository.path, repository.config, channel, release, options, installsBefore);
+            const gameBundle = await this.installRelease(repository.path, repository.config, channel, release, options, gameBundlesBefore);
             let config = repository.config;
             if (options.makeActive) {
                 config = {
                     ...config,
-                    activeInstallByChannel: {
-                        ...config.activeInstallByChannel,
-                        [channel.id]: install.id
+                    activeGameBundleByChannel: {
+                        ...config.activeGameBundleByChannel,
+                        [channel.id]: gameBundle.id
                     }
                 };
                 await this.repositoryService.saveConfig(repository.path, config);
             }
-            if (options.removeOlderInstalls) await this.removeOlderGameBundles(repository.path, config, channel.id, install.id, true);
+            if (options.removeOlderGameBundles) await this.removeOlderGameBundles(repository.path, config, channel.id, gameBundle.id, true);
             await this.cleanupDownloads(repository.path, channel.id);
             this.broadcastProgress({ status: "completed", releaseName: release.name });
             queueMicrotask(() => this.broadcastProgress({ status: "idle" }));
-            return { status: "installed", state: await this.getStateWithLatestRelease(releases[0] ?? null), bundle: install };
+            return { status: "installed", state: await this.getStateWithLatestRelease(releases[0] ?? null), bundle: gameBundle };
         } catch (error) {
-            console.error("[game-install] failed to install release", error);
+            console.error("[game-bundle] failed to install game bundle release", error);
             const message = error instanceof Error ? error.message : String(error);
             this.broadcastProgress({ status: "error", message });
             return { status: "error", message };
         }
     }
 
-    async launchActiveInstall(options: GameLaunchOptions = {}): Promise<EGameLaunchResult> {
-        return this.launchActiveInstallAsync(options);
+    async launchActiveGameBundle(options: GameLaunchOptions = {}): Promise<EGameLaunchResult> {
+        return this.launchActiveGameBundleAsync(options);
     }
 
     stopGame(): EGameStopResult {
@@ -231,47 +231,47 @@ export class GameBundleService {
         return this.runtimeState;
     }
 
-    async getInstallFolder(installId: string): Promise<string | null> {
+    async getGameBundleFolder(gameBundleId: string): Promise<string | null> {
         const state = await this.getState(false);
         if (state.status !== "ready") return null;
-        return state.gameBundles.find((install) => install.id === installId)?.path ?? null;
+        return state.gameBundles.find((gameBundle) => gameBundle.id === gameBundleId)?.path ?? null;
     }
 
-    async getSavesFolder(installId: string): Promise<string | null> {
+    async getSavesFolder(gameBundleId: string): Promise<string | null> {
         const state = await this.getState(false);
         if (state.status !== "ready") return null;
-        const path = state.gameBundles.find((install) => install.id === installId)?.userdataPath ?? null;
+        const path = state.gameBundles.find((gameBundle) => gameBundle.id === gameBundleId)?.userdataPath ?? null;
         if (path !== null) await mkdir(path, { recursive: true });
         return path;
     }
 
     async createManualBackup(options: CreateManualBackupOptions = {}): Promise<EBackupCreateResult> {
         const context = await this.getBackupContext(options.worldName);
-        if (context === null) return { status: "unavailable", message: this.localizationService.t("game.error.notInstalled") };
+        if (context === null) return { status: "unavailable", message: this.localizationService.t("game.error.noGameBundle") };
         const result = await this.backupService.createManualBackup(context);
-        if (result.status === "created") this.touchAutoBackupCooldown(context.install.id, result.backup.worldFolderName);
+        if (result.status === "created") this.touchAutoBackupCooldown(context.gameBundle.id, result.backup.worldFolderName);
         return result;
     }
 
     async restoreBackup(backupId: string): Promise<EBackupRestoreResult> {
         const context = await this.getBackupContext();
-        if (context === null) return { status: "unavailable", message: this.localizationService.t("game.error.notInstalled") };
+        if (context === null) return { status: "unavailable", message: this.localizationService.t("game.error.noGameBundle") };
         return this.backupService.restoreBackup(context, backupId);
     }
 
     async deleteBackup(backupId: string): Promise<EBackupDeleteResult> {
         const context = await this.getBackupContext();
-        return this.backupService.deleteBackup(context?.install ?? null, backupId);
+        return this.backupService.deleteBackup(context?.gameBundle ?? null, backupId);
     }
 
     async renameBackup(backupId: string, comment: string): Promise<EBackupRenameResult> {
         const context = await this.getBackupContext();
-        return this.backupService.renameBackup(context?.install ?? null, backupId, comment);
+        return this.backupService.renameBackup(context?.gameBundle ?? null, backupId, comment);
     }
 
-    private broadcastProgress(progress: InstallProgress): void {
+    private broadcastProgress(progress: GameBundleInstallProgress): void {
         for (const window of BrowserWindow.getAllWindows()) {
-            window.webContents.send(Bridge.Game.installProgress, progress);
+            window.webContents.send(Bridge.Game.gameBundleInstallProgress, progress);
         }
     }
 
@@ -294,33 +294,33 @@ export class GameBundleService {
         return this.activeSaveMonitor.isStable();
     }
 
-    private async updateActiveSaveMonitor(activeInstall: GameBundle | null): Promise<void> {
-        if (activeInstall === null) {
+    private async updateActiveSaveMonitor(activeGameBundle: GameBundle | null): Promise<void> {
+        if (activeGameBundle === null) {
             this.stopActiveSaveMonitor();
-            await this.backupService.updateActiveInstall(null);
+            await this.backupService.updateActiveGameBundle(null);
             return;
         }
-        if (this.activeSaveMonitorInstallId === activeInstall.id) {
-            await this.backupService.updateActiveInstall(activeInstall);
+        if (this.activeSaveMonitorGameBundleId === activeGameBundle.id) {
+            await this.backupService.updateActiveGameBundle(activeGameBundle);
             return;
         }
         this.stopActiveSaveMonitor();
-        const installId = activeInstall.id;
+        const gameBundleId = activeGameBundle.id;
         const monitor = new GameSaveMonitor({
-            installId,
-            userdataPath: activeInstall.userdataPath,
-            onSettled: (activity) => this.processSettledSaveActivity(installId, activity)
+            gameBundleId,
+            userdataPath: activeGameBundle.userdataPath,
+            onSettled: (activity) => this.processSettledSaveActivity(gameBundleId, activity)
         });
         this.activeSaveMonitor = monitor;
-        this.activeSaveMonitorInstallId = installId;
+        this.activeSaveMonitorGameBundleId = gameBundleId;
         await monitor.start();
-        await this.backupService.updateActiveInstall(activeInstall);
+        await this.backupService.updateActiveGameBundle(activeGameBundle);
     }
 
     private stopActiveSaveMonitor(): void {
         this.activeSaveMonitor?.stop();
         this.activeSaveMonitor = null;
-        this.activeSaveMonitorInstallId = null;
+        this.activeSaveMonitorGameBundleId = null;
         this.clearAutoBackupState();
     }
 
@@ -328,12 +328,12 @@ export class GameBundleService {
         this.latestBackupAtByWorld.clear();
     }
 
-    private async processSettledSaveActivity(installId: string, activity: GameSaveSettledActivity): Promise<void> {
-        console.info(`[game-save] refresh save summary installId=${installId} events=${activity.eventCount} changedPaths=${activity.changedPaths.length}`);
+    private async processSettledSaveActivity(gameBundleId: string, activity: GameSaveSettledActivity): Promise<void> {
+        console.info(`[game-save] refresh save summary gameBundleId=${gameBundleId} events=${activity.eventCount} changedPaths=${activity.changedPaths.length}`);
         const changedWorldFolderNames = getChangedWorldFolderNames(activity);
         const state = await this.getState(false);
-        if (state.status !== "ready" || state.gameBundle?.id !== installId || state.saves === null) return;
-        const update: GameSaveSummaryUpdate = { installId, saves: state.saves };
+        if (state.status !== "ready" || state.gameBundle?.id !== gameBundleId || state.saves === null) return;
+        const update: GameSaveSummaryUpdate = { gameBundleId, saves: state.saves };
         this.emitSaveSummaryChanged(update);
         this.queuePostSaveTasks(update, changedWorldFolderNames);
     }
@@ -351,15 +351,15 @@ export class GameBundleService {
 
     private async createAutoBackupAfterSave(update: GameSaveSummaryUpdate, worldFolderName: string): Promise<void> {
         const settings = await this.repositoryService.getWorkspaceSettings();
-        if (isAutoBackupInCooldown(this.latestBackupAtByWorld.get(getAutoBackupTimerKey(update.installId, worldFolderName)) ?? null, toAutoBackupCooldownMs(settings.autoBackupCooldown))) return;
+        if (isAutoBackupInCooldown(this.latestBackupAtByWorld.get(getAutoBackupTimerKey(update.gameBundleId, worldFolderName)) ?? null, toAutoBackupCooldownMs(settings.autoBackupCooldown))) return;
         const context = await this.getBackupContext(worldFolderName);
-        if (context === null || context.install.id !== update.installId) return;
+        if (context === null || context.gameBundle.id !== update.gameBundleId) return;
         const result = await this.backupService.createAutoBackup(context);
-        if (result.status === "created") this.touchAutoBackupCooldown(context.install.id, result.backup.worldFolderName);
+        if (result.status === "created") this.touchAutoBackupCooldown(context.gameBundle.id, result.backup.worldFolderName);
     }
 
-    private touchAutoBackupCooldown(installId: string, worldFolderName: string): void {
-        this.latestBackupAtByWorld.set(getAutoBackupTimerKey(installId, worldFolderName), Date.now());
+    private touchAutoBackupCooldown(gameBundleId: string, worldFolderName: string): void {
+        this.latestBackupAtByWorld.set(getAutoBackupTimerKey(gameBundleId, worldFolderName), Date.now());
     }
 
     private async getBackupContext(worldName?: string): Promise<GameBackupContext | null> {
@@ -368,10 +368,10 @@ export class GameBundleService {
         const preferredWorldName = worldName?.trim();
         const saves = preferredWorldName === undefined || preferredWorldName.length === 0 ? state.saves : await readSaveSummary(state.gameBundle.userdataPath, preferredWorldName);
         return {
-            install: state.gameBundle,
+            gameBundle: state.gameBundle,
             saves,
             gameRunning: this.runtimeState.status === "running",
-            savesStable: state.gameBundle.id !== this.activeSaveMonitorInstallId ? true : this.isActiveSaveStable()
+            savesStable: state.gameBundle.id !== this.activeSaveMonitorGameBundleId ? true : this.isActiveSaveStable()
         };
     }
 
@@ -386,11 +386,11 @@ export class GameBundleService {
         };
     }
 
-    private async launchActiveInstallAsync(options: GameLaunchOptions): Promise<EGameLaunchResult> {
+    private async launchActiveGameBundleAsync(options: GameLaunchOptions): Promise<EGameLaunchResult> {
         if (this.runtimeState.status === "running") return { status: "already-running", runtime: this.runtimeState };
         const state = await this.getState(false);
         if (state.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repositoryNotReady") };
-        if (state.gameBundle === null) return { status: "unavailable", message: this.localizationService.t("game.error.notInstalled") };
+        if (state.gameBundle === null) return { status: "unavailable", message: this.localizationService.t("game.error.noGameBundle") };
 
         const executablePath = await this.resolveExecutablePath(state.gameBundle);
         if (executablePath === null)
@@ -407,9 +407,9 @@ export class GameBundleService {
         // todo: runCommand.ts
         const child = spawn(executablePath, args, { cwd: dirname(executablePath), stdio: "ignore" });
         this.gameProcess = child;
-        this.preferredWorldByInstallId.set(state.gameBundle.id, worldName ?? null);
+        this.preferredWorldByGameBundleId.set(state.gameBundle.id, worldName ?? null);
         await this.updateActiveSaveMonitor(state.gameBundle);
-        const runtime = this.setRuntime({ status: "running", pid: child.pid ?? 0, installId: state.gameBundle.id, worldName: worldName ?? null });
+        const runtime = this.setRuntime({ status: "running", pid: child.pid ?? 0, gameBundleId: state.gameBundle.id, worldName: worldName ?? null });
         child.once("exit", () => {
             if (this.gameProcess === child) {
                 this.gameProcess = null;
@@ -425,25 +425,32 @@ export class GameBundleService {
         return { status: "launched", runtime };
     }
 
-    private async resolveExecutablePath(install: GameBundle): Promise<string | null> {
-        const manifestExecutablePath = install.manifest.executablePath;
+    private async resolveExecutablePath(gameBundle: GameBundle): Promise<string | null> {
+        const manifestExecutablePath = gameBundle.manifest.executablePath;
         if (manifestExecutablePath !== null && (await pathExists(manifestExecutablePath))) return manifestExecutablePath;
-        return findExecutable(install.path);
+        return findExecutable(gameBundle.path);
     }
 
-    private async installRelease(repositoryPath: string, config: RepositoryConfig, channel: GameChannelDefinition, release: GithubRelease, options: InstallOptions, installsBefore: GameBundle[]): Promise<GameBundle> {
-        const installPath = join(repositoryPath, INSTALLS_DIRECTORY_NAME, channel.id, safePathSegment(release.id));
+    private async installRelease(
+        repositoryPath: string,
+        config: RepositoryConfig,
+        channel: GameChannelDefinition,
+        release: GithubRelease,
+        options: GameBundleInstallOptions,
+        gameBundlesBefore: GameBundle[]
+    ): Promise<GameBundle> {
+        const gameBundlePath = join(repositoryPath, GAME_BUNDLES_DIRECTORY_NAME, channel.id, safePathSegment(release.id));
         const userdataPath = join(repositoryPath, USERDATA_DIRECTORY_NAME, channel.id, safePathSegment(release.id));
-        const tempPath = `${installPath}.tmp-${Date.now()}`;
+        const tempPath = `${gameBundlePath}.tmp-${Date.now()}`;
         const downloadPath = join(repositoryPath, DOWNLOADS_DIRECTORY_NAME, channel.id, basename(release.asset.name));
-        await mkdir(dirname(installPath), { recursive: true });
+        await mkdir(dirname(gameBundlePath), { recursive: true });
         await mkdir(dirname(userdataPath), { recursive: true });
         await rm(tempPath, { recursive: true, force: true });
-        await rm(installPath, { recursive: true, force: true });
+        await rm(gameBundlePath, { recursive: true, force: true });
         await this.downloadFile(release.asset.downloadUrl, downloadPath, release.name, release.asset.size);
         await this.extractArchive(downloadPath, tempPath, release.name);
         const executablePath = await findExecutable(tempPath);
-        const sourceUserdata = options.copyUserdata ? findUserdataSource(installsBefore, config.activeInstallByChannel[channel.id]) : null;
+        const sourceUserdata = options.copyUserdata ? findUserdataSource(gameBundlesBefore, config.activeGameBundleByChannel[channel.id]) : null;
         this.broadcastProgress({ status: "preparing-saves", releaseName: release.name });
         await mkdir(userdataPath, { recursive: true });
         if (sourceUserdata !== null && (await pathExists(sourceUserdata.userdataPath))) await copyDirectoryContents(sourceUserdata.userdataPath, userdataPath);
@@ -458,9 +465,9 @@ export class GameBundleService {
             releaseBody: release.body,
             assetName: release.asset.name,
             installedAt: new Date().toISOString(),
-            executablePath: executablePath === null ? null : join(installPath, relative(tempPath, executablePath)),
+            executablePath: executablePath === null ? null : join(gameBundlePath, relative(tempPath, executablePath)),
             userdataPath,
-            copiedUserdataFromInstallId: sourceUserdata?.id ?? null,
+            copiedUserdataFromGameBundleId: sourceUserdata?.id ?? null,
             source: {
                 owner: channel.githubOwner,
                 repo: channel.githubRepo,
@@ -468,65 +475,65 @@ export class GameBundleService {
             }
         };
         this.broadcastProgress({ status: "finalizing", releaseName: release.name });
-        await writeFile(join(tempPath, INSTALL_MANIFEST_FILE_NAME), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-        await rename(tempPath, installPath);
+        await writeFile(join(tempPath, GAME_BUNDLE_MANIFEST_FILE_NAME), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+        await rename(tempPath, gameBundlePath);
         return {
             id: release.id,
-            path: installPath,
+            path: gameBundlePath,
             userdataPath,
             manifest,
             isActive: false
         };
     }
 
-    private async readInstallsAndRepairConfig(repositoryPath: string, config: RepositoryConfig, channelId: string): Promise<{ config: RepositoryConfig; installs: GameBundle[] }> {
-        const installs = await this.readGameBundles(repositoryPath, config, channelId);
-        const activeInstallId = config.activeInstallByChannel[channelId] ?? null;
-        const activeInstallExists = activeInstallId !== null && installs.some((install) => install.id === activeInstallId);
+    private async readGameBundlesAndRepairConfig(repositoryPath: string, config: RepositoryConfig, channelId: string): Promise<{ config: RepositoryConfig; gameBundles: GameBundle[] }> {
+        const gameBundles = await this.readGameBundles(repositoryPath, config, channelId);
+        const activeGameBundleId = config.activeGameBundleByChannel[channelId] ?? null;
+        const activeGameBundleExists = activeGameBundleId !== null && gameBundles.some((gameBundle) => gameBundle.id === activeGameBundleId);
 
-        if (activeInstallId === null || activeInstallExists) return { config, installs };
+        if (activeGameBundleId === null || activeGameBundleExists) return { config, gameBundles };
 
-        const activeInstallByChannel = { ...config.activeInstallByChannel };
-        delete activeInstallByChannel[channelId];
-        const repairedConfig = { ...config, activeInstallByChannel };
+        const activeGameBundleByChannel = { ...config.activeGameBundleByChannel };
+        delete activeGameBundleByChannel[channelId];
+        const repairedConfig = { ...config, activeGameBundleByChannel };
         await this.repositoryService.saveConfig(repositoryPath, repairedConfig);
         return {
             config: repairedConfig,
-            installs: installs.map((install) => ({ ...install, isActive: false }))
+            gameBundles: gameBundles.map((gameBundle) => ({ ...gameBundle, isActive: false }))
         };
     }
 
     private async readGameBundles(repositoryPath: string, config: RepositoryConfig, channelId: string): Promise<GameBundle[]> {
-        const channelInstallsPath = join(repositoryPath, INSTALLS_DIRECTORY_NAME, channelId);
-        const activeInstallId = config.activeInstallByChannel[channelId] ?? null;
+        const channelGameBundlesPath = join(repositoryPath, GAME_BUNDLES_DIRECTORY_NAME, channelId);
+        const activeGameBundleId = config.activeGameBundleByChannel[channelId] ?? null;
         let entries: string[];
         try {
-            entries = await readdir(channelInstallsPath);
+            entries = await readdir(channelGameBundlesPath);
         } catch (error) {
             if (isNodeError(error) && error.code === "ENOENT") return [];
             throw error;
         }
-        const installs: GameBundle[] = [];
+        const gameBundles: GameBundle[] = [];
         for (const entry of entries) {
-            const installPath = join(channelInstallsPath, entry);
+            const gameBundlePath = join(channelGameBundlesPath, entry);
             try {
-                if (!(await stat(installPath)).isDirectory()) continue;
-                const manifest = JSON.parse(await readFile(join(installPath, INSTALL_MANIFEST_FILE_NAME), "utf8")) as unknown;
-                if (!isGameInstallManifest(manifest) || manifest.channelId !== channelId) continue;
+                if (!(await stat(gameBundlePath)).isDirectory()) continue;
+                const manifest = JSON.parse(await readFile(join(gameBundlePath, GAME_BUNDLE_MANIFEST_FILE_NAME), "utf8")) as unknown;
+                if (!isGameBundleManifest(manifest) || manifest.channelId !== channelId) continue;
                 const userdataPath = resolveUserdataPath(repositoryPath, channelId, manifest);
                 const normalizedManifest = manifest.userdataPath === userdataPath ? manifest : { ...manifest, userdataPath };
-                installs.push({
+                gameBundles.push({
                     id: normalizedManifest.releaseId,
-                    path: installPath,
+                    path: gameBundlePath,
                     userdataPath,
                     manifest: normalizedManifest,
-                    isActive: normalizedManifest.releaseId === activeInstallId
+                    isActive: normalizedManifest.releaseId === activeGameBundleId
                 });
             } catch (error) {
-                console.error(`[game-install] failed to read install: ${installPath}`, error);
+                console.error(`[game-bundle] failed to read game bundle: ${gameBundlePath}`, error);
             }
         }
-        return installs.sort((a, b) => b.manifest.publishedAt.localeCompare(a.manifest.publishedAt));
+        return gameBundles.sort((a, b) => b.manifest.publishedAt.localeCompare(a.manifest.publishedAt));
     }
 
     private async findLatestRelease(channel: GameChannelDefinition, forceRefresh: boolean): Promise<GithubRelease | null> {
@@ -570,7 +577,7 @@ export class GameBundleService {
                 transferredBytes: reusableArchive.size,
                 totalBytes: reusableArchive.size
             });
-            console.info(`[game-install] reuse downloaded archive path=${targetPath} size=${reusableArchive.size}`);
+            console.info(`[game-bundle] reuse downloaded archive path=${targetPath} size=${reusableArchive.size}`);
             return;
         }
 
@@ -646,7 +653,7 @@ export class GameBundleService {
         )
             .filter((file) => file.isFile)
             .sort((a, b) => b.mtime - a.mtime)
-            .slice(KEEP_DOWNLOADED_DISTRIBUTIVES);
+            .slice(KEEP_DOWNLOADED_GAME_BUNDLES);
         await Promise.all(files.map((file) => rm(file.path, { force: true })));
     }
 

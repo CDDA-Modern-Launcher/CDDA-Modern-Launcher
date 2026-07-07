@@ -1,1 +1,1 @@
-export type GameRuntimeState = { status: "idle" } | { status: "running"; pid: number; installId: string; worldName: string | null };
+export type GameRuntimeState = { status: "idle" } | { status: "running"; pid: number; gameBundleId: string; worldName: string | null };

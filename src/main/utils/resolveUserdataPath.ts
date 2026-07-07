@@ -1,4 +1,4 @@
-import { GameBundleManifest } from "../../shared/distributive/GameBundleManifest";
+import { GameBundleManifest } from "../../shared/game-bundle/GameBundleManifest";
 import { join } from "node:path";
 import { USERDATA_DIRECTORY_NAME } from "../../shared/Const";
 import { safePathSegment } from "./safePathSegment";

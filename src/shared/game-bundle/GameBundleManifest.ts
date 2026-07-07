@@ -11,7 +11,7 @@ export type GameBundleManifest = {
     installedAt: string;
     executablePath: string | null;
     userdataPath: string;
-    copiedUserdataFromInstallId: string | null;
+    copiedUserdataFromGameBundleId: string | null;
     source: {
         owner: string;
         repo: string;

@@ -8,7 +8,7 @@ export type RepositoryConfig = {
     schemaVersion: 1;
     selectedChannelId: string;
     customGameChannels: GameChannelDefinition[];
-    activeInstallByChannel: Record<string, string>;
+    activeGameBundleByChannel: Record<string, string>;
     releaseAssetVariant: TReleaseAssetVariant;
     backupsEnabled: boolean;
     autoBackupLimit: TAutoBackupLimit;

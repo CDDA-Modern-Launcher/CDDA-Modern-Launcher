@@ -1,6 +1,6 @@
-import { GameBundleManifest } from "../../shared/distributive/GameBundleManifest";
+import { GameBundleManifest } from "../../shared/game-bundle/GameBundleManifest";
 
-export function isGameInstallManifest(value: unknown): value is GameBundleManifest {
+export function isGameBundleManifest(value: unknown): value is GameBundleManifest {
     if (typeof value !== "object" || value === null) return false;
     const candidate = value as Partial<GameBundleManifest>;
     return (

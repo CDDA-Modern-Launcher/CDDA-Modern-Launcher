@@ -1,6 +1,6 @@
 import { BackupSummary } from "./BackupSummary";
 
 export type BackupSummaryUpdate = {
-    installId: string;
+    gameBundleId: string;
     summary: BackupSummary;
 };

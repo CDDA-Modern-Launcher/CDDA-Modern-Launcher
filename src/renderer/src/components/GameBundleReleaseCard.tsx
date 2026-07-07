@@ -9,12 +9,12 @@ import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 interface Props {
     release: GithubRelease;
-    isInstalled: boolean;
-    isInstalling: boolean;
+    isGameBundleReady: boolean;
+    isInstallingGameBundle: boolean;
     onRequestInstall: (release: GithubRelease) => void;
 }
 
-export function DistributiveReleaseCard({ release, isInstalled, isInstalling, onRequestInstall }: Props): React.JSX.Element {
+export function GameBundleReleaseCard({ release, isGameBundleReady, isInstallingGameBundle, onRequestInstall }: Props): React.JSX.Element {
     const t = useTranslate();
 
     const openModal = useModalOpen();
@@ -25,7 +25,7 @@ export function DistributiveReleaseCard({ release, isInstalled, isInstalling, on
                 <Stack gap={2}>
                     <Group gap="xs">
                         <Text fw={700}>{getReleaseNameDisplay(release.name)}</Text>
-                        {isInstalled && <Badge variant="light">{t("versions.badge.installed")}</Badge>}
+                        {isGameBundleReady && <Badge variant="light">{t("versions.badge.installed")}</Badge>}
                     </Group>
                     <Text size="xs" c="dimmed">
                         {t("versions.available.publishedAt", { date: formatDate(release.publishedAt) })}
@@ -38,8 +38,8 @@ export function DistributiveReleaseCard({ release, isInstalled, isInstalling, on
                     <Button size="xs" variant="subtle" onClick={() => openModal({ kind: "release-notes", notes: toReleaseNotesTarget(release) })}>
                         {t("versions.action.showChanges")}
                     </Button>
-                    <Button size="xs" disabled={isInstalled} loading={isInstalling} onClick={() => onRequestInstall(release)}>
-                        {isInstalled ? t("versions.action.installed") : t("versions.action.install")}
+                    <Button size="xs" disabled={isGameBundleReady} loading={isInstallingGameBundle} onClick={() => onRequestInstall(release)}>
+                        {isGameBundleReady ? t("versions.action.installed") : t("versions.action.install")}
                     </Button>
                 </Group>
             </Group>
