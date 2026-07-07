@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 
 import { app } from "electron";
 
-import { AppTheme } from "../../shared/appearance/AppTheme";
+import { TAppThemeSource } from "../../shared/appearance/TAppThemeSource";
 import { isAppTheme } from "../../shared/appearance/isAppTheme";
 
 // Keep only application-level settings that are required before a repository is ready.
@@ -11,7 +11,7 @@ import { isAppTheme } from "../../shared/appearance/isAppTheme";
 type LauncherSettings = {
     repositoryPath?: string;
     locale?: string;
-    theme?: AppTheme;
+    theme?: TAppThemeSource;
 };
 
 export class LauncherSettingsStore {
@@ -37,12 +37,12 @@ export class LauncherSettingsStore {
         await this.writeSettings({ ...settings, locale });
     }
 
-    async getTheme(): Promise<AppTheme> {
+    async getThemeSource(): Promise<TAppThemeSource> {
         const settings = await this.readSettings();
         return isAppTheme(settings.theme) ? settings.theme : "system";
     }
 
-    async setTheme(theme: AppTheme): Promise<void> {
+    async setThemeSource(theme: TAppThemeSource): Promise<void> {
         const settings = await this.readSettings();
         await this.writeSettings({ ...settings, theme });
     }

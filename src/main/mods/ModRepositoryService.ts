@@ -276,7 +276,7 @@ export class ModRepositoryService {
 
             const state = await this.buildState();
             this.emitChanged(state);
-            return { status: "removed", state };
+            return { status: "deleted", state };
         } catch (error) {
             const state = await this.buildState();
             return { status: "error", message: getErrorMessage(error), state };

@@ -1,0 +1,5 @@
+handle/invoke - get/set/update
+
+send/on - emit/listen
+
+PS: Don't blame me, that's my first time with Electron ;]

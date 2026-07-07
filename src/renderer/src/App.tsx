@@ -1,53 +1,24 @@
 import { useDisclosure } from "@mantine/hooks";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 import { WorkspaceView } from "./components/WorkspaceView";
-import { ContentSheet } from "./components/settings/ContentSheet";
-import { SettingsSheet } from "./components/settings/SettingsSheet";
-import { LauncherDock } from "./components/shell/LauncherDock";
+import { ContentSheet } from "./components/ContentSheet";
+import { SettingsSheet } from "./components/SettingsSheet";
+import { LauncherDock } from "./components/LauncherDock";
 import { UpdateFloatingCard } from "./components/UpdateFloatingCard";
-import { WorkspaceStatus } from "../../shared/workspace/WorkspaceStatus";
 import { TContentSheetKind } from "@renderer/types/TContentSheetKind";
+import { ModalsProvider } from "@mantine/modals";
+import { LocalizationProvider } from "@renderer/localization/LocalizationProvider";
+import { MantineProvider } from "@mantine/core";
+import { useAppearanceStore } from "@renderer/stores/useAppearanceStore";
+import { defaultModalProps } from "@renderer/DefaultModalProps";
+import { ModalManager } from "@renderer/modals/ModalManager";
 
 export default function App(): React.JSX.Element {
+    const colorTheme = useAppearanceStore((state) => state.theme);
+
     const [settingsOpened, settings] = useDisclosure(false);
     const [contentKind, setContentKind] = useState<TContentSheetKind | null>(null);
-    const [repository, setRepository] = useState<WorkspaceStatus>({ status: "unconfigured" });
-    const [isSelectingRepository, setSelectingRepository] = useState(false);
-
-    useEffect(() => {
-        let mounted = true;
-
-        window.api.repository.getStatus().then((status) => {
-            if (mounted) {
-                setRepository(status);
-            }
-        });
-
-        return () => {
-            mounted = false;
-        };
-    }, []);
-
-    const selectRepository = async (): Promise<void> => {
-        setSelectingRepository(true);
-
-        try {
-            const result = await window.api.repository.selectFolder();
-
-            if (result.status === "selected") {
-                setRepository(result.repository);
-                window.api.mods.checkUpdates().catch((error) => console.error("Failed to check mods after repository selection", error));
-            }
-        } finally {
-            setSelectingRepository(false);
-        }
-    };
-
-    const setSelectedChannel = async (channelId: string): Promise<void> => {
-        setRepository(await window.api.repository.setSelectedChannel(channelId));
-        window.api.mods.checkUpdates().catch((error) => console.error("Failed to check mods after channel change", error));
-    };
 
     const openContent = (kind: TContentSheetKind): void => {
         settings.close();
@@ -60,23 +31,24 @@ export default function App(): React.JSX.Element {
     };
 
     return (
-        <>
-            <UpdateFloatingCard />
-            <SettingsSheet opened={settingsOpened} onClose={settings.close} />
-            <ContentSheet repository={repository} kind={contentKind} onClose={() => setContentKind(null)} />
+        <MantineProvider forceColorScheme={colorTheme}>
+            <ModalsProvider modalProps={defaultModalProps}>
+                <LocalizationProvider>
+                    <UpdateFloatingCard />
 
-            <main className="app-shell">
-                <WorkspaceView repository={repository} isSelecting={isSelectingRepository} onSelectRepository={selectRepository} />
-            </main>
+                    <SettingsSheet opened={settingsOpened} onClose={settings.close} />
 
-            <LauncherDock
-                repository={repository}
-                onSelectChannel={setSelectedChannel}
-                onOpenSettings={openSettings}
-                onOpenMods={() => openContent("mods")}
-                onOpenSoundpack={() => openContent("soundpack")}
-                onOpenTileset={() => openContent("tileset")}
-            />
-        </>
+                    <ContentSheet kind={contentKind} onClose={() => setContentKind(null)} />
+
+                    <main className="app-shell">
+                        <WorkspaceView />
+                    </main>
+
+                    <LauncherDock onOpenSettings={openSettings} onOpenMods={() => openContent("mods")} onOpenSoundpack={() => openContent("soundpack")} onOpenTileset={() => openContent("tileset")} />
+
+                    <ModalManager />
+                </LocalizationProvider>
+            </ModalsProvider>
+        </MantineProvider>
     );
 }

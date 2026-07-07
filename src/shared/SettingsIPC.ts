@@ -10,3 +10,11 @@ export type SettingsIPC = {
     manualBackupRotationLimit: TBackupRotationLimit;
     autoBackupCooldown: TAutoBackupCooldown;
 };
+
+export type SettingsIPCSetter = {
+    setReleaseAssetVariant: (value: TReleaseAssetVariant) => Promise<SettingsIPC>;
+    setBackupsEnabled: (value: boolean) => Promise<SettingsIPC>;
+    setAutoBackupLimit: (value: TAutoBackupLimit) => Promise<SettingsIPC>;
+    setAutoBackupCooldown: (value: TAutoBackupCooldown) => Promise<SettingsIPC>;
+    setManualBackupRotationLimit: (value: TBackupRotationLimit) => Promise<SettingsIPC>;
+};

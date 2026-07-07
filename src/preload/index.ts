@@ -3,7 +3,6 @@ import type { IpcRendererEvent } from "electron";
 import { contextBridge, ipcRenderer } from "electron";
 
 import { AppApi } from "../shared/bridge-api/AppApi";
-import { AppearanceApi } from "../shared/bridge-api/AppearanceApi";
 import { GameApi } from "../shared/bridge-api/GameApi";
 import { LocalizationApi } from "../shared/bridge-api/LocalizationApi";
 import { ModsApi } from "../shared/bridge-api/ModsApi";
@@ -15,8 +14,6 @@ import { UpdaterApi } from "../shared/bridge-api/UpdaterApi";
 import { WorkspaceStatus } from "../shared/workspace/WorkspaceStatus";
 import { EWorkspaceSelectResult } from "../shared/workspace/EWorkspaceSelectResult";
 import { LocalizationBundle } from "../shared/localization/types/LocalizationBundle";
-import { AppTheme } from "../shared/appearance/AppTheme";
-import { AppAppearance } from "../shared/appearance/AppAppearance";
 import { TBackupRotationLimit } from "../shared/backups/types/TBackupRotationLimit";
 import { TAutoBackupLimit } from "../shared/backups/types/TAutoBackupLimit";
 import { TAutoBackupCooldown } from "../shared/backups/types/TAutoBackupCooldown";
@@ -40,6 +37,7 @@ import { InstallDistributiveProgress } from "../shared/distributive/InstallDistr
 import { UpdateModOptions } from "../shared/mods/UpdateModOptions";
 import { ModRepositoryChangedEvent } from "../shared/mods/ModRepositoryChangedEvent";
 import { ModRepositoryNoticeEvent } from "../shared/mods/ModRepositoryNoticeEvent";
+import { registerPreloadAppearanceApi } from "./registerPreloadAppearanceApi";
 
 const updaterApi: UpdaterApi = {
     getState: () => ipcRenderer.invoke("updater:get-state"),
@@ -71,24 +69,13 @@ const localizationApi: LocalizationApi = {
     }
 };
 
-const appearanceApi: AppearanceApi = {
-    getInitial: (): AppAppearance => ipcRenderer.sendSync("appearance:get-sync"),
-    get: (): Promise<AppAppearance> => ipcRenderer.invoke("appearance:get"),
-    setTheme: (theme: AppTheme): Promise<AppAppearance> => ipcRenderer.invoke("appearance:set-theme", theme),
-    onChanged: (callback: (appearance: AppAppearance) => void) => {
-        const listener = (_event: IpcRendererEvent, appearance: AppAppearance): void => callback(appearance);
-        ipcRenderer.on("appearance:changed", listener);
-        return () => ipcRenderer.removeListener("appearance:changed", listener);
-    }
-};
-
 const shellApi: ShellApi = {
     openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke("shell:open-external", url)
 };
 
 const settingsApi: SettingsApi = {
     get: (): Promise<SettingsIPC> => ipcRenderer.invoke("settings:get"),
-    setGameAssetVariant: (gameAssetVariant: TReleaseAssetVariant): Promise<SettingsIPC> => ipcRenderer.invoke("settings:set-game-asset-variant", gameAssetVariant),
+    setReleaseAssetVariant: (gameAssetVariant: TReleaseAssetVariant): Promise<SettingsIPC> => ipcRenderer.invoke("settings:set-release-asset-variant", gameAssetVariant),
     setBackupsEnabled: (backupsEnabled: boolean): Promise<SettingsIPC> => ipcRenderer.invoke("settings:set-backups-enabled", backupsEnabled),
     setAutoBackupLimit: (autoBackupLimit: TAutoBackupLimit): Promise<SettingsIPC> => ipcRenderer.invoke("settings:set-auto-backup-limit", autoBackupLimit),
     setAutoBackupCooldown: (autoBackupCooldown: TAutoBackupCooldown): Promise<SettingsIPC> => ipcRenderer.invoke("settings:set-auto-backup-cooldown", autoBackupCooldown),
@@ -170,7 +157,7 @@ const api: AppApi = {
     updater: updaterApi,
     repository: repositoryApi,
     localization: localizationApi,
-    appearance: appearanceApi,
+    appearance: registerPreloadAppearanceApi(),
     shell: shellApi,
     settings: settingsApi,
     game: gameApi,

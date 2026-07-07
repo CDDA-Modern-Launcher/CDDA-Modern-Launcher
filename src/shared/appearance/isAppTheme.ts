@@ -1,5 +1,5 @@
-import { AppTheme } from "./AppTheme";
+import { TAppThemeSource } from "./TAppThemeSource";
 
-export function isAppTheme(value: string | null | undefined): value is AppTheme {
+export function isAppTheme(value: string | null | undefined): value is TAppThemeSource {
     return value === "system" || value === "dark" || value === "light";
 }

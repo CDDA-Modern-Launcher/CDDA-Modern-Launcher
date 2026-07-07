@@ -5,7 +5,7 @@ import { appendFileSync, mkdirSync } from "fs";
 import { join } from "path";
 
 import icon from "../../resources/icon.png?asset";
-import { setupAppearanceIpc } from "./appearance/setupAppearanceIpc";
+import { registerMainAppearanceApi } from "./appearance/registerMainAppearanceApi";
 import { GameInstallationService } from "./game/GameInstallationService";
 import { setupGameInstallationIpc } from "./game/setupGameInstallationIpc";
 import { LocalizationService } from "./localization/LocalizationService";
@@ -304,7 +304,7 @@ app.whenReady().then(async () => {
     const gameInstallationService = new GameInstallationService(repositoryService, localizationService);
     const modRepositoryService = new ModRepositoryService(repositoryService, localizationService);
 
-    await setupAppearanceIpc(settingsStore);
+    await registerMainAppearanceApi(settingsStore);
     setupLocalizationIpc(localizationService);
     setupLauncherSettingsIpc(repositoryService);
     setupRepositoryIpc(repositoryService, localizationService);

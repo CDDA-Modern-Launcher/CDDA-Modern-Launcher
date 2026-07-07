@@ -15,7 +15,7 @@ export function setupLauncherSettingsIpc(repositoryService: LocalRepositoryServi
     repositoryService.onUserSettingsChanged((settings) => emitSettingsChanged(settings));
 
     ipcMain.handle("settings:get", () => repositoryService.getUserSettings());
-    ipcMain.handle("settings:set-game-asset-variant", async (_event, gameAssetVariant: TReleaseAssetVariant): Promise<SettingsIPC> => {
+    ipcMain.handle("settings:set-release-asset-variant", async (_event, gameAssetVariant: TReleaseAssetVariant): Promise<SettingsIPC> => {
         if (!isReleaseAssetVariant(gameAssetVariant)) {
             throw new Error(`Unsupported game asset variant: ${String(gameAssetVariant)}`);
         }
