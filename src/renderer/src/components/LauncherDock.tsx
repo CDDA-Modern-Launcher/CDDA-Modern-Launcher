@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { WorkspaceStatus } from "../../../shared/workspace/WorkspaceStatus";
 import { getEffectiveGameChannels } from "../../../shared/game-channel/getEffectiveGameChannels";
 import { findGameChannel } from "../../../shared/game-channel/findGameChannel";
-import { InstallDistributiveProgress } from "../../../shared/distributive/InstallDistributiveProgress";
+import { InstallProgress } from "../../../shared/distributive/InstallProgress";
 import { ModRepositoryState } from "../../../shared/mods/ModRepositoryState";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { GameChannelDefinition } from "../../../shared/game-channel/GameChannelDefinition";
@@ -23,7 +23,7 @@ export function LauncherDock({ onOpenSettings, onOpenMods, onOpenSoundpack, onOp
     const isReady = repository.status === "ready";
     const channels = isReady ? getEffectiveGameChannels(repository.config.customGameChannels) : [];
     const selectedChannel = isReady ? findGameChannel(channels, repository.config.selectedChannelId) : null;
-    const [installProgress, setInstallProgress] = useState<InstallDistributiveProgress>({ status: "idle" });
+    const [installProgress, setInstallProgress] = useState<InstallProgress>({ status: "idle" });
     const [modRepositoryState, setModRepositoryState] = useState<ModRepositoryState>({ status: "unconfigured", mods: [], checking: false });
     const isInstallingGame = isInstallBlockingProgress(installProgress);
     const modIndicatorState = getModIndicatorState(modRepositoryState);
@@ -125,7 +125,7 @@ function ItemView({ channel, selectedChannel }: { channel: GameChannelDefinition
     );
 }
 
-function isInstallBlockingProgress(progress: InstallDistributiveProgress): boolean {
+function isInstallBlockingProgress(progress: InstallProgress): boolean {
     return progress.status === "resolving-release" || progress.status === "downloading" || progress.status === "extracting" || progress.status === "preparing-saves" || progress.status === "finalizing";
 }
 

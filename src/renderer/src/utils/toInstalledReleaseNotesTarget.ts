@@ -1,10 +1,10 @@
-import { Distributive } from "../../../shared/distributive/Distributive";
+import { GameBundle } from "../../../shared/distributive/GameBundle";
 import { GithubRelease } from "../../../shared/GithubRelease";
 import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { toReleaseNotesTarget } from "@renderer/utils/toReleaseNotesTarget";
 import { ReleaseNotesTarget } from "@renderer/types/ReleaseNotesTarget";
 
-export function toInstalledReleaseNotesTarget(install: Distributive, release: GithubRelease | null): ReleaseNotesTarget {
+export function toInstalledReleaseNotesTarget(install: GameBundle, release: GithubRelease | null): ReleaseNotesTarget {
     if (release !== null) return toReleaseNotesTarget(release);
     return {
         title: getReleaseDisplayName(install),

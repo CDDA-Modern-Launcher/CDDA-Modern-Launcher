@@ -1,6 +1,6 @@
-import { InstallDistributiveProgress } from "../../../shared/distributive/InstallDistributiveProgress";
+import { InstallProgress } from "../../../shared/distributive/InstallProgress";
 
-export function getIndeterminateProgressValue(progress: InstallDistributiveProgress): number {
+export function getIndeterminateProgressValue(progress: InstallProgress): number {
     if (progress.status === "extracting") return 58;
     if (progress.status === "preparing-saves") return 76;
     if (progress.status === "finalizing") return 90;

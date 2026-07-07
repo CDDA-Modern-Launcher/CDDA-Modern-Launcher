@@ -1,1 +1,1 @@
-export type LocaleSource = "built-in" | "repository";
+export type LocaleSource = "built-in";

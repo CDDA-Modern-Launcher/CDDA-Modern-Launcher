@@ -7,7 +7,7 @@ import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 
 import type { LocalizationService } from "../localization/LocalizationService";
-import { LocalRepositoryService } from "../repository/LocalRepositoryService";
+import { WorkspaceService } from "../repository/WorkspaceService";
 import { normalizeModDisplayName, readValidatedModInfo } from "./modInfo";
 import { getChannelModRepositoryPath, getChannelModsPath, getChannelModTempPath, getModPath } from "./modRepositoryPaths";
 import { parseModSourceUrl } from "./modSourceUrl";
@@ -25,12 +25,14 @@ import { EModDeleteResult } from "../../shared/mods/EModDeleteResult";
 import { EModOpenFolderResult } from "../../shared/mods/EModOpenFolderResult";
 import { ModRepositoryChangedEvent } from "../../shared/mods/ModRepositoryChangedEvent";
 import { ModRepositoryNoticeEvent } from "../../shared/mods/ModRepositoryNoticeEvent";
+import { isNodeError } from "../utils/isNodeError";
+import { Bridge } from "../../shared/bridge-api/Bridge";
 
 export class ModRepositoryService {
     private checking = false;
 
     constructor(
-        private readonly repositoryService: LocalRepositoryService,
+        private readonly repositoryService: WorkspaceService,
         private readonly localizationService: LocalizationService
     ) {}
 
@@ -492,7 +494,7 @@ export class ModRepositoryService {
     }
 
     private async getReadyContext(): Promise<{ status: "ready"; repositoryPath: string; channelId: string } | { status: "unavailable"; kind: "unconfigured" | "error"; message: string }> {
-        const repository = await this.repositoryService.getInitialStatus();
+        const repository = await this.repositoryService.getWorkspaceStatus();
 
         if (repository.status !== "ready") {
             return { status: "unavailable", kind: repository.status === "unconfigured" ? "unconfigured" : "error", message: getRepositoryUnavailableMessage(repository, this.localizationService) };
@@ -505,13 +507,13 @@ export class ModRepositoryService {
         const event: ModRepositoryChangedEvent = { state };
 
         for (const window of BrowserWindow.getAllWindows()) {
-            window.webContents.send("mods:changed", event);
+            window.webContents.send(Bridge.Mods.onChanged, event);
         }
     }
 
     private emitNotice(event: ModRepositoryNoticeEvent): void {
         for (const window of BrowserWindow.getAllWindows()) {
-            window.webContents.send("mods:notice", event);
+            window.webContents.send(Bridge.Mods.onNotice, event);
         }
     }
 }
@@ -602,8 +604,4 @@ async function exists(path: string): Promise<boolean> {
 
         throw error;
     }
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error && "code" in error;
 }

@@ -1,4 +1,4 @@
-import { InstallDistributiveProgress } from "../../../shared/distributive/InstallDistributiveProgress";
+import { InstallProgress } from "../../../shared/distributive/InstallProgress";
 import type React from "react";
 import { Card, Group, Progress, Stack, Text } from "@mantine/core";
 import { getProgressTitle } from "@renderer/utils/getProgressTitle";
@@ -6,7 +6,7 @@ import { getIndeterminateProgressValue } from "@renderer/utils/getIndeterminateP
 import { getProgressDescription } from "@renderer/utils/getProgressDescription";
 import { useTranslate } from "@renderer/localization/useLocaleStore";
 
-export function InstallProgressCard({ progress }: { progress: InstallDistributiveProgress }): React.JSX.Element {
+export function InstallProgressCard({ progress }: { progress: InstallProgress }): React.JSX.Element {
     const t = useTranslate();
     const percent = progress.status === "downloading" || progress.status === "extracting" ? progress.percent : null;
     return (

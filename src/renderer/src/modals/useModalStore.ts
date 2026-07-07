@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstanceInfo";
-import { Distributive } from "../../../shared/distributive/Distributive";
+import { GameBundle } from "../../../shared/distributive/GameBundle";
 import { GithubRelease } from "../../../shared/GithubRelease";
 import { ReleaseNotesTarget } from "@renderer/types/ReleaseNotesTarget";
 import { useCallback, useEffect, useState } from "react";
@@ -9,7 +9,7 @@ export type ModalPayload =
     | { kind: null }
     | { kind: "delete-backup"; backup: BackupInstanceInfo; onConfirm: (backup: BackupInstanceInfo) => void }
     | { kind: "release-notes"; notes: ReleaseNotesTarget }
-    | { kind: "delete-install"; distributive: Distributive; onConfirm: (distributive: Distributive, deleteUserdata: boolean) => void }
+    | { kind: "delete-install"; distributive: GameBundle; onConfirm: (distributive: GameBundle, deleteUserdata: boolean) => void }
     | { kind: "install-options"; release: GithubRelease; hasInstalledVersions: boolean; onConfirm: (release: GithubRelease, copyUserdata: boolean, removeOlderInstalls: boolean) => Promise<void> }
     | { kind: "add-git-mod" }
     | { kind: "rename-backup"; backup: BackupInstanceInfo; onConfirm: (backup: BackupInstanceInfo, comment: string) => Promise<void> };

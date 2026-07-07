@@ -2,8 +2,8 @@ import { WorkspaceStatus } from "../../../shared/workspace/WorkspaceStatus";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getEffectiveGameChannels } from "../../../shared/game-channel/getEffectiveGameChannels";
 import { findGameChannel } from "../../../shared/game-channel/findGameChannel";
-import { DistributiveState } from "../../../shared/distributive/DistributiveState";
-import { InstallDistributiveProgress } from "../../../shared/distributive/InstallDistributiveProgress";
+import { GameBundleState } from "../../../shared/distributive/GameBundleState";
+import { InstallProgress } from "../../../shared/distributive/InstallProgress";
 import { BackupProgress } from "../../../shared/backups/types/BackupProgress";
 import { BackupSummary } from "../../../shared/backups/types/BackupSummary";
 import { GameRuntimeState } from "../../../shared/GameRuntimeState";
@@ -35,8 +35,8 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
     const t = useTranslate();
     const channels = getEffectiveGameChannels(repository.config.customGameChannels);
     const selectedChannel = findGameChannel(channels, repository.config.selectedChannelId);
-    const [gameState, setGameState] = useState<DistributiveState>({ status: "loading" });
-    const [installProgress, setInstallProgress] = useState<InstallDistributiveProgress>({ status: "idle" });
+    const [gameState, setGameState] = useState<GameBundleState>({ status: "loading" });
+    const [installProgress, setInstallProgress] = useState<InstallProgress>({ status: "idle" });
     const [backupProgress, setBackupProgress] = useState<BackupProgress>({ status: "idle" });
     const [backupSummary, setBackupSummary] = useState<BackupSummary>({ backups: [], latestBackup: null });
     const [runtime, setRuntime] = useState<GameRuntimeState>({ status: "idle" });
@@ -46,11 +46,11 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
     const [availableReleases, setAvailableReleases] = useState<GithubRelease[]>([]);
     const [isLoadingReleaseNotes, setLoadingReleaseNotes] = useState(false);
     const previousRuntimeStatus = useRef<GameRuntimeState["status"]>("idle");
-    const installedIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.distributives.map((install) => install.id) : []), [gameState]);
+    const installedIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.gameBundles.map((install) => install.id) : []), [gameState]);
 
     const openModal = useModalOpen();
 
-    const applyGameState = useCallback((nextState: DistributiveState): void => {
+    const applyGameState = useCallback((nextState: GameBundleState): void => {
         setGameState(nextState);
         if (nextState.status === "ready") setBackupSummary(nextState.backups);
         if (nextState.status !== "ready" || !nextState.updateAvailable) setAvailableReleases([]);
@@ -76,20 +76,20 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
         const unsubscribeBackupProgress = window.api.game.onBackupProgress(setBackupProgress);
         const unsubscribeBackups = window.api.game.onBackupSummaryChanged((update: BackupSummaryUpdate) => {
             setGameState((currentState) => {
-                if (currentState.status !== "ready" || currentState.distributive?.id !== update.installId) return currentState;
+                if (currentState.status !== "ready" || currentState.gameBundle?.id !== update.installId) return currentState;
                 return { ...currentState, backups: update.summary };
             });
             setBackupSummary(update.summary);
         });
         const unsubscribeSaves = window.api.game.onSaveSummaryChanged((update: GameSaveSummaryUpdate) => {
             setGameState((currentState) => {
-                if (currentState.status !== "ready" || currentState.distributive?.id !== update.installId) return currentState;
+                if (currentState.status !== "ready" || currentState.gameBundle?.id !== update.installId) return currentState;
                 return { ...currentState, saves: update.saves };
             });
         });
         const unsubscribeSaveActivity = window.api.game.onSaveActivityChanged((update) => {
             setGameState((currentState) => {
-                if (currentState.status !== "ready" || currentState.distributive?.id !== update.distributiveId) return currentState;
+                if (currentState.status !== "ready" || currentState.gameBundle?.id !== update.gameBundleId) return currentState;
                 return { ...currentState, savesStable: update.stable };
             });
         });
@@ -160,8 +160,8 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
         };
     }, [applyGameState, repository.path, selectedChannel.id]);
 
-    const activeInstall = gameState.status === "ready" ? gameState.distributive : null;
-    const hasInstalledVersions = gameState.status === "ready" && gameState.distributives.length > 0;
+    const activeInstall = gameState.status === "ready" ? gameState.gameBundle : null;
+    const hasInstalledVersions = gameState.status === "ready" && gameState.gameBundles.length > 0;
 
     const [isInstalling, setInstalling] = useState(false);
     const openInstallModal = (release: GithubRelease | null): void => {

@@ -21,7 +21,7 @@ export const useWorkspaceStore = create<State>((set) => ({
     selectRepository: async () => {
         set({ isSelectingRepository: true });
         try {
-            const result = await window.api.repository.selectFolder();
+            const result = await window.api.workspace.selectNewFolder();
             if (result.status === "selected") {
                 set({ workspaceStatus: result.repository });
                 try {
@@ -36,7 +36,7 @@ export const useWorkspaceStore = create<State>((set) => ({
     },
 
     setSelectedChannel: async (channelId: string) => {
-        const repository = await window.api.repository.setSelectedChannel(channelId);
+        const repository = await window.api.workspace.setChannel(channelId);
         set({ workspaceStatus: repository });
         try {
             await window.api.mods.checkUpdates();
@@ -46,7 +46,7 @@ export const useWorkspaceStore = create<State>((set) => ({
     },
 
     mount: () => {
-        void window.api.repository.getStatus().then((status) => set({ workspaceStatus: status }));
+        void window.api.workspace.getStatus().then((status) => set({ workspaceStatus: status }));
 
         return function cleanup() {
             //

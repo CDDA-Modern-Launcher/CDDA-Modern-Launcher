@@ -14,12 +14,3 @@ export type AppearanceBundle = {
     themeSource: TAppThemeSource;
     theme: TAppTheme;
 };
-
-export const AppearanceApiKey = {
-    getThemeSource: "appearance:getThemeSource",
-    setThemeSource: "appearance:setThemeSource",
-
-    getTheme: "appearance:getTheme",
-
-    onAppearanceChanged: "appearance:onAppearanceChanged"
-};

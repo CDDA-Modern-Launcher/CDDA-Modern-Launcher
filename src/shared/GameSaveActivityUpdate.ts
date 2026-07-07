@@ -1,4 +1,4 @@
 export type GameSaveActivityUpdate = {
-    distributiveId: string;
+    gameBundleId: string;
     stable: boolean;
 };

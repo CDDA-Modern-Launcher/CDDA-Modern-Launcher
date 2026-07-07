@@ -6,7 +6,7 @@ import { finished } from "node:stream/promises";
 import extractZip from "extract-zip";
 
 import type { LocalizationService } from "../localization/LocalizationService";
-import type { LocalRepositoryService } from "../repository/LocalRepositoryService";
+import type { WorkspaceService } from "../repository/WorkspaceService";
 import { BACKUP_ARCHIVE_FILE_NAME, BACKUP_INFO_FILE_NAME, BACKUPS_DIRECTORY_NAME } from "../../shared/Const";
 import { TBackupKind } from "../../shared/backups/types/TBackupKind";
 import { BackupInfo } from "../../shared/backups/types/BackupInfo";
@@ -20,20 +20,20 @@ import { toRotationCount } from "../../shared/backups/toRotationCount";
 import { EBackupRestoreResult } from "../../shared/backups/types/EBackupRestoreResult";
 
 import { EBackupRenameResult } from "../../shared/backups/types/EBackupRenameResult";
-import { Distributive } from "../../shared/distributive/Distributive";
+import { GameBundle } from "../../shared/distributive/GameBundle";
 import { GameSaveSummary } from "../../shared/GameSaveSummary";
+import { isNodeError } from "../utils/isNodeError";
+import { BrowserWindow } from "electron";
+import { Bridge } from "../../shared/bridge-api/Bridge";
 
 export type GameBackupContext = {
-    install: Distributive;
+    install: GameBundle;
     saves: GameSaveSummary | null;
     gameRunning: boolean;
     savesStable: boolean;
 };
 
 export class GameBackupService {
-    private progress: BackupProgress = { status: "idle" };
-    private readonly progressListeners = new Set<(progress: BackupProgress) => void>();
-    private readonly summaryListeners = new Set<(update: BackupSummaryUpdate) => void>();
     private watcher: FSWatcher | null = null;
     private watchedInstallId: string | null = null;
     private watchedBackupsPath: string | null = null;
@@ -41,22 +41,11 @@ export class GameBackupService {
     private isBusy = false;
 
     constructor(
-        private readonly repositoryService: LocalRepositoryService,
+        private readonly repositoryService: WorkspaceService,
         private readonly localizationService: LocalizationService
     ) {}
 
-    onProgress(listener: (progress: BackupProgress) => void): () => void {
-        this.progressListeners.add(listener);
-        listener(this.progress);
-        return () => this.progressListeners.delete(listener);
-    }
-
-    onSummaryChanged(listener: (update: BackupSummaryUpdate) => void): () => void {
-        this.summaryListeners.add(listener);
-        return () => this.summaryListeners.delete(listener);
-    }
-
-    async updateActiveInstall(install: Distributive | null): Promise<void> {
+    async updateActiveInstall(install: GameBundle | null): Promise<void> {
         if (install === null) {
             this.stopWatching();
             return;
@@ -71,7 +60,7 @@ export class GameBackupService {
         this.watcher = watch(backupsPath, { persistent: false }, () => this.scheduleSummaryRefresh(install));
     }
 
-    async getSummary(install: Distributive | null): Promise<BackupSummary> {
+    async getSummary(install: GameBundle | null): Promise<BackupSummary> {
         return install === null ? { backups: [], latestBackup: null } : scanBackups(install);
     }
 
@@ -82,7 +71,7 @@ export class GameBackupService {
     async createAutoBackup(context: GameBackupContext): Promise<EBackupCreateResult> {
         if (!context.gameRunning) return { status: "unavailable", message: this.t("backup.error.autoRequiresRunning") };
         if (this.isBusy) return { status: "blocked", message: this.t("backup.error.busy") };
-        const settings = await this.repositoryService.getUserSettings();
+        const settings = await this.repositoryService.getWorkspaceSettings();
         if (!settings.backupsEnabled || settings.autoBackupLimit === "disabled") return { status: "unavailable", message: this.t("backup.error.autoDisabled") };
         return this.createBackup(context, "auto");
     }
@@ -120,7 +109,7 @@ export class GameBackupService {
         }
     }
 
-    async deleteBackup(install: Distributive | null, backupId: string): Promise<EBackupDeleteResult> {
+    async deleteBackup(install: GameBundle | null, backupId: string): Promise<EBackupDeleteResult> {
         if (install === null) return { status: "unavailable", message: this.t("game.error.notInstalled") };
         const backup = await findBackup(install, backupId);
         if (backup === null) return { status: "unavailable", message: this.t("backup.error.notFound") };
@@ -128,7 +117,7 @@ export class GameBackupService {
         return { status: "deleted", summary: await this.emitSummary(install) };
     }
 
-    async renameBackup(install: Distributive | null, backupId: string, comment: string): Promise<EBackupRenameResult> {
+    async renameBackup(install: GameBundle | null, backupId: string, comment: string): Promise<EBackupRenameResult> {
         if (install === null) return { status: "unavailable", message: this.t("game.error.notInstalled") };
         const backup = await findBackup(install, backupId);
         if (backup === null) return { status: "unavailable", message: this.t("backup.error.notFound") };
@@ -148,7 +137,7 @@ export class GameBackupService {
     }
 
     private async createBackup(context: GameBackupContext, type: TBackupKind): Promise<EBackupCreateResult> {
-        const settings = await this.repositoryService.getUserSettings();
+        const settings = await this.repositoryService.getWorkspaceSettings();
         if (!settings.backupsEnabled) return { status: "unavailable", message: this.t("backup.error.disabled") };
         if (!context.savesStable) return { status: "blocked", message: this.t("backup.error.savesChanging") };
         if (this.isBusy) return { status: "blocked", message: this.t("backup.error.busy") };
@@ -195,15 +184,15 @@ export class GameBackupService {
         }
     }
 
-    private async rotateBackups(install: Distributive, type: TBackupKind): Promise<void> {
-        const settings = await this.repositoryService.getUserSettings();
+    private async rotateBackups(install: GameBundle, type: TBackupKind): Promise<void> {
+        const settings = await this.repositoryService.getWorkspaceSettings();
         const limit = toRotationCount(type === "auto" ? settings.autoBackupLimit : settings.manualBackupRotationLimit);
         if (limit === null) return;
         const backups = (await scanBackups(install)).backups.filter((backup) => backup.type === type).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
         await Promise.all(backups.slice(limit).map((backup) => rm(backup.path, { recursive: true, force: true })));
     }
 
-    private scheduleSummaryRefresh(install: Distributive): void {
+    private scheduleSummaryRefresh(install: GameBundle): void {
         if (this.watcherRefreshTimer !== null) clearTimeout(this.watcherRefreshTimer);
         this.watcherRefreshTimer = setTimeout(() => {
             this.watcherRefreshTimer = null;
@@ -211,10 +200,12 @@ export class GameBackupService {
         }, 250);
     }
 
-    private async emitSummary(install: Distributive): Promise<BackupSummary> {
+    private async emitSummary(install: GameBundle): Promise<BackupSummary> {
         const summary = await scanBackups(install);
         const update: BackupSummaryUpdate = { installId: install.id, summary };
-        for (const listener of this.summaryListeners) listener(update);
+        for (const window of BrowserWindow.getAllWindows()) {
+            window.webContents.send(Bridge.Game.backupSummaryChanged, update);
+        }
         return summary;
     }
 
@@ -230,12 +221,13 @@ export class GameBackupService {
     }
 
     private setProgress(progress: BackupProgress): void {
-        this.progress = progress;
-        for (const listener of this.progressListeners) listener(progress);
+        for (const window of BrowserWindow.getAllWindows()) {
+            window.webContents.send(Bridge.Game.gameBackupProgress, progress);
+        }
     }
 }
 
-async function scanBackups(install: Distributive): Promise<BackupSummary> {
+async function scanBackups(install: GameBundle): Promise<BackupSummary> {
     const backupsPath = getBackupsPath(install);
     let entries: string[];
     try {
@@ -271,11 +263,11 @@ async function scanBackups(install: Distributive): Promise<BackupSummary> {
     return { backups, latestBackup: backups[0] ?? null };
 }
 
-async function findBackup(install: Distributive, backupId: string): Promise<BackupInstanceInfo | null> {
+async function findBackup(install: GameBundle, backupId: string): Promise<BackupInstanceInfo | null> {
     return (await scanBackups(install)).backups.find((backup) => backup.id === backupId) ?? null;
 }
 
-function getBackupsPath(install: Distributive): string {
+function getBackupsPath(install: GameBundle): string {
     return join(install.userdataPath, BACKUPS_DIRECTORY_NAME);
 }
 
@@ -381,8 +373,4 @@ async function pathExists(path: string): Promise<boolean> {
     } catch {
         return false;
     }
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error && "code" in error;
 }

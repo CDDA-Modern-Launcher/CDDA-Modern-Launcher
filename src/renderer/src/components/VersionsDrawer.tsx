@@ -2,23 +2,23 @@ import { ActionIcon, Divider, Drawer, Group, Loader, Stack, Text, Title, Tooltip
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GithubRelease } from "../../../shared/GithubRelease";
-import { DistributiveState } from "../../../shared/distributive/DistributiveState";
+import { GameBundleState } from "../../../shared/distributive/GameBundleState";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { DistributiveReleaseCard } from "@renderer/components/DistributiveReleaseCard";
 import { InstallCard } from "@renderer/components/InstallCard";
-import { Distributive } from "../../../shared/distributive/Distributive";
+import { GameBundle } from "../../../shared/distributive/GameBundle";
 import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 interface Props {
     opened: boolean;
-    state: DistributiveState;
+    state: GameBundleState;
     installedIds: Set<string>;
     isInstalling: boolean;
     onClose: () => void;
     onRefresh: () => Promise<void>;
     onRequestInstall: (release: GithubRelease) => void;
     onSetActive: (installId: string) => Promise<void>;
-    onDelete: (distributive: Distributive, deleteUserdata: boolean) => Promise<void>;
+    onDelete: (distributive: GameBundle, deleteUserdata: boolean) => Promise<void>;
 }
 
 export function VersionsDrawer({ opened, state, installedIds, isInstalling, onClose, onRefresh, onRequestInstall, onSetActive, onDelete }: Props): React.JSX.Element {
@@ -72,12 +72,12 @@ export function VersionsDrawer({ opened, state, installedIds, isInstalling, onCl
                     </Text>
                     <Stack gap="sm">
                         <Title order={4}>{t("versions.installed.title")}</Title>
-                        {state.status !== "ready" || state.distributives.length === 0 ? (
+                        {state.status !== "ready" || state.gameBundles.length === 0 ? (
                             <Text size="sm" c="dimmed">
                                 {t("versions.installed.empty")}
                             </Text>
                         ) : (
-                            state.distributives.map((dis) => <InstallCard key={dis.id} distributive={dis} release={releaseById.get(dis.id) ?? null} onSetActive={onSetActive} onConfirmDelete={onDelete} />)
+                            state.gameBundles.map((dis) => <InstallCard key={dis.id} distributive={dis} release={releaseById.get(dis.id) ?? null} onSetActive={onSetActive} onConfirmDelete={onDelete} />)
                         )}
                     </Stack>
                     <Divider />

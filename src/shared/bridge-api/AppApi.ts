@@ -2,14 +2,14 @@ import { AppearanceApi } from "./AppearanceApi";
 import { GameApi } from "./GameApi";
 import { LocalizationApi } from "./LocalizationApi";
 import { ModsApi } from "./ModsApi";
-import { RepositoryApi } from "./RepositoryApi";
+import { WorkspaceApi } from "./WorkspaceApi";
 import { SettingsApi } from "./SettingsApi";
 import { ShellApi } from "./ShellApi";
 import { UpdaterApi } from "./UpdaterApi";
 
 export type AppApi = {
     updater: UpdaterApi;
-    repository: RepositoryApi;
+    workspace: WorkspaceApi;
     localization: LocalizationApi;
     appearance: AppearanceApi;
     shell: ShellApi;

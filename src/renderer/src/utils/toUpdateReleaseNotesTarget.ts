@@ -1,12 +1,12 @@
-import { Distributive } from "../../../shared/distributive/Distributive";
+import { GameBundle } from "../../../shared/distributive/GameBundle";
 import { GithubRelease } from "../../../shared/GithubRelease";
 import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { formatUpdateReleaseNotes } from "@renderer/utils/formatUpdateReleaseNotes";
-import { Translate } from "@renderer/components/home/homeUtils";
 import { ReleaseNotesTarget } from "@renderer/types/ReleaseNotesTarget";
+import { TLocalizeFn } from "@renderer/localization/useLocaleStore";
 
-export function toUpdateReleaseNotesTarget(activeInstall: Distributive, latestRelease: GithubRelease, updateReleases: GithubRelease[], t: Translate): ReleaseNotesTarget {
+export function toUpdateReleaseNotesTarget(activeInstall: GameBundle, latestRelease: GithubRelease, updateReleases: GithubRelease[], t: TLocalizeFn): ReleaseNotesTarget {
     return {
         title: t("releaseNotes.modal.updateTitle", {
             current: getReleaseDisplayName(activeInstall),

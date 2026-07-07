@@ -1,8 +1,8 @@
-import { InstallDistributiveProgress } from "../../../shared/distributive/InstallDistributiveProgress";
+import { InstallProgress } from "../../../shared/distributive/InstallProgress";
 import { formatBytes } from "@renderer/utils/formatBytes";
-import { Translate } from "@renderer/components/home/homeUtils";
+import { TLocalizeFn } from "@renderer/localization/useLocaleStore";
 
-export function getProgressDescription(progress: InstallDistributiveProgress, t: Translate): string {
+export function getProgressDescription(progress: InstallProgress, t: TLocalizeFn): string {
     if (progress.status === "downloading")
         return t("install.progress.downloadingDescription", { size: formatBytes(progress.transferredBytes), total: progress.totalBytes === null ? "?" : formatBytes(progress.totalBytes) });
     if (progress.status === "extracting") return t("install.progress.extractingDescription", { version: progress.releaseName });

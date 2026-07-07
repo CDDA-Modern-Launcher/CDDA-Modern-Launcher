@@ -5,17 +5,19 @@ import { appendFileSync, mkdirSync } from "fs";
 import { join } from "path";
 
 import icon from "../../resources/icon.png?asset";
-import { registerMainAppearanceApi } from "./appearance/registerMainAppearanceApi";
-import { GameInstallationService } from "./game/GameInstallationService";
-import { setupGameInstallationIpc } from "./game/setupGameInstallationIpc";
+import { registerMainAppearanceApi } from "./ipc/registerMainAppearanceApi";
+import { GameBundleService } from "./game/GameBundleService";
+import { setupGameInstallationIpc } from "./ipc/setupGameInstallationIpc";
 import { LocalizationService } from "./localization/LocalizationService";
-import { setupLocalizationIpc } from "./localization/setupLocalizationIpc";
+import { setupLocalizationIpc } from "./ipc/setupLocalizationIpc";
 import { ModRepositoryService } from "./mods/ModRepositoryService";
-import { setupModRepositoryIpc } from "./mods/setupModRepositoryIpc";
-import { LocalRepositoryService } from "./repository/LocalRepositoryService";
-import { setupRepositoryIpc } from "./repository/setupRepositoryIpc";
-import { LauncherSettingsStore } from "./settings/LauncherSettingsStore";
-import { setupLauncherSettingsIpc } from "./settings/setupLauncherSettingsIpc";
+import { setupModRepositoryIpc } from "./ipc/setupModRepositoryIpc";
+import { WorkspaceService } from "./repository/WorkspaceService";
+import { setupWorkspaceIpc } from "./ipc/setupWorkspaceIpc";
+import { AppSettings } from "./settings/AppSettings";
+import { setupLauncherSettingsIpc } from "./ipc/setupLauncherSettingsIpc";
+import { Bridge } from "../shared/bridge-api/Bridge";
+import { setupShellIpc } from "./ipc/setupShellIpc";
 
 type UpdateState =
     | { status: "idle" }
@@ -52,7 +54,7 @@ function setUpdateState(state: UpdateState): void {
     logUpdater("[updater] state changed", state);
 
     for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send("updater:state-changed", state);
+        window.webContents.send(Bridge.Updater.onStateChanged, state);
     }
 }
 
@@ -79,9 +81,9 @@ function getUpdateErrorState(messageKey: string, localizationService: Localizati
 }
 
 function setupUpdaterIpc(localizationService: LocalizationService): void {
-    ipcMain.handle("updater:get-state", () => updateState);
+    ipcMain.handle(Bridge.Updater.getState, () => updateState);
 
-    ipcMain.handle("updater:check-now", async () => {
+    ipcMain.handle(Bridge.Updater.checkNow, async () => {
         if (is.dev || !app.isPackaged) {
             setUpdateState({
                 status: "error",
@@ -95,7 +97,7 @@ function setupUpdaterIpc(localizationService: LocalizationService): void {
         return updateState;
     });
 
-    ipcMain.handle("updater:install-now", () => {
+    ipcMain.handle(Bridge.Updater.installNow, () => {
         if (updateState.status !== "downloaded") {
             setUpdateState(getUpdateErrorState("updater.error.notDownloaded", localizationService));
             return false;
@@ -112,18 +114,18 @@ function setupUpdaterIpc(localizationService: LocalizationService): void {
         return true;
     });
 
-    ipcMain.handle("updater:dismiss", () => {
+    ipcMain.handle(Bridge.Updater.dismiss, () => {
         setUpdateState({ status: "idle" });
         return updateState;
     });
 
-    ipcMain.handle("updater:skip-version", (_event, version: string) => {
+    ipcMain.handle(Bridge.Updater.skipVersion, (_event, version: string) => {
         skippedVersion = version;
         setUpdateState({ status: "skipped", version });
         return updateState;
     });
 
-    ipcMain.handle("updater:mock-downloaded", (_event, version?: string) => {
+    ipcMain.handle(Bridge.Updater.showMockDownloadedUpdate, (_event, version?: string) => {
         simulateDownloadedUpdate(version);
         return updateState;
     });
@@ -227,25 +229,6 @@ function setupAutoUpdater(localizationService: LocalizationService): void {
     });
 }
 
-function setupShellIpc(): void {
-    ipcMain.handle("shell:open-external", async (_event, url: string) => {
-        let parsed: URL;
-
-        try {
-            parsed = new URL(url);
-        } catch {
-            return false;
-        }
-
-        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-            return false;
-        }
-
-        await shell.openExternal(parsed.toString());
-        return true;
-    });
-}
-
 function createWindow(): void {
     const isDark = nativeTheme.shouldUseDarkColors;
 
@@ -267,16 +250,16 @@ function createWindow(): void {
     });
 
     mainWindow.webContents.setWindowOpenHandler((details) => {
-        shell.openExternal(details.url);
+        void shell.openExternal(details.url);
         return { action: "deny" };
     });
 
     // HMR for renderer base on electron-vite cli.
     // Load the remote URL for development or the local html file for production.
     if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-        mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+        void mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
     } else {
-        mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+        void mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
     }
 }
 
@@ -297,17 +280,17 @@ app.whenReady().then(async () => {
     // IPC test
     ipcMain.on("ping", () => console.log("pong"));
 
-    const settingsStore = new LauncherSettingsStore();
+    const settingsStore = new AppSettings();
     const localizationService = new LocalizationService(settingsStore);
     await localizationService.initialize();
-    const repositoryService = new LocalRepositoryService(settingsStore, localizationService);
-    const gameInstallationService = new GameInstallationService(repositoryService, localizationService);
+    const repositoryService = new WorkspaceService(settingsStore, localizationService);
+    const gameInstallationService = new GameBundleService(repositoryService, localizationService);
     const modRepositoryService = new ModRepositoryService(repositoryService, localizationService);
 
     await registerMainAppearanceApi(settingsStore);
     setupLocalizationIpc(localizationService);
     setupLauncherSettingsIpc(repositoryService);
-    setupRepositoryIpc(repositoryService, localizationService);
+    setupWorkspaceIpc(repositoryService, localizationService);
     setupGameInstallationIpc(gameInstallationService, localizationService);
     setupModRepositoryIpc(modRepositoryService);
     setupUpdaterIpc(localizationService);

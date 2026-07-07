@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { isNodeError } from "../utils/isNodeError";
 
 export type ValidatedModInfo = {
     id: string;
@@ -47,8 +48,4 @@ function isModInfoEntry(value: unknown): value is { type: "MOD_INFO"; id: string
 
     const candidate = value as Record<string, unknown>;
     return candidate.type === "MOD_INFO" && typeof candidate.id === "string" && candidate.id.trim().length > 0;
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error && "code" in error;
 }

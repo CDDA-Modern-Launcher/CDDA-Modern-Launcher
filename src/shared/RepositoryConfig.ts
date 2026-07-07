@@ -6,12 +6,10 @@ import { GameChannelDefinition } from "./game-channel/GameChannelDefinition";
 
 export type RepositoryConfig = {
     schemaVersion: 1;
-    createdAt: string;
     selectedChannelId: string;
     customGameChannels: GameChannelDefinition[];
     activeInstallByChannel: Record<string, string>;
-    lastSeenReleaseByChannel: Record<string, string>;
-    releaseAssetVeriant: TReleaseAssetVariant;
+    releaseAssetVariant: TReleaseAssetVariant;
     backupsEnabled: boolean;
     autoBackupLimit: TAutoBackupLimit;
     manualBackupRotationLimit: TBackupRotationLimit;

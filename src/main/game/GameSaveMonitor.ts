@@ -1,12 +1,19 @@
 import { type FSWatcher, watch } from "node:fs";
-import { mkdir, readdir, stat } from "node:fs/promises";
-import { basename, join, normalize } from "node:path";
+import { mkdir } from "node:fs/promises";
+import { join, normalize } from "node:path";
+import { listWorldDirectories } from "../utils/listWorldDirectories";
+import { getKeySaveFileKind } from "./getKeySaveFileKind";
+import { directoryExists } from "../utils/directoryExists";
+import { listExistingKeySaveFiles } from "../utils/listExistingKeySaveFiles";
+import { GameSaveActivityUpdate } from "../../shared/GameSaveActivityUpdate";
+import { BrowserWindow } from "electron";
+import { Bridge } from "../../shared/bridge-api/Bridge";
 
 type GameSaveMonitorOptions = {
     userdataPath: string;
     settleDelayMs?: number;
     onSettled: (activity: GameSaveSettledActivity) => void | Promise<void>;
-    onStabilityChanged?: (stable: boolean) => void;
+    installId: string;
 };
 
 export type GameSaveSettledActivity = {
@@ -34,15 +41,13 @@ type RegisteredActivity = {
 const DEFAULT_SETTLE_DELAY_MS = 1500;
 const WATCH_REBUILD_DELAY_MS = 300;
 const SAVE_DIRECTORY_NAME = "save";
-const MASTER_SAVE_FILE_NAME = "master.gsav";
-const PLAYER_SAVE_ARCHIVE_EXTENSION = ".sav.zzip";
 
 export class GameSaveMonitor {
+    private readonly installId: string;
     private readonly userdataPath: string;
     private readonly savePath: string;
     private readonly settleDelayMs: number;
     private readonly onSettled: (activity: GameSaveSettledActivity) => void | Promise<void>;
-    private readonly onStabilityChanged?: (stable: boolean) => void;
     private readonly watchers = new Map<string, FSWatcher>();
     private readonly watcherKinds = new Map<string, WatchTargetKind>();
     private readonly pendingChangedPaths = new Set<string>();
@@ -58,11 +63,11 @@ export class GameSaveMonitor {
     private pendingPlayerSaveArchiveChange = false;
 
     constructor(options: GameSaveMonitorOptions) {
+        this.installId = options.installId;
         this.userdataPath = normalize(options.userdataPath);
         this.savePath = join(this.userdataPath, SAVE_DIRECTORY_NAME);
         this.settleDelayMs = options.settleDelayMs ?? DEFAULT_SETTLE_DELAY_MS;
         this.onSettled = options.onSettled;
-        this.onStabilityChanged = options.onStabilityChanged;
     }
 
     isStable(): boolean {
@@ -87,6 +92,13 @@ export class GameSaveMonitor {
         this.watcherKinds.clear();
         this.resetPendingActivity();
         console.info(`[game-save] monitor stop userdata=${this.userdataPath}`);
+    }
+
+    private emitSaveActivityChanged(stable: boolean): void {
+        const update: GameSaveActivityUpdate = { gameBundleId: this.installId, stable };
+        for (const window of BrowserWindow.getAllWindows()) {
+            window.webContents.send(Bridge.Game.saveActivityChanged, update);
+        }
     }
 
     private async rebuildWatchers(): Promise<void> {
@@ -199,7 +211,7 @@ export class GameSaveMonitor {
     }
 
     private scheduleSettle(): void {
-        if (this.isStable()) this.onStabilityChanged?.(false);
+        if (this.isStable()) this.emitSaveActivityChanged(false);
         this.clearSettleTimer();
         this.settleTimer = setTimeout(() => {
             this.settleTimer = null;
@@ -220,7 +232,7 @@ export class GameSaveMonitor {
             `[game-save] settled events=${activity.eventCount} keyEvents=${activity.keyEventCount} changedPaths=${activity.changedPaths.length} keyPaths=${activity.keyChangedPaths.length} realSave=${activity.hasSaveFileChange ? "yes" : "no"}`
         );
         if (!activity.hasSaveFileChange) {
-            if (this.isStable()) this.onStabilityChanged?.(true);
+            if (this.isStable()) this.emitSaveActivityChanged(true);
             return;
         }
 
@@ -235,7 +247,7 @@ export class GameSaveMonitor {
                 this.pendingSettledRun = false;
                 this.scheduleSettle();
             } else if (this.isStable()) {
-                this.onStabilityChanged?.(true);
+                this.emitSaveActivityChanged(true);
             }
         }
     }
@@ -286,45 +298,9 @@ export class GameSaveMonitor {
     }
 }
 
-async function listWorldDirectories(savePath: string): Promise<string[]> {
-    try {
-        const entries = await readdir(savePath, { withFileTypes: true });
-        return entries.filter((entry) => entry.isDirectory()).map((entry) => join(savePath, entry.name));
-    } catch (error) {
-        if (isNodeError(error) && error.code === "ENOENT") return [];
-        throw error;
-    }
-}
-
-async function listExistingKeySaveFiles(worldPath: string): Promise<string[]> {
-    try {
-        const entries = await readdir(worldPath, { withFileTypes: true });
-        return entries.filter((entry) => entry.isFile() && getKeySaveFileKind(entry.name) !== null).map((entry) => join(worldPath, entry.name));
-    } catch (error) {
-        if (isNodeError(error) && error.code === "ENOENT") return [];
-        throw error;
-    }
-}
-
-async function directoryExists(path: string): Promise<boolean> {
-    try {
-        return (await stat(path)).isDirectory();
-    } catch (error) {
-        if (isNodeError(error) && error.code === "ENOENT") return false;
-        throw error;
-    }
-}
-
 function resolveChangedPath(target: WatchTarget, filename: string | Buffer | null): string {
     if (target.kind === "key-file") return target.path;
     return filename === null ? target.path : join(target.path, filename.toString());
-}
-
-function getKeySaveFileKind(path: string): "master" | "player" | null {
-    const name = basename(path).toLowerCase();
-    if (name === MASTER_SAVE_FILE_NAME) return "master";
-    if (name.endsWith(PLAYER_SAVE_ARCHIVE_EXTENSION)) return "player";
-    return null;
 }
 
 function countWatchers(watcherKinds: Map<string, WatchTargetKind>, kind: WatchTargetKind): number {
@@ -333,8 +309,4 @@ function countWatchers(watcherKinds: Map<string, WatchTargetKind>, kind: WatchTa
         if (watcherKind === kind) count += 1;
     }
     return count;
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error && "code" in error;
 }

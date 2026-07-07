@@ -1,4 +1,4 @@
-import { Distributive } from "../../../shared/distributive/Distributive";
+import { GameBundle } from "../../../shared/distributive/GameBundle";
 import { GithubRelease } from "../../../shared/GithubRelease";
 import type React from "react";
 import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
@@ -9,10 +9,10 @@ import { useModalOpen } from "@renderer/modals/useModalStore";
 import { useTranslate } from "@renderer/localization/useLocaleStore";
 
 interface Props {
-    distributive: Distributive;
+    distributive: GameBundle;
     release: GithubRelease | null;
     onSetActive: (installId: string) => Promise<void>;
-    onConfirmDelete: (distributiveId: Distributive, deleteUserdata: boolean) => void;
+    onConfirmDelete: (distributiveId: GameBundle, deleteUserdata: boolean) => void;
 }
 
 export function InstallCard({ distributive, release, onSetActive, onConfirmDelete }: Props): React.JSX.Element {

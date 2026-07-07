@@ -1,6 +1,6 @@
-import { InstallDistributiveProgress } from "../../../shared/distributive/InstallDistributiveProgress";
+import { InstallProgress } from "../../../shared/distributive/InstallProgress";
 
-export function isInstallRunning(isInstalling: boolean, progress: InstallDistributiveProgress): boolean {
+export function isInstallRunning(isInstalling: boolean, progress: InstallProgress): boolean {
     if (isInstalling) return true;
 
     switch (progress.status) {
