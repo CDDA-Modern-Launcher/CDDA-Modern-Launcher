@@ -14,6 +14,7 @@ import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { PrimaryGameActions } from "@renderer/components/PrimaryGameActions";
 import { useGameStateStore } from "@renderer/stores/useGameStateStore";
 import { useGameReleasesStore } from "@renderer/stores/useGameReleasesStore";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function WorkspaceReadyView({ repository }: { repository: Extract<WorkspaceStatus, { status: "ready" }> }): React.JSX.Element {
     const t = useTranslate();
@@ -43,9 +44,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                     <Stack gap="lg">
                         <Group justify="space-between" align="flex-start" wrap="nowrap">
                             <Stack gap={4}>
-                                <Text size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow">
-                                    {t("home.eyebrow")}
-                                </Text>
+                                <LocalizedText size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow" i18nKey="home.eyebrow" />
                                 <Title order={1}>{selectedChannel.gameName}</Title>
                                 <Group gap="xs">
                                     <Badge variant="light">{localizeChannelName(selectedChannel.channelName, t)}</Badge>
@@ -75,21 +74,21 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                             <Alert variant="light" color="blue" title={t("home.game.state.loading.title")}>
                                 <Group gap="sm">
                                     <Loader size="sm" />
-                                    <Text size="sm">{t("home.game.state.loading.description")}</Text>
+                                    <LocalizedText size="sm" i18nKey="home.game.state.loading.description" />
                                 </Group>
                             </Alert>
                         )}
 
                         {gameState.status === "error" && (
                             <Alert variant="light" color="red" title={t("home.game.state.error.title")}>
-                                <Text size="sm">{gameState.message ?? t("home.game.state.error.description")}</Text>
+                                {gameState.message === undefined ? <LocalizedText size="sm" i18nKey="home.game.state.error.description" /> : <Text size="sm">{gameState.message}</Text>}
                             </Alert>
                         )}
 
                         {gameState.status === "ready" && gameState.latestReleaseError !== null && activeGameBundle === null && (
                             <Alert variant="light" color="red" title={t("home.game.state.error.title")}>
                                 <Group justify="space-between" gap="sm">
-                                    <Text size="sm">{t("home.version.check.failed", { message: gameState.latestReleaseError })}</Text>
+                                    <LocalizedText size="sm" i18nKey="home.version.check.failed" variables={{ message: gameState.latestReleaseError }} />
                                     <Button size="xs" variant="light" loading={isCheckingLatest} onClick={() => void refreshGame(true, true)}>
                                         {t("home.action.check.again")}
                                     </Button>

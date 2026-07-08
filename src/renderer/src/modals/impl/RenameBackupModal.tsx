@@ -1,10 +1,11 @@
 import React, { ChangeEvent, useCallback, useEffect, useState } from "react";
-import { Alert, Button, Group, Stack, Text, TextInput } from "@mantine/core";
+import { Alert, Button, Group, Stack, TextInput } from "@mantine/core";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { ContextModalProps } from "@mantine/modals";
 import { BackupInstanceInfo } from "../../../../shared/backups/types/BackupInstanceInfo";
 import { useGameBackupStore } from "@renderer/stores/useGameBackupStore";
 import { getErrorMessage } from "../../../../shared/getErrorMessage";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function RenameBackupModal({ id, innerProps: { backup }, context }: ContextModalProps<{ backup: BackupInstanceInfo }>): React.JSX.Element {
     const t = useTranslate();
@@ -49,13 +50,11 @@ export function RenameBackupModal({ id, innerProps: { backup }, context }: Conte
         <form onSubmit={handleConfirm}>
             <Stack gap="md">
                 <TextInput label={t("backup.rename.label")} value={value} onChange={handleChange} data-autofocus disabled={renaming} />
-                <Text size="xs" c="dimmed">
-                    {t("backup.rename.description")}
-                </Text>
+                <LocalizedText size="xs" c="dimmed" i18nKey="backup.rename.description" />
 
                 {!!error && (
                     <Alert variant="light" color="red" title={t("common.error.title")}>
-                        <Text size="sm">{t("common.error.text", { error })}</Text>
+                        <LocalizedText size="sm" i18nKey="common.error.text" variables={{ error }} />
                     </Alert>
                 )}
 

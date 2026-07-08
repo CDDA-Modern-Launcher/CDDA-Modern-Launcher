@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
 import { getModStatusColor } from "@renderer/utils/getModStatusColor";
 import { getModStatusKey } from "@renderer/utils/getModStatusKey";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { useModsStore } from "@renderer/stores/useModsStore";
 import { modals } from "@mantine/modals";
@@ -27,7 +28,7 @@ export function ModCard({ mod }: Props): ReactNode {
     const forceUpdateMod = (mod: ModInstanceInfo): void => {
         modals.openConfirmModal({
             title: t("content.sheet.mods.update.force.confirm.title"),
-            children: <Text size="sm">{t("content.sheet.mods.update.force.confirm", { name: mod.displayName })}</Text>,
+            children: <LocalizedText size="sm" i18nKey="content.sheet.mods.update.force.confirm" variables={{ name: mod.displayName }} />,
             labels: { confirm: t("common.update"), cancel: t("common.cancel") },
             confirmProps: { color: "red" },
             onConfirm: () => void update(mod, true)
@@ -37,7 +38,7 @@ export function ModCard({ mod }: Props): ReactNode {
     const removeMod = (mod: ModInstanceInfo): void => {
         modals.openConfirmModal({
             title: t("content.sheet.mods.remove.confirm.title"),
-            children: <Text size="sm">{t("content.sheet.mods.remove.confirm", { name: mod.displayName })}</Text>,
+            children: <LocalizedText size="sm" i18nKey="content.sheet.mods.remove.confirm" variables={{ name: mod.displayName }} />,
             labels: { confirm: t("common.delete"), cancel: t("common.cancel") },
             confirmProps: { color: "red" },
             onConfirm: () => void remove(mod)
@@ -66,16 +67,8 @@ export function ModCard({ mod }: Props): ReactNode {
                         {mod.error}
                     </Text>
                 )}
-                {mod.hasLocalChanges && (
-                    <Text size="sm" c="orange">
-                        {t("content.sheet.mods.local.changes")}
-                    </Text>
-                )}
-                {mod.updateAvailable && (
-                    <Text size="sm" c="blue">
-                        {t("content.sheet.mods.update.available")}
-                    </Text>
-                )}
+                {mod.hasLocalChanges && <LocalizedText size="sm" c="orange" i18nKey="content.sheet.mods.local.changes" />}
+                {mod.updateAvailable && <LocalizedText size="sm" c="blue" i18nKey="content.sheet.mods.update.available" />}
 
                 <Group gap="xs">
                     <Button size="xs" variant="light" onClick={() => update(mod)} disabled={busyAction !== null} loading={busyModId === mod.id && busyAction === "update"}>

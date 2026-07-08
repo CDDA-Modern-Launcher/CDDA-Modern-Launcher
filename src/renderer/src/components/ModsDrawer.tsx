@@ -12,6 +12,8 @@ import { ModCard } from "@renderer/components/ModCard";
 import { useModsStore } from "@renderer/stores/useModsStore";
 import { useShallow } from "zustand/react/shallow";
 import { openModal } from "@renderer/modals/contextModals";
+import { LocalizedText } from "@renderer/components/LocalizedText";
+import { ModRepositoryState } from "../../../shared/mods/ModRepositoryState";
 
 export function ModsDrawer(): ReactNode {
     const t = useTranslate();
@@ -42,14 +44,14 @@ export function ModsDrawer(): ReactNode {
         <Drawer opened={isOpened} onClose={close} position="right" size={420} title={<Title order={3}>{t("content.sheet.mods.title")}</Title>}>
             <Stack gap="xl">
                 <Stack gap="sm" className="content-sheet__intro">
-                    <Text size="sm" c="dimmed">
-                        {channelName === null ? t("content.sheet.mods.channel.hint.unavailable") : t("content.sheet.mods.channel.hint", { channel: channelName })}
-                    </Text>
-                    {!isRepositoryReady && (
-                        <Text size="sm" c="orange">
-                            {state.message ?? t("content.sheet.context.unavailable")}
-                        </Text>
+                    {channelName === null ? (
+                        <LocalizedText size="sm" c="dimmed" i18nKey="content.sheet.mods.channel.hint.unavailable" />
+                    ) : (
+                        <LocalizedText size="sm" c="dimmed" i18nKey="content.sheet.mods.channel.hint" variables={{ channel: channelName }} />
                     )}
+
+                    <StateMessage isRepositoryReady={isRepositoryReady} state={state} />
+
                     {!!error && (
                         <Text size="sm" c="red">
                             {error}
@@ -91,15 +93,21 @@ export function ModsDrawer(): ReactNode {
                         </Group>
                     }
                 >
-                    {sortedMods.length === 0 ? (
-                        <Text size="sm" c="dimmed">
-                            {t("content.sheet.mods.empty")}
-                        </Text>
-                    ) : (
-                        sortedMods.map((mod) => <ModCard key={mod.id} mod={mod} />)
-                    )}
+                    {sortedMods.length === 0 ? <LocalizedText size="sm" c="dimmed" i18nKey="content.sheet.mods.empty" /> : sortedMods.map((mod) => <ModCard key={mod.id} mod={mod} />)}
                 </ContentSection>
             </Stack>
         </Drawer>
+    );
+}
+
+function StateMessage({ isRepositoryReady, state }: { isRepositoryReady: boolean; state: ModRepositoryState }): ReactNode {
+    if (isRepositoryReady) return null;
+
+    if (!state.message) return <LocalizedText size="sm" c="orange" i18nKey="content.sheet.context.unavailable" />;
+
+    return (
+        <Text size="sm" c="orange">
+            {state.message}
+        </Text>
     );
 }

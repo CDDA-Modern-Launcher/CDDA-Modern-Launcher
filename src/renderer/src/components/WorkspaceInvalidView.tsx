@@ -3,6 +3,7 @@ import { Alert, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
 import { REPOSITORY_CONFIG_FILE_NAME } from "../../../shared/Const";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function WorkspaceInvalidView(): React.JSX.Element {
     const t = useTranslate();
@@ -14,11 +15,9 @@ export function WorkspaceInvalidView(): React.JSX.Element {
         <Card withBorder radius="lg" p="xl" className="repository-card">
             <Stack gap="lg">
                 <Stack gap={4}>
-                    <Text size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow">
-                        {t("repository.setup.eyebrow")}
-                    </Text>
+                    <LocalizedText size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow" i18nKey="repository.setup.eyebrow" />
                     <Title order={1}>{t("repository.setup.title")}</Title>
-                    <Text c="dimmed">{t("repository.setup.description")}</Text>
+                    <LocalizedText c="dimmed" i18nKey="repository.setup.description" />
                 </Stack>
                 {repository.status === "invalid" && (
                     <Alert color="red" title={t("repository.setup.invalid.title")} variant="light">
@@ -29,11 +28,9 @@ export function WorkspaceInvalidView(): React.JSX.Element {
                     </Alert>
                 )}
                 <Stack gap="xs" className="repository-rules">
-                    <Text size="sm">{t("repository.setup.rule.empty.folder")}</Text>
-                    <Text size="sm">
-                        {t("repository.setup.rule.non.empty.folder.prefix")} <code>{REPOSITORY_CONFIG_FILE_NAME}</code>.
-                    </Text>
-                    <Text size="sm">{t("repository.setup.rule.persisted.path")}</Text>
+                    <LocalizedText size="sm" i18nKey="repository.setup.rule.empty.folder" />
+                    <LocalizedText size="sm" i18nKey="repository.setup.rule.non.empty.folder" variables={{ fileName: REPOSITORY_CONFIG_FILE_NAME }} />
+                    <LocalizedText size="sm" i18nKey="repository.setup.rule.persisted.path" />
                 </Stack>
                 <Group justify="flex-end">
                     <Button loading={isSelecting} onClick={onSelectRepositoryClick}>

@@ -6,6 +6,7 @@ import { formatDate } from "@renderer/utils/formatDate";
 import { toReleaseNotesTarget } from "@renderer/utils/toReleaseNotesTarget";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { openModal } from "@renderer/modals/contextModals";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 interface Props {
     release: GithubRelease;
@@ -27,9 +28,7 @@ export function GameBundleReleaseCard({ release, isGameBundleReady, isInstalling
                         <Text fw={700}>{getReleaseNameDisplay(release.name)}</Text>
                         {isGameBundleReady && <Badge variant="light">{t("versions.badge.installed")}</Badge>}
                     </Group>
-                    <Text size="xs" c="dimmed">
-                        {t("versions.available.published.at", { date: formatDate(release.publishedAt) })}
-                    </Text>
+                    <LocalizedText size="xs" c="dimmed" i18nKey="versions.available.published.at" variables={{ date: formatDate(release.publishedAt) }} />
                     <Text size="xs" c="dimmed">
                         {release.asset.name}
                     </Text>

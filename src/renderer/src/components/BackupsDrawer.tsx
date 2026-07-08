@@ -4,6 +4,7 @@ import { Alert, Badge, Button, Card, Drawer, Group, Stack, Text, Title, Tooltip 
 import { formatBackupTimestamp } from "@renderer/utils/formatBackupTimestamp";
 
 import { RenameBackupButton } from "@renderer/components/RenameBackupButton";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 import { TLocalizeFn, useTranslate } from "@renderer/stores/useLocaleStore";
 import { useIsGameRunning } from "@renderer/stores/useGameRuntimeStore";
 import { useGameFileOperationStore } from "@renderer/stores/useGameFileOperationStore";
@@ -26,12 +27,10 @@ export function BackupsDrawer(): React.JSX.Element {
     return (
         <Drawer opened={isOpened} onClose={close} position="right" size={520} title={<Title order={3}>{t("backups.title")}</Title>}>
             <Stack gap="md">
-                <Text size="sm" c="dimmed">
-                    {t("backups.description")}
-                </Text>
+                <LocalizedText size="sm" c="dimmed" i18nKey="backups.description" />
                 {backupSummary.backups.length === 0 ? (
                     <Alert variant="light" color="gray" title={t("backups.empty.title")}>
-                        <Text size="sm">{t("backups.empty.description")}</Text>
+                        <LocalizedText size="sm" i18nKey="backups.empty.description" />
                     </Alert>
                 ) : (
                     backupSummary.backups.map((backup) => (
@@ -63,22 +62,19 @@ function BackupView({ backup, t, gameRunning, fileOperationRunning, restoreBacku
             <Group justify="space-between" align="flex-start" gap="sm" wrap="nowrap">
                 <Stack gap={2} className="backup-drawer-item__text">
                     <Group gap="xs">
-                        <Text size="sm" fw={700} truncate>
-                            {backup.comment.trim().length === 0 ? t("backup.latest.title") : backup.comment}
-                        </Text>
+                        {backup.comment.trim().length === 0 ? (
+                            <LocalizedText size="sm" fw={700} truncate i18nKey="backup.latest.title" />
+                        ) : (
+                            <Text size="sm" fw={700} truncate>
+                                {backup.comment}
+                            </Text>
+                        )}
                         <Badge size="xs" variant="light">
                             {backup.type === "manual" ? t("backup.type.manual") : t("backup.type.auto")}
                         </Badge>
                     </Group>
-                    <Text size="xs" c="dimmed">
-                        {t("backup.latest.world.and.character", {
-                            world: backup.worldName,
-                            character: backup.characterName
-                        })}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                        {t("backup.latest.created.at", { createdAt: formatBackupTimestamp(backup.createdAt) ?? t("home.world.unknown") })}
-                    </Text>
+                    <LocalizedText size="xs" c="dimmed" i18nKey="backup.latest.world.and.character" variables={{ world: backup.worldName, character: backup.characterName }} />
+                    <LocalizedText size="xs" c="dimmed" i18nKey="backup.latest.created.at" variables={{ createdAt: formatBackupTimestamp(backup.createdAt) ?? t("home.world.unknown") }} />
                 </Stack>
                 <Stack gap={4} align="stretch" className="backup-drawer-item__actions">
                     <Tooltip label={gameRunning ? t("backup.action.restore.blocked.running") : t("backup.action.restore.tooltip")}>

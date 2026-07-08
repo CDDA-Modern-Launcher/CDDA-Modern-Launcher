@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Button, Group, Stack, Text, TextInput } from "@mantine/core";
+import { Alert, Button, Group, Stack, TextInput } from "@mantine/core";
 import { useModsStore } from "@renderer/stores/useModsStore";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 import { ContextModalProps } from "@mantine/modals";
 
 export function AddGitModModalNew({ id, context }: ContextModalProps): React.JSX.Element {
@@ -40,13 +41,11 @@ export function AddGitModModalNew({ id, context }: ContextModalProps): React.JSX
 
     return (
         <Stack gap="md">
-            <Text size="sm" c="dimmed">
-                {t("content.sheet.mods.git.modal.description")}
-            </Text>
+            <LocalizedText size="sm" c="dimmed" i18nKey="content.sheet.mods.git.modal.description" />
 
             <TextInput
                 label={t("content.sheet.mods.url.label")}
-                description={t("content.sheet.mods.url.description")}
+                description={<LocalizedText size="xs" i18nKey="content.sheet.mods.url.description" />}
                 placeholder={t("content.sheet.mods.url.placeholder")}
                 value={gitUrl}
                 onChange={(event) => {

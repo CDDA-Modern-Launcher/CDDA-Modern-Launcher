@@ -7,6 +7,7 @@ import { formatDate } from "@renderer/utils/formatDate";
 import { toInstalledReleaseNotesTarget } from "@renderer/utils/toInstalledReleaseNotesTarget";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { openModal } from "@renderer/modals/contextModals";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 interface Props {
     gameBundle: GameBundle;
@@ -28,12 +29,8 @@ export function GameBundleCard({ gameBundle, release, actionDisabled, onSetActiv
                         <Text fw={700}>{getReleaseDisplayName(gameBundle)}</Text>
                         {gameBundle.isActive && <Badge variant="light">{t("versions.badge.active")}</Badge>}
                     </Group>
-                    <Text size="xs" c="dimmed">
-                        {t("versions.installed.installed.at", { date: formatDate(gameBundle.manifest.installedAt) })}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                        {t("versions.installed.saves")}
-                    </Text>
+                    <LocalizedText size="xs" c="dimmed" i18nKey="versions.installed.installed.at" variables={{ date: formatDate(gameBundle.manifest.installedAt) }} />
+                    <LocalizedText size="xs" c="dimmed" i18nKey="versions.installed.saves" />
                 </Stack>
                 <Group gap="xs">
                     {!gameBundle.isActive && (

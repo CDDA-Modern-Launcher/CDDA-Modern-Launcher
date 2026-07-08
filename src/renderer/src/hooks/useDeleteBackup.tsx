@@ -2,7 +2,8 @@ import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstance
 import { useGameBackupStore } from "@renderer/stores/useGameBackupStore";
 import { useCallback } from "react";
 import { modals } from "@mantine/modals";
-import { Stack, Text } from "@mantine/core";
+import { Stack } from "@mantine/core";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 
 export function useDeleteBackup(): (backup: BackupInstanceInfo | null, skipConfirmation?: boolean) => void {
@@ -18,12 +19,12 @@ export function useDeleteBackup(): (backup: BackupInstanceInfo | null, skipConfi
                     title: t("backup.action.restore.confirm.title"),
                     children: (
                         <Stack gap="xs">
-                            <Text size="sm">
-                                {t("backup.delete.description", { title: backup.comment.trim().length === 0 ? t("backup.latest.title") : backup.comment, world: backup.worldName, character: backup.characterName })}
-                            </Text>
-                            <Text size="xs" c="dimmed">
-                                {t("confirmation.shift.hint")}
-                            </Text>
+                            <LocalizedText
+                                size="sm"
+                                i18nKey="backup.delete.description"
+                                variables={{ title: backup.comment.trim().length === 0 ? t("backup.latest.title") : backup.comment, world: backup.worldName, character: backup.characterName }}
+                            />
+                            <LocalizedText size="xs" c="dimmed" i18nKey="confirmation.shift.hint" />
                         </Stack>
                     ),
                     labels: { confirm: t("common.delete"), cancel: t("common.cancel") },

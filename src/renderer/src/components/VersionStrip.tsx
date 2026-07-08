@@ -1,4 +1,4 @@
-import { Anchor, Button, Card, Group, Stack, Text } from "@mantine/core";
+import { Anchor, Button, Card, Group, Stack } from "@mantine/core";
 import { ReactNode, useCallback, useMemo, useState } from "react";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { getUpdateAction } from "@renderer/utils/getUpdateAction";
@@ -13,6 +13,7 @@ import { GithubRelease } from "../../../shared/GithubRelease";
 import { useOpenDrawerSimple } from "@renderer/stores/useDrawerStore";
 import { toUpdateReleaseNotesTarget } from "@renderer/utils/toUpdateReleaseNotesTarget";
 import { openModal } from "@renderer/modals/contextModals";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function VersionStrip(): ReactNode {
     const t = useTranslate();
@@ -82,25 +83,20 @@ export function VersionStrip(): ReactNode {
         <Card withBorder radius="md" p="sm" className="home-version-strip">
             <Group justify="space-between" gap="sm" wrap="nowrap">
                 <Stack gap={2} className="home-version-strip__text">
-                    <Text size="sm" fw={700}>
-                        {t("home.version.current", { version: currentVersion })}
-                    </Text>
+                    <LocalizedText size="sm" fw={700} i18nKey="home.version.current" variables={{ version: currentVersion }} />
 
                     <Group gap={6} wrap="wrap">
-                        <Text size="xs" c={latestReleaseError !== null ? "red" : updateAvailable ? "blue" : "dimmed"}>
-                            {isCheckingLatest
-                                ? t("home.version.checking")
-                                : latestReleaseError !== null
-                                  ? t("home.version.check.failed", { message: latestReleaseError })
-                                  : updateAvailable && latestRelease !== null
-                                    ? t("home.version.update.available", {
-                                          currentVersion: currentVersion,
-                                          latestVersion: getReleaseNameDisplay(latestRelease.name)
-                                      })
-                                    : latestRelease === null
-                                      ? t("home.version.latest.unknown")
-                                      : t("home.version.latest.installed")}
-                        </Text>
+                        {isCheckingLatest ? (
+                            <LocalizedText size="xs" c="dimmed" i18nKey="home.version.checking" />
+                        ) : latestReleaseError !== null ? (
+                            <LocalizedText size="xs" c="red" i18nKey="home.version.check.failed" variables={{ message: latestReleaseError }} />
+                        ) : updateAvailable && latestRelease !== null ? (
+                            <LocalizedText size="xs" c="blue" i18nKey="home.version.update.available" variables={{ currentVersion: currentVersion, latestVersion: getReleaseNameDisplay(latestRelease.name) }} />
+                        ) : latestRelease === null ? (
+                            <LocalizedText size="xs" c="dimmed" i18nKey="home.version.latest.unknown" />
+                        ) : (
+                            <LocalizedText size="xs" c="dimmed" i18nKey="home.version.latest.installed" />
+                        )}
                         <Anchor component="button" type="button" size="xs" disabled={isCheckingLatest || fileOperationRunning} onClick={() => void refreshGame(true, true)}>
                             {t("home.action.check.again")}
                         </Anchor>

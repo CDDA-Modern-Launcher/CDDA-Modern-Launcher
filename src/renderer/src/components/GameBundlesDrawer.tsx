@@ -1,4 +1,4 @@
-import { ActionIcon, Divider, Drawer, Group, Loader, Stack, Text, Title, Tooltip } from "@mantine/core";
+import { ActionIcon, Divider, Drawer, Group, Loader, Stack, Title, Tooltip } from "@mantine/core";
 import React, { useEffect, useMemo } from "react";
 import { GithubRelease } from "../../../shared/GithubRelease";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
@@ -11,6 +11,7 @@ import { useGameReleasesStore } from "@renderer/stores/useGameReleasesStore";
 import { useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
 import { useGameFileOperationStore } from "@renderer/stores/useGameFileOperationStore";
 import { openModal } from "@renderer/modals/contextModals";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function GameBundlesDrawer(): React.JSX.Element {
     const t = useTranslate();
@@ -62,17 +63,15 @@ export function GameBundlesDrawer(): React.JSX.Element {
             }
         >
             <Stack gap="lg">
-                <Text size="sm" c="dimmed">
-                    {gameState.status === "ready"
-                        ? t("versions.description", { channel: `${gameState.channel.shortName} · ${localizeChannelName(gameState.channel.channelName, t)}` })
-                        : t("versions.description.unavailable")}
-                </Text>
+                {gameState.status === "ready" ? (
+                    <LocalizedText size="sm" c="dimmed" i18nKey="versions.description" variables={{ channel: `${gameState.channel.shortName} · ${localizeChannelName(gameState.channel.channelName, t)}` }} />
+                ) : (
+                    <LocalizedText size="sm" c="dimmed" i18nKey="versions.description.unavailable" />
+                )}
                 <Stack gap="sm">
                     <Title order={4}>{t("versions.installed.title")}</Title>
                     {gameState.status !== "ready" || gameState.gameBundles.length === 0 ? (
-                        <Text size="sm" c="dimmed">
-                            {t("versions.installed.empty")}
-                        </Text>
+                        <LocalizedText size="sm" c="dimmed" i18nKey="versions.installed.empty" />
                     ) : (
                         gameState.gameBundles.map((gameBundle) => (
                             <GameBundleCard
@@ -93,9 +92,7 @@ export function GameBundlesDrawer(): React.JSX.Element {
                     </Group>
                     <Stack gap="sm">
                         {availableReleases.length === 0 && !isLoadingReleases ? (
-                            <Text size="sm" c="dimmed">
-                                {t("versions.available.empty")}
-                            </Text>
+                            <LocalizedText size="sm" c="dimmed" i18nKey="versions.available.empty" />
                         ) : (
                             availableReleases.map((release) => (
                                 <GameBundleReleaseCard

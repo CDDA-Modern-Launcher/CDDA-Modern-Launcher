@@ -3,6 +3,7 @@ import type React from "react";
 import { ActionIcon, Menu, Stack, Text, Tooltip } from "@mantine/core";
 import { TLocalizeFn, useTranslate } from "@renderer/stores/useLocaleStore";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 interface Props {
     activeGameBundleAvailable: boolean;
@@ -43,9 +44,7 @@ export function BackupCreateButton({ activeGameBundleAvailable, worlds, currentW
                     <Menu.Item key={world.folderName} onClick={() => void onCreate(world.name)} rightSection={world.folderName === currentWorld?.folderName ? "✓" : undefined}>
                         <Stack gap={0}>
                             <Text size="sm">{world.name}</Text>
-                            <Text size="xs" c="dimmed">
-                                {t("home.world.character", { character: world.characterName ?? t("home.world.unknown") })}
-                            </Text>
+                            <LocalizedText size="xs" c="dimmed" i18nKey="home.world.character" variables={{ character: world.characterName ?? t("home.world.unknown") }} />
                         </Stack>
                     </Menu.Item>
                 ))}

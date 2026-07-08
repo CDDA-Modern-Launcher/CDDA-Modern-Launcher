@@ -2,9 +2,10 @@ import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstance
 import { useGameBackupStore } from "@renderer/stores/useGameBackupStore";
 import { useCallback } from "react";
 import { modals } from "@mantine/modals";
-import { Stack, Text } from "@mantine/core";
+import { Stack } from "@mantine/core";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { coalesceText } from "../../../shared/coalesceText";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function useRestoreBackup(): (backup: BackupInstanceInfo | null, skipConfirmation?: boolean) => void {
     const t = useTranslate();
@@ -20,10 +21,8 @@ export function useRestoreBackup(): (backup: BackupInstanceInfo | null, skipConf
                     title: t("backup.action.restore.confirm.title"),
                     children: (
                         <Stack gap="xs">
-                            <Text size="sm">{t("backup.action.restore.confirm.message", { comment: coalesceText(backup.comment, t("backup.latest.title")) })}</Text>
-                            <Text size="xs" c="dimmed">
-                                {t("confirmation.shift.hint")}
-                            </Text>
+                            <LocalizedText size="sm" i18nKey="backup.action.restore.confirm.message" variables={{ comment: coalesceText(backup.comment, t("backup.latest.title")) }} />
+                            <LocalizedText size="xs" c="dimmed" i18nKey="confirmation.shift.hint" />
                         </Stack>
                     ),
                     labels: { confirm: t("common.restore"), cancel: t("common.cancel") },

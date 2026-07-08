@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Button, Checkbox, Group, Stack, Text } from "@mantine/core";
+import { Alert, Button, Checkbox, Group, Stack } from "@mantine/core";
 import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
 import { getErrorMessage } from "../../../../shared/getErrorMessage";
 import { ContextModalProps } from "@mantine/modals";
 import { GameBundle } from "../../../../shared/game-bundle/GameBundle";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function DeleteGameBundleModal({ id, innerProps: { gameBundle }, context }: ContextModalProps<{ gameBundle: GameBundle }>): React.JSX.Element | null {
     const t = useTranslate();
@@ -44,15 +45,13 @@ export function DeleteGameBundleModal({ id, innerProps: { gameBundle }, context 
 
     return (
         <Stack gap="md">
-            <Text size="sm" c="dimmed">
-                {t("delete.game.bundle.modal.description", { version: getReleaseDisplayName(gameBundle) })}
-            </Text>
+            <LocalizedText size="sm" c="dimmed" i18nKey="delete.game.bundle.modal.description" variables={{ version: getReleaseDisplayName(gameBundle) }} />
 
             <Checkbox size="sm" checked={deleteUserdata} onChange={(event) => setDeleteUserdata(event.currentTarget.checked)} label={t("versions.option.delete.userdata")} />
 
             {!!error && (
                 <Alert variant="light" color="red" title={t("common.error.title")}>
-                    <Text size="sm">{t("common.error.text", { error })}</Text>
+                    <LocalizedText size="sm" i18nKey="common.error.text" variables={{ error }} />
                 </Alert>
             )}
 

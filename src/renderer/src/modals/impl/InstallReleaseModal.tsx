@@ -6,6 +6,7 @@ import { ContextModalProps } from "@mantine/modals";
 import { GithubRelease } from "../../../../shared/GithubRelease";
 import { getErrorMessage } from "../../../../shared/getErrorMessage";
 import { useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 interface Props {
     release: GithubRelease;
@@ -50,9 +51,7 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
     return (
         <Stack gap="md">
             <Stack gap={4}>
-                <Text size="sm" c="dimmed">
-                    {t("install.modal.description", { version: releaseName })}
-                </Text>
+                <LocalizedText size="sm" c="dimmed" i18nKey="install.modal.description" variables={{ version: releaseName }} />
 
                 <Text size="xs" c="dimmed">
                     {release?.asset?.name}
@@ -69,7 +68,7 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
 
             {!!error && (
                 <Alert variant="light" color="red" title={t("common.error.title")}>
-                    <Text size="sm">{t("common.error.text", { error })}</Text>
+                    <LocalizedText size="sm" i18nKey="common.error.text" variables={{ error }} />
                 </Alert>
             )}
 

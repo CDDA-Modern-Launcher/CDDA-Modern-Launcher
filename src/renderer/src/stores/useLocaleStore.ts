@@ -3,10 +3,12 @@ import { IMountableState } from "@renderer/types/IMountableState";
 import { LocalizationBundle } from "../../../shared/localization/types/LocalizationBundle";
 import { TMountFn } from "@renderer/types/TMountFn";
 import { FormatArgs } from "../../../shared/FormatArgs";
-import { formatMessage } from "../../../shared/formatMessage";
+import { formatHtmlMessage, formatMessage } from "../../../shared/formatMessage";
 import { LocaleKeys } from "../../../shared/localization/types/LocaleFile";
+import { sanitizeLocalizedHtml } from "@renderer/utils/sanitizeLocalizedHtml";
 
 export type TLocalizeFn = (key: LocaleKeys, variables?: FormatArgs) => string;
+export type TLocalizeHtmlFn = (key: LocaleKeys, variables?: FormatArgs) => string;
 type TSetLocaleFn = (locale: string) => Promise<void>;
 
 interface State extends IMountableState {
@@ -69,6 +71,21 @@ export function useTranslate(): TLocalizeFn {
     return useLocaleStore((state) => state.localize);
 }
 
+export function useTranslateHtml(): TLocalizeHtmlFn {
+    const bundle = useLocaleStore((state) => state.bundle);
+
+    return (key, variables = {}) => {
+        const message: string = bundle.messages[key] ?? key;
+        return sanitizeLocalizedHtml(formatHtmlMessage(message, variables));
+    };
+}
+
 export function translate(key: LocaleKeys, variables?: FormatArgs): string {
     return useLocaleStore.getState().localize(key, variables);
+}
+
+export function translateHtml(key: LocaleKeys, variables?: FormatArgs): string {
+    const bundle = useLocaleStore.getState().bundle;
+    const message: string = bundle.messages[key] ?? key;
+    return sanitizeLocalizedHtml(formatHtmlMessage(message, variables));
 }

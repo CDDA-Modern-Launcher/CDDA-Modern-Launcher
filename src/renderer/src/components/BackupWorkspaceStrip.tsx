@@ -11,6 +11,7 @@ import { useGameFileOperationStore } from "@renderer/stores/useGameFileOperation
 import { useDeleteBackup } from "@renderer/hooks/useDeleteBackup";
 import { useRestoreBackup } from "@renderer/hooks/useRestoreBackup";
 import { useOpenDrawerSimple } from "@renderer/stores/useDrawerStore";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function BackupWorkspaceStrip(): React.JSX.Element | null {
     const t = useTranslate();
@@ -40,12 +41,14 @@ export function BackupWorkspaceStrip(): React.JSX.Element | null {
             <Card withBorder radius="md" p="sm" className="backup-strip">
                 <Stack gap="xs">
                     <Group justify="space-between" gap="sm">
-                        <Text size="sm" fw={700}>
-                            {backupProgress.status === "creating" ? t("backup.progress.creating") : t("backup.progress.restoring")}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                            {backupProgress.percent === null ? t("backup.progress.preparing") : `${backupProgress.percent}%`}
-                        </Text>
+                        <LocalizedText size="sm" fw={700} i18nKey={backupProgress.status === "creating" ? "backup.progress.creating" : "backup.progress.restoring"} />
+                        {backupProgress.percent === null ? (
+                            <LocalizedText size="xs" c="dimmed" i18nKey="backup.progress.preparing" />
+                        ) : (
+                            <Text size="xs" c="dimmed">
+                                {backupProgress.percent}%
+                            </Text>
+                        )}
                     </Group>
                     <Progress value={backupProgress.percent ?? 100} animated={backupProgress.percent === null} />
                 </Stack>
@@ -62,22 +65,19 @@ export function BackupWorkspaceStrip(): React.JSX.Element | null {
             <Group justify="space-between" gap="sm" wrap="nowrap" align="flex-start">
                 <Stack gap={4} className="backup-strip__text">
                     <Group gap="xs" wrap="wrap">
-                        <Text size="sm" fw={700}>
-                            {backup.comment.trim().length === 0 ? t("backup.latest.title") : backup.comment}
-                        </Text>
+                        {backup.comment.trim().length === 0 ? (
+                            <LocalizedText size="sm" fw={700} i18nKey="backup.latest.title" />
+                        ) : (
+                            <Text size="sm" fw={700}>
+                                {backup.comment}
+                            </Text>
+                        )}
                         <Badge size="xs" variant="light">
                             {backup.type === "manual" ? t("backup.type.manual") : t("backup.type.auto")}
                         </Badge>
                     </Group>
-                    <Text size="xs" c="dimmed">
-                        {t("backup.latest.world.and.character", {
-                            world: backup.worldName,
-                            character: backup.characterName
-                        })}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                        {t("backup.latest.created.at", { createdAt: formatBackupTimestamp(backup.createdAt) ?? t("home.world.unknown") })}
-                    </Text>
+                    <LocalizedText size="xs" c="dimmed" i18nKey="backup.latest.world.and.character" variables={{ world: backup.worldName, character: backup.characterName }} />
+                    <LocalizedText size="xs" c="dimmed" i18nKey="backup.latest.created.at" variables={{ createdAt: formatBackupTimestamp(backup.createdAt) ?? t("home.world.unknown") }} />
                 </Stack>
                 <Stack gap={4} align="flex-end" className="backup-strip__actions">
                     <Group gap="xs" wrap="nowrap">

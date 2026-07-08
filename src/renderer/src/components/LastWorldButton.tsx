@@ -2,6 +2,7 @@ import { GameWorldInfo } from "../../../shared/GameWorldInfo";
 import type React from "react";
 import { Button, Menu, Stack, Text, Tooltip } from "@mantine/core";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function LastWorldButton({
     activeGameBundleAvailable,
@@ -47,9 +48,7 @@ export function LastWorldButton({
                     <Menu.Item key={world.folderName} onClick={() => void onLaunch(world.name)} rightSection={world.folderName === currentWorld?.folderName ? "✓" : undefined}>
                         <Stack gap={0}>
                             <Text size="sm">{world.name}</Text>
-                            <Text size="xs" c="dimmed">
-                                {t("home.world.character", { character: world.characterName ?? t("home.world.unknown") })}
-                            </Text>
+                            <LocalizedText size="xs" c="dimmed" i18nKey="home.world.character" variables={{ character: world.characterName ?? t("home.world.unknown") }} />
                         </Stack>
                     </Menu.Item>
                 ))}
