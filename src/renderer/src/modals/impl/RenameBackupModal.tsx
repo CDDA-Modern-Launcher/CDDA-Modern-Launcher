@@ -1,57 +1,71 @@
-import React, { useCallback, useState } from "react";
-import { defaultModalProps } from "@renderer/DefaultModalProps";
-import { Button, Group, Modal, Stack, Text, TextInput, Title } from "@mantine/core";
-import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
+import React, { ChangeEvent, useCallback, useEffect, useState } from "react";
+import { Alert, Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { ContextModalProps } from "@mantine/modals";
+import { BackupInstanceInfo } from "../../../../shared/backups/types/BackupInstanceInfo";
+import { useGameBackupStore } from "@renderer/stores/useGameBackupStore";
+import { getErrorMessage } from "../../../../shared/getErrorMessage";
 
-type Defined = Extract<ModalPayload, { kind: "rename-backup" }>;
-
-interface Props {
-    backup: Defined["backup"] | undefined;
-    onConfirm: Defined["onConfirm"] | undefined;
-}
-
-export function RenameBackupModal({ backup, onConfirm }: Props): React.JSX.Element {
-    const t = useTranslate();
-    const [close, _backup, clean] = useModalCloseWithLatch(backup);
-
-    return (
-        <Modal {...defaultModalProps} opened={!!backup} onClose={close} title={<Title order={4}>{t("backup.rename.title")}</Title>} onExitTransitionEnd={clean}>
-            <Content backup={_backup} onClose={close} onConfirm={onConfirm} key={_backup?.id} />
-        </Modal>
-    );
-}
-
-interface ContentProps extends Props {
-    onClose: () => void;
-}
-
-function Content({ backup, onClose, onConfirm }: ContentProps): React.JSX.Element {
+export function RenameBackupModal({ id, innerProps: { backup }, context }: ContextModalProps<{ backup: BackupInstanceInfo }>): React.JSX.Element {
     const t = useTranslate();
     const [value, setValue] = useState(backup?.comment ?? "");
+    const [renaming, setRenaming] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const onConfirmClick = useCallback(
-        async (event: React.SubmitEvent<HTMLFormElement>) => {
-            event.preventDefault();
-            onClose();
-            if (!backup || !onConfirm) return;
-            await onConfirm(backup, value);
-        },
-        [backup, onClose, onConfirm, value]
-    );
+    const renameBackup = useGameBackupStore((state) => state.rename);
+
+    const handleClose = useCallback(() => {
+        context.closeModal(id);
+    }, [context, id]);
+
+    const handleConfirm = useCallback(async () => {
+        try {
+            setRenaming(true);
+            setError(null);
+            await renameBackup(backup.id, value);
+            handleClose();
+        } catch (e) {
+            console.error("Can't rename backup", e);
+            setError(getErrorMessage(e));
+        } finally {
+            setRenaming(false);
+        }
+    }, [backup.id, handleClose, renameBackup, value]);
+
+    const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+        setValue(event.currentTarget.value);
+    }, []);
+
+    useEffect(() => {
+        context.updateModal({
+            modalId: id,
+            closeOnClickOutside: !renaming,
+            closeOnEscape: !renaming,
+            withCloseButton: !renaming
+        });
+    }, [context, id, renaming]);
 
     return (
-        <form onSubmit={onConfirmClick}>
+        <form onSubmit={handleConfirm}>
             <Stack gap="md">
-                <TextInput label={t("backup.rename.label")} value={value} onChange={(event) => setValue(event.currentTarget.value)} data-autofocus />
+                <TextInput label={t("backup.rename.label")} value={value} onChange={handleChange} data-autofocus disabled={renaming} />
                 <Text size="xs" c="dimmed">
                     {t("backup.rename.description")}
                 </Text>
+
+                {!!error && (
+                    <Alert variant="light" color="red" title={t("common.error.title")}>
+                        <Text size="sm">{t("common.error.text", { error })}</Text>
+                    </Alert>
+                )}
+
                 <Group justify="flex-end" gap="xs">
-                    <Button variant="subtle" onClick={onClose}>
+                    <Button variant="subtle" onClick={handleClose} disabled={renaming}>
                         {t("common.cancel")}
                     </Button>
-                    <Button type="submit">{t("backup.action.save")}</Button>
+                    <Button type="submit" loading={renaming}>
+                        {t("backup.action.save")}
+                    </Button>
                 </Group>
             </Stack>
         </form>

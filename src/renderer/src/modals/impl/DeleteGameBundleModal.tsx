@@ -1,47 +1,67 @@
-import React, { useState } from "react";
-import { Button, Checkbox, Group, Modal, Stack, Text, Title } from "@mantine/core";
+import React, { useCallback, useEffect, useState } from "react";
+import { Alert, Button, Checkbox, Group, Stack, Text } from "@mantine/core";
 import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
-import { defaultModalProps } from "@renderer/DefaultModalProps";
-import { ModalPayload, useModalCloseWithLatch } from "@renderer/modals/useModalStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
+import { getErrorMessage } from "../../../../shared/getErrorMessage";
+import { ContextModalProps } from "@mantine/modals";
+import { GameBundle } from "../../../../shared/game-bundle/GameBundle";
 
-type Defined = Extract<ModalPayload, { kind: "delete-game-bundle" }>;
-
-interface Props {
-    gameBundle: Defined["gameBundle"] | undefined;
-    onConfirm: Defined["onConfirm"] | undefined;
-}
-
-export function DeleteGameBundleModal({ gameBundle, onConfirm }: Props): React.JSX.Element {
+export function DeleteGameBundleModal({ id, innerProps: { gameBundle }, context }: ContextModalProps<{ gameBundle: GameBundle }>): React.JSX.Element | null {
     const t = useTranslate();
-    const [close, _gameBundle, clean] = useModalCloseWithLatch(gameBundle);
 
-    return (
-        <Modal {...defaultModalProps} opened={!!gameBundle} onClose={close} title={<Title order={4}>{t("deleteGameBundle.modal.title")}</Title>} onExitTransitionEnd={clean}>
-            <Content gameBundle={_gameBundle} onConfirm={onConfirm} onClose={close} key={_gameBundle?.id} />
-        </Modal>
-    );
-}
+    const deleteGameBundle = useGameBundleInstallStore((state) => state.delete);
 
-interface ContentProps extends Props {
-    onClose: () => void;
-}
-
-function Content({ gameBundle, onConfirm, onClose }: ContentProps): React.JSX.Element {
-    const t = useTranslate();
     const [deleteUserdata, setDeleteUserdata] = useState(true);
+    const [deleting, setDeleting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleClose = useCallback(() => context.closeModal(id), [context, id]);
+
+    const handleDelete = useCallback(async () => {
+        if (!gameBundle) return;
+        try {
+            setDeleting(true);
+            setError(null);
+            await deleteGameBundle(gameBundle.id, { deleteUserdata });
+            handleClose();
+        } catch (e) {
+            console.error("Can't delete game bundle", e);
+            setError(getErrorMessage(e));
+        } finally {
+            setDeleting(false);
+        }
+    }, [deleteGameBundle, deleteUserdata, gameBundle, handleClose]);
+
+    useEffect(() => {
+        context.updateModal({
+            modalId: id,
+            closeOnClickOutside: !deleting,
+            closeOnEscape: !deleting,
+            withCloseButton: !deleting
+        });
+    }, [context, id, deleting]);
 
     return (
         <Stack gap="md">
             <Text size="sm" c="dimmed">
-                {!!gameBundle && t("deleteGameBundle.modal.description", { version: getReleaseDisplayName(gameBundle) })}
+                {t("deleteGameBundle.modal.description", { version: getReleaseDisplayName(gameBundle) })}
             </Text>
+
             <Checkbox size="sm" checked={deleteUserdata} onChange={(event) => setDeleteUserdata(event.currentTarget.checked)} label={t("versions.option.deleteUserdata")} />
+
+            {!!error && (
+                <Alert variant="light" color="red" title={t("common.error.title")}>
+                    <Text size="sm">{t("common.error.text", { error })}</Text>
+                </Alert>
+            )}
+
             <Group justify="flex-end" gap="xs">
-                <Button variant="subtle" onClick={onClose}>
+                <Button variant="subtle" onClick={handleClose} disabled={deleting}>
                     {t("common.cancel")}
                 </Button>
-                <Button color="red" onClick={() => !!gameBundle && !!onConfirm && onConfirm(gameBundle, deleteUserdata)}>
+
+                <Button color="red" onClick={handleDelete} loading={deleting}>
                     {t("versions.action.delete")}
                 </Button>
             </Group>

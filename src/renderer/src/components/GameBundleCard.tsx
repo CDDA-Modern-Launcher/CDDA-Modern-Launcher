@@ -1,27 +1,24 @@
 import { GameBundle } from "../../../shared/game-bundle/GameBundle";
 import { GithubRelease } from "../../../shared/GithubRelease";
-import type React from "react";
+import React, { useCallback } from "react";
 import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
 import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { formatDate } from "@renderer/utils/formatDate";
 import { toInstalledReleaseNotesTarget } from "@renderer/utils/toInstalledReleaseNotesTarget";
-import { useModalOpen } from "@renderer/modals/useModalStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { openModal } from "@renderer/modals/contextModals";
 
 interface Props {
     gameBundle: GameBundle;
     release: GithubRelease | null;
     onSetActive: (gameBundleId: string) => Promise<boolean>;
     actionDisabled: boolean;
-    onConfirmDelete: (gameBundleId: GameBundle, deleteUserdata: boolean) => void;
 }
 
-export function GameBundleCard({ gameBundle, release, actionDisabled, onSetActive, onConfirmDelete }: Props): React.JSX.Element {
+export function GameBundleCard({ gameBundle, release, actionDisabled, onSetActive }: Props): React.JSX.Element {
     const t = useTranslate();
-
-    const openModal = useModalOpen();
-
-    const onDeleteClick = (): void => openModal({ kind: "delete-game-bundle", gameBundle: gameBundle, onConfirm: (gameBundle, deleteUserdata) => onConfirmDelete(gameBundle, deleteUserdata) });
+    const openReleaseNotesModal = useCallback(() => openModal("showReleaseNotes", t("releaseNotes.modal.title"), { notes: toInstalledReleaseNotesTarget(gameBundle, release) }), [gameBundle, release, t]);
+    const handleDeleteClick = useCallback(() => openModal("deleteBackup", t("versions.delete.modal.title"), { gameBundle }), [gameBundle, t]);
 
     return (
         <Card withBorder radius="md" p="sm" className="version-card">
@@ -50,10 +47,10 @@ export function GameBundleCard({ gameBundle, release, actionDisabled, onSetActiv
                     <Button size="xs" variant="subtle" onClick={() => void window.api.game.openSavesFolder(gameBundle.id)}>
                         {t("versions.action.openSavesFolder")}
                     </Button>
-                    <Button size="xs" variant="subtle" onClick={() => openModal({ kind: "release-notes", notes: toInstalledReleaseNotesTarget(gameBundle, release) })}>
+                    <Button size="xs" variant="subtle" onClick={openReleaseNotesModal}>
                         {t("versions.action.showChanges")}
                     </Button>
-                    <Button size="xs" variant="subtle" disabled={gameBundle.isActive || actionDisabled} color="red" onClick={onDeleteClick}>
+                    <Button size="xs" variant="subtle" disabled={gameBundle.isActive || actionDisabled} color="red" onClick={handleDeleteClick}>
                         {t("versions.action.delete")}
                     </Button>
                 </Group>

@@ -10,7 +10,7 @@ import { useGameStateStore } from "@renderer/stores/useGameStateStore";
 import { useGameReleasesStore } from "@renderer/stores/useGameReleasesStore";
 import { useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
 import { useGameFileOperationStore } from "@renderer/stores/useGameFileOperationStore";
-import { useModalOpen } from "@renderer/modals/useModalStore";
+import { openModal } from "@renderer/modals/contextModals";
 
 export function GameBundlesDrawer(): React.JSX.Element {
     const t = useTranslate();
@@ -25,23 +25,11 @@ export function GameBundlesDrawer(): React.JSX.Element {
     const fileOperationRunning = useGameFileOperationStore((state) => state.isRunning);
     const refreshGame = useGameStateStore((state) => state.refresh);
     const loadReleases = useGameReleasesStore((state) => state.load);
-    const deleteGameBundle = useGameBundleInstallStore((state) => state.delete);
     const setActiveGameBundle = useGameBundleInstallStore((state) => state.setActive);
-    const installLatestGameBundle = useGameBundleInstallStore((state) => state.installLatest);
-
-    const openModal = useModalOpen();
     const hasInstalledVersions = gameState.status === "ready" && gameState.gameBundles.length > 0;
     const openInstallModal = (release: GithubRelease | null): void => {
         if (release === null) return;
-        openModal({
-            kind: "game-bundle-options",
-            release,
-            hasInstalledVersions,
-            onConfirm: async (release, copyUserdata, removeOlderGameBundles) => {
-                close();
-                await installLatestGameBundle({ releaseId: release.id, makeActive: true, copyUserdata, removeOlderGameBundles });
-            }
-        });
+        openModal("installRelease", t("home.action.installUpdate"), { release, hasInstalledVersions });
     };
 
     const gameBundleIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.gameBundles.map((gameBundle) => gameBundle.id) : []), [gameState]);
@@ -93,7 +81,6 @@ export function GameBundlesDrawer(): React.JSX.Element {
                                 release={releaseById.get(gameBundle.id) ?? null}
                                 onSetActive={async (gameBundleId) => await setActiveGameBundle(gameBundleId)}
                                 actionDisabled={fileOperationRunning}
-                                onConfirmDelete={(gameBundle, deleteUserdata) => void deleteGameBundle(gameBundle.id, { deleteUserdata })}
                             />
                         ))
                     )}

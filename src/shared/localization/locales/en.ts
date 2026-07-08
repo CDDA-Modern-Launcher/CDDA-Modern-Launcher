@@ -9,6 +9,8 @@ export const EN_LOCALE = {
         "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAQCAIAAACDRijCAAAAuklEQVR4nK2TvQ0DIQyFDfIAYYUbIJTsdAMxUyhZgBXYAKewgtDZEApew5/98WTZhoiS86Fme90g1EpMzvNexrQSeZOcR45LzreaAUDFqWJK/wZDzXzmqzaxNjPSzaK97lZiqHnT2sNI+AUjL8z6a01SegzywmfV2ihppD8ZIlpX5JE8k/m83mvQpuwRyknQsRrhWHm1RxbQMRdHBIge6fdjvtprODOidvZiDHDRrKpmY4A7RiQLxBh8AfKapN4b90SIAAAAAElFTkSuQmCC",
     messages: {
         "locale.label": "Language",
+        "common.error.title": "Error",
+        "common.error.text": "{error}",
         "repository.dialog.selectFolder.title": "Select CDDA launcher repository folder",
         "repository.error.selectedMissing": "Selected folder does not exist.",
         "repository.error.selectedNotDirectory": "Selected path is not a folder.",
@@ -138,6 +140,7 @@ export const EN_LOCALE = {
         "versions.action.install": "Install",
         "versions.action.installed": "Installed",
         "versions.option.deleteUserdata": "Delete linked saves and settings",
+        "versions.delete.modal.title": "Delete game version?",
         "home.action.loadWorld": "Load",
         "home.action.loadWorldWithChoice": "Load...",
         "home.action.loadWorldTooltip": "Opens the game directly in the selected world.",

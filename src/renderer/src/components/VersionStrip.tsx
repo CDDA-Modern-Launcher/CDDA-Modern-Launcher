@@ -1,5 +1,5 @@
 import { Anchor, Button, Card, Group, Stack, Text } from "@mantine/core";
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useCallback, useMemo, useState } from "react";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { getUpdateAction } from "@renderer/utils/getUpdateAction";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
@@ -10,13 +10,12 @@ import { getUpdateReleases } from "@renderer/utils/getUpdateReleases";
 import { useGameReleasesStore } from "@renderer/stores/useGameReleasesStore";
 import { useGameFileOperationStore } from "@renderer/stores/useGameFileOperationStore";
 import { GithubRelease } from "../../../shared/GithubRelease";
-import { useModalOpen } from "@renderer/modals/useModalStore";
 import { useOpenDrawerSimple } from "@renderer/stores/useDrawerStore";
 import { toUpdateReleaseNotesTarget } from "@renderer/utils/toUpdateReleaseNotesTarget";
+import { openModal } from "@renderer/modals/contextModals";
 
 export function VersionStrip(): ReactNode {
     const t = useTranslate();
-    const openModal = useModalOpen();
     const openDrawer = useOpenDrawerSimple();
 
     const gameState = useGameStateStore((state) => state.state);
@@ -26,7 +25,6 @@ export function VersionStrip(): ReactNode {
     const isInstallingGameBundle = useGameBundleInstallStore((state) => state.isInstalling);
     const isLoadingReleaseNotes = useGameReleasesStore((state) => state.isLoadingReleaseNotes);
     const fileOperationRunning = useGameFileOperationStore((state) => state.isRunning);
-    const installLatestGameBundle = useGameBundleInstallStore((state) => state.installLatest);
     const setActiveGameBundle = useGameBundleInstallStore((state) => state.setActive);
     const refreshGame = useGameStateStore((state) => state.refresh);
     const loadReleases = useGameReleasesStore((state) => state.load);
@@ -49,16 +47,9 @@ export function VersionStrip(): ReactNode {
 
     const openInstallModal = (release: GithubRelease | null): void => {
         if (release === null) return;
-        openModal({
-            kind: "game-bundle-options",
-            release,
-            hasInstalledVersions,
-            onConfirm: async (release, copyUserdata, removeOlderGameBundles) => {
-                await installLatestGameBundle({ releaseId: release.id, makeActive: true, copyUserdata, removeOlderGameBundles });
-            }
-        });
+        openModal("installRelease", t("home.action.installUpdate"), { release, hasInstalledVersions });
     };
-    const showUpdateChanges = async (): Promise<void> => {
+    const showUpdateChanges = useCallback(async (): Promise<void> => {
         if (activeGameBundle === null || latestRelease === null) return;
 
         let releases = availableReleases;
@@ -71,8 +62,8 @@ export function VersionStrip(): ReactNode {
             }
         }
 
-        openModal({ kind: "release-notes", notes: toUpdateReleaseNotesTarget(activeGameBundle, latestRelease, getUpdateReleases(activeGameBundle, releases), t) });
-    };
+        openModal("showReleaseNotes", t("releaseNotes.modal.title"), { notes: toUpdateReleaseNotesTarget(activeGameBundle, latestRelease, getUpdateReleases(activeGameBundle, releases), t) });
+    }, [activeGameBundle, availableReleases, latestRelease, loadReleases, setReleaseNotesLoading, t]);
 
     const activateLatest = async (): Promise<void> => {
         if (latestInstalledId === null) return;

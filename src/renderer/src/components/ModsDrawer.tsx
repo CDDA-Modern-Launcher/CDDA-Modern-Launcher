@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useCallback, useMemo } from "react";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { useDrawerStore, useIsDrawerOpened } from "@renderer/stores/useDrawerStore";
 import { ActionIcon, Drawer, Group, Menu, Stack, Text, Title, Tooltip } from "@mantine/core";
@@ -6,12 +6,12 @@ import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
 import { findGameChannel } from "../../../shared/game-channel/findGameChannel";
 import { getEffectiveGameChannels } from "../../../shared/game-channel/getEffectiveGameChannels";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
-import { useModalOpen } from "@renderer/modals/useModalStore";
 import { compareMods } from "@renderer/utils/compareMods";
 import { ContentSection } from "@renderer/components/ContentSection";
 import { ModCard } from "@renderer/components/ModCard";
 import { useModsStore } from "@renderer/stores/useModsStore";
 import { useShallow } from "zustand/react/shallow";
+import { openModal } from "@renderer/modals/contextModals";
 
 export function ModsDrawer(): ReactNode {
     const t = useTranslate();
@@ -32,11 +32,11 @@ export function ModsDrawer(): ReactNode {
         }))
     );
 
-    const openModal = useModalOpen();
-
     const sortedMods = useMemo(() => [...state.mods].sort(compareMods), [state.mods]);
 
     const isRepositoryReady = ws.status === "ready" && state.status === "ready";
+
+    const handleAddGitMod = useCallback(() => openModal("addModFromGit", t("contentSheet.mods.gitModal.title"), {}), [t]);
 
     return (
         <Drawer opened={isOpened} onClose={close} position="right" size={420} title={<Title order={3}>{t("contentSheet.mods.title")}</Title>}>
@@ -71,7 +71,7 @@ export function ModsDrawer(): ReactNode {
                                 </Menu.Target>
                                 <Menu.Dropdown>
                                     <Menu.Label>{t("contentSheet.mods.add.menuTitle")}</Menu.Label>
-                                    <Menu.Item onClick={() => openModal({ kind: "add-git-mod" })}>{t("contentSheet.mods.add.fromGit")}</Menu.Item>
+                                    <Menu.Item onClick={handleAddGitMod}>{t("contentSheet.mods.add.fromGit")}</Menu.Item>
                                     <Menu.Item disabled>{t("contentSheet.mods.add.fromFolder")}</Menu.Item>
                                     <Menu.Item disabled>{t("contentSheet.mods.add.fromArchive")}</Menu.Item>
                                 </Menu.Dropdown>

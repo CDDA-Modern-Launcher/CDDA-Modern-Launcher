@@ -1,11 +1,11 @@
 import { GithubRelease } from "../../../shared/GithubRelease";
-import type React from "react";
+import React, { useCallback } from "react";
 import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { formatDate } from "@renderer/utils/formatDate";
 import { toReleaseNotesTarget } from "@renderer/utils/toReleaseNotesTarget";
-import { useModalOpen } from "@renderer/modals/useModalStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { openModal } from "@renderer/modals/contextModals";
 
 interface Props {
     release: GithubRelease;
@@ -17,8 +17,7 @@ interface Props {
 
 export function GameBundleReleaseCard({ release, isGameBundleReady, isInstallingGameBundle, actionDisabled, onRequestInstall }: Props): React.JSX.Element {
     const t = useTranslate();
-
-    const openModal = useModalOpen();
+    const openReleaseNotesModal = useCallback(() => openModal("showReleaseNotes", t("releaseNotes.modal.title"), { notes: toReleaseNotesTarget(release) }), [release, t]);
 
     return (
         <Card withBorder radius="md" p="sm" className="version-card">
@@ -36,7 +35,7 @@ export function GameBundleReleaseCard({ release, isGameBundleReady, isInstalling
                     </Text>
                 </Stack>
                 <Group gap="xs" wrap="nowrap">
-                    <Button size="xs" variant="subtle" onClick={() => openModal({ kind: "release-notes", notes: toReleaseNotesTarget(release) })}>
+                    <Button size="xs" variant="subtle" onClick={openReleaseNotesModal}>
                         {t("versions.action.showChanges")}
                     </Button>
                     <Button size="xs" disabled={isGameBundleReady || actionDisabled} loading={isInstallingGameBundle} onClick={() => onRequestInstall(release)}>

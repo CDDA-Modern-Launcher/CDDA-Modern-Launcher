@@ -8,6 +8,8 @@ export const RU_LOCALE = {
     iconPng: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAQCAIAAACDRijCAAAAL0lEQVR4nGP8//8/AzUAE1VMGd4GMTJYLqOKQYPPa4PPIMar2nJUMWjweW0YGwQAhwMFGJWGc7AAAAAASUVORK5CYII=",
     messages: {
         "locale.label": "Язык",
+        "common.error.title": "Ошибка",
+        "common.error.text": "{error}",
         "repository.dialog.selectFolder.title": "Выберите папку локального репозитория CDDA Launcher",
         "repository.error.selectedMissing": "Выбранная папка не существует.",
         "repository.error.selectedNotDirectory": "Выбранный путь не является папкой.",
@@ -137,6 +139,7 @@ export const RU_LOCALE = {
         "versions.action.install": "Установить",
         "versions.action.installed": "Установлена",
         "versions.option.deleteUserdata": "Удалить связанные сохранения и настройки",
+        "versions.delete.modal.title": "Удалить версию игры?",
         "home.action.loadWorld": "Загрузить",
         "home.action.loadWorldWithChoice": "Загрузить...",
         "home.action.loadWorldTooltip": "Открывает игру сразу в выбранном мире.",

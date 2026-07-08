@@ -1,3 +1,5 @@
+import { LocaleKeys } from "../../localization/types/LocaleFile";
+
 export type UpdateState =
     | { status: "idle" }
     | { status: "checking" }
@@ -6,4 +8,4 @@ export type UpdateState =
     | { status: "downloaded"; version: string }
     | { status: "not-available"; version?: string }
     | { status: "skipped"; version: string }
-    | { status: "error"; message: string; messageKey?: string };
+    | { status: "error"; message: string; messageKey?: LocaleKeys };

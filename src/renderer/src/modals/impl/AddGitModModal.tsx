@@ -1,33 +1,12 @@
-import React, { useCallback, useState } from "react";
-import { defaultModalProps } from "@renderer/DefaultModalProps";
-import { Alert, Button, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
-import { useModalClose } from "@renderer/modals/useModalStore";
+import React, { useCallback, useEffect, useState } from "react";
+import { Alert, Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { useModsStore } from "@renderer/stores/useModsStore";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { ContextModalProps } from "@mantine/modals";
 
-interface Props {
-    opened: boolean;
-}
-
-export function AddGitModModal({ opened }: Props): React.JSX.Element {
+export function AddGitModModalNew({ id, context }: ContextModalProps): React.JSX.Element {
     const t = useTranslate();
-    const close = useModalClose();
-
-    return (
-        <Modal {...defaultModalProps} opened={opened} onClose={close} title={t("contentSheet.mods.gitModal.title")}>
-            <Content onClose={close} key={String(opened)} />
-        </Modal>
-    );
-}
-
-interface ContentProps {
-    onClose: () => void;
-}
-
-function Content({ onClose }: ContentProps): React.JSX.Element {
-    const t = useTranslate();
-
     const [gitUrl, setGitUrl] = useState("");
 
     const repository = useWorkspaceStore((state) => state.workspaceStatus);
@@ -36,24 +15,35 @@ function Content({ onClose }: ContentProps): React.JSX.Element {
     const setError = useModsStore((state) => state.setError);
     const busyAction = useModsStore((state) => state.busyAction);
     const repoStatus = useModsStore((state) => state.state.status);
-    const installModFn = useModsStore((state) => state.installModFromGit);
+    const installModFromGit = useModsStore((state) => state.installModFromGit);
 
     const isRepositoryReady = repository.status === "ready" && repoStatus === "ready";
 
-    const handleConfirmClick = useCallback(async () => {
+    const handleClose = useCallback(() => context.closeModal(id), [context, id]);
+
+    const handleConfirm = useCallback(async () => {
         try {
-            await installModFn(gitUrl);
-            onClose();
+            await installModFromGit(gitUrl);
         } catch (e) {
-            console.log("Cannot install mod from git", e);
+            console.error("Can't install mod", e);
         }
-    }, [gitUrl, installModFn, onClose]);
+    }, [installModFromGit, gitUrl]);
+
+    useEffect(() => {
+        context.updateModal({
+            modalId: id,
+            closeOnClickOutside: !busyAction,
+            closeOnEscape: !busyAction,
+            withCloseButton: !busyAction
+        });
+    }, [context, id, busyAction]);
 
     return (
         <Stack gap="md">
             <Text size="sm" c="dimmed">
                 {t("contentSheet.mods.gitModal.description")}
             </Text>
+
             <TextInput
                 label={t("contentSheet.mods.url.label")}
                 description={t("contentSheet.mods.url.description")}
@@ -63,19 +53,21 @@ function Content({ onClose }: ContentProps): React.JSX.Element {
                     setGitUrl(event.currentTarget.value);
                     setError(null);
                 }}
-                disabled={!isRepositoryReady || busyAction === "install"}
+                disabled={!isRepositoryReady || !!busyAction}
                 autoFocus
             />
+
             {!!error && (
                 <Alert variant="light" color="red" title={t("contentSheet.mods.install.errorTitle")}>
                     {error}
                 </Alert>
             )}
+
             <Group justify="flex-end">
-                <Button variant="subtle" onClick={onClose} disabled={busyAction === "install"}>
+                <Button variant="subtle" onClick={handleClose} disabled={!!busyAction}>
                     {t("common.cancel")}
                 </Button>
-                <Button onClick={handleConfirmClick} disabled={!isRepositoryReady || gitUrl.trim().length === 0 || busyAction === "install"} loading={busyAction === "install"}>
+                <Button onClick={handleConfirm} disabled={!isRepositoryReady || gitUrl.trim().length === 0} loading={!!busyAction}>
                     {t("contentSheet.mods.install.button")}
                 </Button>
             </Group>
