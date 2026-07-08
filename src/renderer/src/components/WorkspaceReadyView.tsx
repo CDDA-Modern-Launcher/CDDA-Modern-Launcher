@@ -55,43 +55,43 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                                     {activeGameBundleId !== null && (
                                         <>
                                             <Button size="compact-xs" variant="subtle" onClick={() => void window.api.game.openGameBundleFolder(activeGameBundleId)}>
-                                                {t("home.action.openGameBundleFolder")}
+                                                {t("home.action.open.game.bundle.folder")}
                                             </Button>
                                             <Button size="compact-xs" variant="subtle" onClick={() => void window.api.game.openSavesFolder(activeGameBundleId)}>
-                                                {t("home.action.openSavesFolder")}
+                                                {t("home.action.open.saves.folder")}
                                             </Button>
                                         </>
                                     )}
                                 </Group>
                             </Stack>
                             <Badge color={activeGameBundle === null ? "gray" : updateAvailable ? "blue" : "green"} variant="light" size="lg">
-                                {activeGameBundle === null ? t("home.status.noGameBundle") : updateAvailable ? t("home.status.updateAvailable") : t("home.status.installed")}
+                                {activeGameBundle === null ? t("home.status.no.game.bundle") : updateAvailable ? t("home.status.update.available") : t("home.status.installed")}
                             </Badge>
                         </Group>
 
                         <SaveStatusLine />
 
                         {gameState.status === "loading" && (
-                            <Alert variant="light" color="blue" title={t("home.gameState.loading.title")}>
+                            <Alert variant="light" color="blue" title={t("home.game.state.loading.title")}>
                                 <Group gap="sm">
                                     <Loader size="sm" />
-                                    <Text size="sm">{t("home.gameState.loading.description")}</Text>
+                                    <Text size="sm">{t("home.game.state.loading.description")}</Text>
                                 </Group>
                             </Alert>
                         )}
 
                         {gameState.status === "error" && (
-                            <Alert variant="light" color="red" title={t("home.gameState.error.title")}>
-                                <Text size="sm">{gameState.message ?? t("home.gameState.error.description")}</Text>
+                            <Alert variant="light" color="red" title={t("home.game.state.error.title")}>
+                                <Text size="sm">{gameState.message ?? t("home.game.state.error.description")}</Text>
                             </Alert>
                         )}
 
                         {gameState.status === "ready" && gameState.latestReleaseError !== null && activeGameBundle === null && (
-                            <Alert variant="light" color="red" title={t("home.gameState.error.title")}>
+                            <Alert variant="light" color="red" title={t("home.game.state.error.title")}>
                                 <Group justify="space-between" gap="sm">
-                                    <Text size="sm">{t("home.version.checkFailed", { message: gameState.latestReleaseError })}</Text>
+                                    <Text size="sm">{t("home.version.check.failed", { message: gameState.latestReleaseError })}</Text>
                                     <Button size="xs" variant="light" loading={isCheckingLatest} onClick={() => void refreshGame(true, true)}>
-                                        {t("home.action.checkAgain")}
+                                        {t("home.action.check.again")}
                                     </Button>
                                 </Group>
                             </Alert>

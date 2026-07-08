@@ -12,7 +12,7 @@ export function setupWorkspaceIpc(repositoryService: WorkspaceService, localizat
 
     ipcMain.handle(Bridge.Workspace.selectNewFolder, async (event): Promise<EWorkspaceSelectResult> => {
         const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined;
-        const options = { title: localizationService.t("repository.dialog.selectFolder.title"), properties: ["openDirectory", "createDirectory"] as Array<"openDirectory" | "createDirectory"> };
+        const options = { title: localizationService.t("repository.dialog.select.folder.title"), properties: ["openDirectory", "createDirectory"] as Array<"openDirectory" | "createDirectory"> };
         const result = owner === undefined ? await dialog.showOpenDialog(options) : await dialog.showOpenDialog(owner, options);
 
         if (result.canceled || result.filePaths.length === 0) return { status: "cancelled" };

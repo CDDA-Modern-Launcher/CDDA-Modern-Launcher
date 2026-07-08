@@ -4,19 +4,19 @@ export function parseModSourceUrl(input: string, t: (key: string, variables?: Re
     try {
         parsed = new URL(input.trim());
     } catch {
-        throw new Error(t("mods.error.sourceUrlInvalid"));
+        throw new Error(t("mods.error.source.url.invalid"));
     }
 
     if (parsed.protocol !== "https:") {
-        throw new Error(t("mods.error.sourceUrlHttpsOnly"));
+        throw new Error(t("mods.error.source.url.https.only"));
     }
 
     if (parsed.username.length > 0 || parsed.password.length > 0) {
-        throw new Error(t("mods.error.sourceUrlCredentials"));
+        throw new Error(t("mods.error.source.url.credentials"));
     }
 
     if (!parsed.pathname.endsWith(".git")) {
-        throw new Error(t("mods.error.sourceUrlGitSuffix"));
+        throw new Error(t("mods.error.source.url.git.suffix"));
     }
 
     return parsed.toString();

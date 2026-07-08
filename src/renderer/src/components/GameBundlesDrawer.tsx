@@ -29,7 +29,7 @@ export function GameBundlesDrawer(): React.JSX.Element {
     const hasInstalledVersions = gameState.status === "ready" && gameState.gameBundles.length > 0;
     const openInstallModal = (release: GithubRelease | null): void => {
         if (release === null) return;
-        openModal("installRelease", t("home.action.installUpdate"), { release, hasInstalledVersions });
+        openModal("installRelease", t("home.action.install.update"), { release, hasInstalledVersions });
     };
 
     const gameBundleIds = useMemo(() => new Set(gameState.status === "ready" ? gameState.gameBundles.map((gameBundle) => gameBundle.id) : []), [gameState]);
@@ -53,8 +53,8 @@ export function GameBundlesDrawer(): React.JSX.Element {
             title={
                 <Group gap="xs" wrap="nowrap">
                     <Title order={3}>{t("versions.title")}</Title>
-                    <Tooltip label={t("versions.action.refreshTooltip")}>
-                        <ActionIcon variant="subtle" aria-label={t("versions.action.refreshTooltip")} loading={isLoadingReleases} disabled={fileOperationRunning} onClick={refreshVersions}>
+                    <Tooltip label={t("versions.action.refresh.tooltip")}>
+                        <ActionIcon variant="subtle" aria-label={t("versions.action.refresh.tooltip")} loading={isLoadingReleases} disabled={fileOperationRunning} onClick={refreshVersions}>
                             ↻
                         </ActionIcon>
                     </Tooltip>

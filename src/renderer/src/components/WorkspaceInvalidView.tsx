@@ -21,7 +21,7 @@ export function WorkspaceInvalidView(): React.JSX.Element {
                     <Text c="dimmed">{t("repository.setup.description")}</Text>
                 </Stack>
                 {repository.status === "invalid" && (
-                    <Alert color="red" title={t("repository.setup.invalidTitle")} variant="light">
+                    <Alert color="red" title={t("repository.setup.invalid.title")} variant="light">
                         <Stack gap={6}>
                             {repository.path.length > 0 && <Text size="sm">{repository.path}</Text>}
                             <Text size="sm">{repository.message}</Text>
@@ -29,15 +29,15 @@ export function WorkspaceInvalidView(): React.JSX.Element {
                     </Alert>
                 )}
                 <Stack gap="xs" className="repository-rules">
-                    <Text size="sm">{t("repository.setup.rule.emptyFolder")}</Text>
+                    <Text size="sm">{t("repository.setup.rule.empty.folder")}</Text>
                     <Text size="sm">
-                        {t("repository.setup.rule.nonEmptyFolder.prefix")} <code>{REPOSITORY_CONFIG_FILE_NAME}</code>.
+                        {t("repository.setup.rule.non.empty.folder.prefix")} <code>{REPOSITORY_CONFIG_FILE_NAME}</code>.
                     </Text>
-                    <Text size="sm">{t("repository.setup.rule.persistedPath")}</Text>
+                    <Text size="sm">{t("repository.setup.rule.persisted.path")}</Text>
                 </Stack>
                 <Group justify="flex-end">
                     <Button loading={isSelecting} onClick={onSelectRepositoryClick}>
-                        {t("repository.setup.selectButton")}
+                        {t("repository.setup.select.button")}
                     </Button>
                 </Group>
             </Stack>

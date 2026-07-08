@@ -121,7 +121,7 @@ export function UpdateFloatingCard(): React.JSX.Element | null {
                             {t("updater.action.later")}
                         </Button>
                         <Button size="xs" onClick={() => window.api.updater.installNow()}>
-                            {t("updater.action.restartNow")}
+                            {t("updater.action.restart.now")}
                         </Button>
                     </Group>
                 )}

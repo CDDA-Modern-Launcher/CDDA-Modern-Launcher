@@ -17,12 +17,12 @@ export function useRestoreBackup(): (backup: BackupInstanceInfo | null, skipConf
                 void restoreBackup(backup.id);
             } else {
                 modals.openConfirmModal({
-                    title: t("backup.action.restoreConfirm.title"),
+                    title: t("backup.action.restore.confirm.title"),
                     children: (
                         <Stack gap="xs">
-                            <Text size="sm">{t("backup.action.restoreConfirm.message", { comment: coalesceText(backup.comment, t("backup.latest.title")) })}</Text>
+                            <Text size="sm">{t("backup.action.restore.confirm.message", { comment: coalesceText(backup.comment, t("backup.latest.title")) })}</Text>
                             <Text size="xs" c="dimmed">
-                                {t("confirmation.shiftHint")}
+                                {t("confirmation.shift.hint")}
                             </Text>
                         </Stack>
                     ),

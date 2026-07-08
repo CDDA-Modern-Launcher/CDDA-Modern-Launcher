@@ -12,13 +12,13 @@ export async function readValidatedModInfo(modDir: string, t: (key: string, vari
     try {
         parsed = JSON.parse(await readFile(modInfoPath, "utf8"));
     } catch (error) {
-        if (isNodeError(error) && error.code === "ENOENT") throw new Error(t("mods.error.modInfoMissing"));
-        throw new Error(t("mods.error.modInfoInvalidJson"));
+        if (isNodeError(error) && error.code === "ENOENT") throw new Error(t("mods.error.mod.info.missing"));
+        throw new Error(t("mods.error.mod.info.invalid.json"));
     }
 
     const entries = Array.isArray(parsed) ? parsed : [parsed];
     const modInfo = entries.find(isModInfoEntry);
-    if (modInfo === undefined) throw new Error(t("mods.error.modInfoMissingId"));
+    if (modInfo === undefined) throw new Error(t("mods.error.mod.info.missing.id"));
 
     const id = modInfo.id.trim();
 

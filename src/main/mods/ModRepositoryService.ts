@@ -85,7 +85,7 @@ export class ModRepositoryService {
             const registry = await this.readRegistry(context.repositoryPath, context.channelId);
 
             if (registry.mods[modInfo.id] !== undefined || (await exists(targetDir))) {
-                throw new Error(this.t("mods.error.alreadyInstalled", { id: modInfo.id }));
+                throw new Error(this.t("mods.error.already.installed", { id: modInfo.id }));
             }
 
             const branch = (await git.currentBranch({ fs, dir: tempDir, fullname: false })) ?? "master";
@@ -201,7 +201,7 @@ export class ModRepositoryService {
             const mod = registry.mods[modId];
 
             if (mod === undefined) {
-                throw new Error(this.t("mods.error.notFoundInRegistry"));
+                throw new Error(this.t("mods.error.not.found.in.registry"));
             }
 
             const modDir = this.getModDir(context.repositoryPath, context.channelId, mod);
@@ -223,7 +223,7 @@ export class ModRepositoryService {
             const modInfo = await readValidatedModInfo(tempDir, this.t);
 
             if (modInfo.id !== mod.id) {
-                throw new Error(this.t("mods.error.updatedIdMismatch", { actual: modInfo.id, expected: mod.id }));
+                throw new Error(this.t("mods.error.updated.id.mismatch", { actual: modInfo.id, expected: mod.id }));
             }
 
             const nextCommit = await git.resolveRef({ fs, dir: tempDir, ref: "HEAD" });
@@ -298,7 +298,7 @@ export class ModRepositoryService {
                   : this.getModDir(context.repositoryPath, context.channelId, registry.mods[modId]);
 
         if (target === null) {
-            return { status: "error", message: this.t("mods.error.notFoundInRegistry") };
+            return { status: "error", message: this.t("mods.error.not.found.in.registry") };
         }
 
         await mkdir(target, { recursive: true });
@@ -359,7 +359,7 @@ export class ModRepositoryService {
             const modInfo = await readValidatedModInfo(tempDir, this.t);
 
             if (modInfo.id !== mod.id) {
-                throw new Error(this.t("mods.error.restoredIdMismatch", { actual: modInfo.id, expected: mod.id }));
+                throw new Error(this.t("mods.error.restored.id.mismatch", { actual: modInfo.id, expected: mod.id }));
             }
 
             const commit = await git.resolveRef({ fs, dir: tempDir, ref: "HEAD" });
@@ -425,7 +425,7 @@ export class ModRepositoryService {
             const modInfo = await readValidatedModInfo(modDir, this.t);
 
             if (modInfo.id !== mod.id) {
-                return this.toItem(repositoryPath, channelId, mod, "invalid-local-copy", this.t("mods.error.localCopyIdMismatch", { actual: modInfo.id, expected: mod.id }));
+                return this.toItem(repositoryPath, channelId, mod, "invalid-local-copy", this.t("mods.error.local.copy.id.mismatch", { actual: modInfo.id, expected: mod.id }));
             }
         } catch (error) {
             return this.toItem(repositoryPath, channelId, mod, "invalid-local-copy", getErrorMessage(error));
@@ -474,7 +474,7 @@ export class ModRepositoryService {
                 return empty;
             }
 
-            throw new Error(this.t("mods.error.registryInvalid"));
+            throw new Error(this.t("mods.error.registry.invalid"));
         }
     }
 
@@ -588,7 +588,7 @@ function getRepositoryUnavailableMessage(repository: WorkspaceStatus, localizati
         return repository.message;
     }
 
-    return localizationService.t("mods.error.repositoryUnavailable");
+    return localizationService.t("mods.error.repository.unavailable");
 }
 
 async function exists(path: string): Promise<boolean> {

@@ -41,13 +41,13 @@ export function AddGitModModalNew({ id, context }: ContextModalProps): React.JSX
     return (
         <Stack gap="md">
             <Text size="sm" c="dimmed">
-                {t("contentSheet.mods.gitModal.description")}
+                {t("content.sheet.mods.git.modal.description")}
             </Text>
 
             <TextInput
-                label={t("contentSheet.mods.url.label")}
-                description={t("contentSheet.mods.url.description")}
-                placeholder={t("contentSheet.mods.url.placeholder")}
+                label={t("content.sheet.mods.url.label")}
+                description={t("content.sheet.mods.url.description")}
+                placeholder={t("content.sheet.mods.url.placeholder")}
                 value={gitUrl}
                 onChange={(event) => {
                     setGitUrl(event.currentTarget.value);
@@ -58,7 +58,7 @@ export function AddGitModModalNew({ id, context }: ContextModalProps): React.JSX
             />
 
             {!!error && (
-                <Alert variant="light" color="red" title={t("contentSheet.mods.install.errorTitle")}>
+                <Alert variant="light" color="red" title={t("content.sheet.mods.install.error.title")}>
                     {error}
                 </Alert>
             )}
@@ -68,7 +68,7 @@ export function AddGitModModalNew({ id, context }: ContextModalProps): React.JSX
                     {t("common.cancel")}
                 </Button>
                 <Button onClick={handleConfirm} disabled={!isRepositoryReady || gitUrl.trim().length === 0} loading={!!busyAction}>
-                    {t("contentSheet.mods.install.button")}
+                    {t("content.sheet.mods.install.button")}
                 </Button>
             </Group>
         </Stack>

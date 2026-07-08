@@ -71,17 +71,17 @@ function BackupView({ backup, t, gameRunning, fileOperationRunning, restoreBacku
                         </Badge>
                     </Group>
                     <Text size="xs" c="dimmed">
-                        {t("backup.latest.worldAndCharacter", {
+                        {t("backup.latest.world.and.character", {
                             world: backup.worldName,
                             character: backup.characterName
                         })}
                     </Text>
                     <Text size="xs" c="dimmed">
-                        {t("backup.latest.createdAt", { createdAt: formatBackupTimestamp(backup.createdAt) ?? t("home.world.unknown") })}
+                        {t("backup.latest.created.at", { createdAt: formatBackupTimestamp(backup.createdAt) ?? t("home.world.unknown") })}
                     </Text>
                 </Stack>
                 <Stack gap={4} align="stretch" className="backup-drawer-item__actions">
-                    <Tooltip label={gameRunning ? t("backup.action.restoreBlockedRunning") : t("backup.action.restoreTooltip")}>
+                    <Tooltip label={gameRunning ? t("backup.action.restore.blocked.running") : t("backup.action.restore.tooltip")}>
                         <Button size="xs" disabled={restoreDisabled} onClick={handleRestoreClick}>
                             {t("backup.action.restore")}
                         </Button>

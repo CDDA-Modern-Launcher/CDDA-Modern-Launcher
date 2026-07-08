@@ -36,18 +36,18 @@ export function ModsDrawer(): ReactNode {
 
     const isRepositoryReady = ws.status === "ready" && state.status === "ready";
 
-    const handleAddGitMod = useCallback(() => openModal("addModFromGit", t("contentSheet.mods.gitModal.title"), {}), [t]);
+    const handleAddGitMod = useCallback(() => openModal("addModFromGit", t("content.sheet.mods.git.modal.title"), {}), [t]);
 
     return (
-        <Drawer opened={isOpened} onClose={close} position="right" size={420} title={<Title order={3}>{t("contentSheet.mods.title")}</Title>}>
+        <Drawer opened={isOpened} onClose={close} position="right" size={420} title={<Title order={3}>{t("content.sheet.mods.title")}</Title>}>
             <Stack gap="xl">
                 <Stack gap="sm" className="content-sheet__intro">
                     <Text size="sm" c="dimmed">
-                        {channelName === null ? t("contentSheet.mods.channelHintUnavailable") : t("contentSheet.mods.channelHint", { channel: channelName })}
+                        {channelName === null ? t("content.sheet.mods.channel.hint.unavailable") : t("content.sheet.mods.channel.hint", { channel: channelName })}
                     </Text>
                     {!isRepositoryReady && (
                         <Text size="sm" c="orange">
-                            {state.message ?? t("contentSheet.context.unavailable")}
+                            {state.message ?? t("content.sheet.context.unavailable")}
                         </Text>
                     )}
                     {!!error && (
@@ -58,32 +58,32 @@ export function ModsDrawer(): ReactNode {
                 </Stack>
 
                 <ContentSection
-                    title={t("contentSheet.mods.installed.title")}
+                    title={t("content.sheet.mods.installed.title")}
                     actions={
                         <Group gap="xs" wrap="nowrap">
                             <Menu shadow="md" width={260} position="bottom-end" disabled={!isRepositoryReady || busyAction !== null}>
                                 <Menu.Target>
-                                    <Tooltip label={t("contentSheet.mods.add.tooltip")} position="top">
-                                        <ActionIcon variant="light" radius="md" disabled={!isRepositoryReady || busyAction !== null} aria-label={t("contentSheet.mods.add.tooltip")}>
+                                    <Tooltip label={t("content.sheet.mods.add.tooltip")} position="top">
+                                        <ActionIcon variant="light" radius="md" disabled={!isRepositoryReady || busyAction !== null} aria-label={t("content.sheet.mods.add.tooltip")}>
                                             +
                                         </ActionIcon>
                                     </Tooltip>
                                 </Menu.Target>
                                 <Menu.Dropdown>
-                                    <Menu.Label>{t("contentSheet.mods.add.menuTitle")}</Menu.Label>
-                                    <Menu.Item onClick={handleAddGitMod}>{t("contentSheet.mods.add.fromGit")}</Menu.Item>
-                                    <Menu.Item disabled>{t("contentSheet.mods.add.fromFolder")}</Menu.Item>
-                                    <Menu.Item disabled>{t("contentSheet.mods.add.fromArchive")}</Menu.Item>
+                                    <Menu.Label>{t("content.sheet.mods.add.menu.title")}</Menu.Label>
+                                    <Menu.Item onClick={handleAddGitMod}>{t("content.sheet.mods.add.from.git")}</Menu.Item>
+                                    <Menu.Item disabled>{t("content.sheet.mods.add.from.folder")}</Menu.Item>
+                                    <Menu.Item disabled>{t("content.sheet.mods.add.from.archive")}</Menu.Item>
                                 </Menu.Dropdown>
                             </Menu>
-                            <Tooltip label={t("contentSheet.mods.check.button")} position="top">
+                            <Tooltip label={t("content.sheet.mods.check.button")} position="top">
                                 <ActionIcon
                                     variant="subtle"
                                     radius="md"
                                     onClick={checkUpdates}
                                     disabled={!isRepositoryReady || busyAction !== null}
                                     loading={busyAction === "check-updates" || state.checking}
-                                    aria-label={t("contentSheet.mods.check.button")}
+                                    aria-label={t("content.sheet.mods.check.button")}
                                 >
                                     ↻
                                 </ActionIcon>
@@ -93,7 +93,7 @@ export function ModsDrawer(): ReactNode {
                 >
                     {sortedMods.length === 0 ? (
                         <Text size="sm" c="dimmed">
-                            {t("contentSheet.mods.empty")}
+                            {t("content.sheet.mods.empty")}
                         </Text>
                     ) : (
                         sortedMods.map((mod) => <ModCard key={mod.id} mod={mod} />)

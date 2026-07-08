@@ -20,13 +20,13 @@ export function LastWorldButton({
 }): React.JSX.Element {
     const t = useTranslate();
     const disabled = !activeGameBundleAvailable || gameRunning || actionDisabled || worlds.length === 0;
-    const tooltip = gameRunning ? t("home.action.loadWorldTooltipRunning") : t("home.action.loadWorldTooltip");
+    const tooltip = gameRunning ? t("home.action.load.world.tooltip.running") : t("home.action.load.world.tooltip");
 
     if (worlds.length <= 1) {
         return (
             <Tooltip label={tooltip}>
                 <Button size="md" variant="light" disabled={disabled} leftSection="▶" onClick={() => void onLaunch(worlds[0]?.name)}>
-                    {t("home.action.loadWorld")}
+                    {t("home.action.load.world")}
                 </Button>
             </Tooltip>
         );
@@ -37,12 +37,12 @@ export function LastWorldButton({
             <Menu.Target>
                 <Tooltip label={tooltip}>
                     <Button size="md" variant="light" disabled={disabled} leftSection="▶">
-                        {t("home.action.loadWorldWithChoice")}
+                        {t("home.action.load.world.with.choice")}
                     </Button>
                 </Tooltip>
             </Menu.Target>
             <Menu.Dropdown>
-                <Menu.Label>{t("home.world.selectWorld")}</Menu.Label>
+                <Menu.Label>{t("home.world.select.world")}</Menu.Label>
                 {worlds.map((world) => (
                     <Menu.Item key={world.folderName} onClick={() => void onLaunch(world.name)} rightSection={world.folderName === currentWorld?.folderName ? "✓" : undefined}>
                         <Stack gap={0}>

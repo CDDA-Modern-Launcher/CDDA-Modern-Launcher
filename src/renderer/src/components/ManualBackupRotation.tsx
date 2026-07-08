@@ -33,8 +33,8 @@ export function ManualBackupRotation(): React.JSX.Element {
 
     return (
         <Select
-            label={t("settings.backups.manualRotation")}
-            description={t("settings.backups.manualRotationDescription")}
+            label={t("settings.backups.manual.rotation")}
+            description={t("settings.backups.manual.rotation.description")}
             value={manualBackupRotationLimit}
             data={manualBackupRotationOptions}
             allowDeselect={false}
@@ -50,7 +50,7 @@ function Renderer({ option }: ComboboxLikeRenderOptionInput<ComboboxItem>): Reac
 
     if (option.value === "disabled") {
         return (
-            <Tooltip label={t("settings.backups.rotation.allTooltip")} position="right" withArrow>
+            <Tooltip label={t("settings.backups.rotation.all.tooltip")} position="right" withArrow>
                 <Text size="sm">{option.label}</Text>
             </Tooltip>
         );

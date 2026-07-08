@@ -47,7 +47,7 @@ export function VersionStrip(): ReactNode {
 
     const openInstallModal = (release: GithubRelease | null): void => {
         if (release === null) return;
-        openModal("installRelease", t("home.action.installUpdate"), { release, hasInstalledVersions });
+        openModal("installRelease", t("home.action.install.update"), { release, hasInstalledVersions });
     };
     const showUpdateChanges = useCallback(async (): Promise<void> => {
         if (activeGameBundle === null || latestRelease === null) return;
@@ -62,7 +62,7 @@ export function VersionStrip(): ReactNode {
             }
         }
 
-        openModal("showReleaseNotes", t("releaseNotes.modal.title"), { notes: toUpdateReleaseNotesTarget(activeGameBundle, latestRelease, getUpdateReleases(activeGameBundle, releases), t) });
+        openModal("showReleaseNotes", t("release.notes.modal.title"), { notes: toUpdateReleaseNotesTarget(activeGameBundle, latestRelease, getUpdateReleases(activeGameBundle, releases), t) });
     }, [activeGameBundle, availableReleases, latestRelease, loadReleases, setReleaseNotesLoading, t]);
 
     const activateLatest = async (): Promise<void> => {
@@ -91,22 +91,22 @@ export function VersionStrip(): ReactNode {
                             {isCheckingLatest
                                 ? t("home.version.checking")
                                 : latestReleaseError !== null
-                                  ? t("home.version.checkFailed", { message: latestReleaseError })
+                                  ? t("home.version.check.failed", { message: latestReleaseError })
                                   : updateAvailable && latestRelease !== null
-                                    ? t("home.version.updateAvailable", {
+                                    ? t("home.version.update.available", {
                                           currentVersion: currentVersion,
                                           latestVersion: getReleaseNameDisplay(latestRelease.name)
                                       })
                                     : latestRelease === null
-                                      ? t("home.version.latestUnknown")
-                                      : t("home.version.latestInstalled")}
+                                      ? t("home.version.latest.unknown")
+                                      : t("home.version.latest.installed")}
                         </Text>
                         <Anchor component="button" type="button" size="xs" disabled={isCheckingLatest || fileOperationRunning} onClick={() => void refreshGame(true, true)}>
-                            {t("home.action.checkAgain")}
+                            {t("home.action.check.again")}
                         </Anchor>
                         {updateAvailable && latestRelease !== null && (
                             <Anchor component="button" type="button" size="xs" disabled={isLoadingReleaseNotes || fileOperationRunning} onClick={showUpdateChanges}>
-                                {isLoadingReleaseNotes ? t("home.action.loadingUpdateChanges") : t("home.action.showUpdateChanges")}
+                                {isLoadingReleaseNotes ? t("home.action.loading.update.changes") : t("home.action.show.update.changes")}
                             </Anchor>
                         )}
                     </Group>
@@ -115,18 +115,18 @@ export function VersionStrip(): ReactNode {
                 <Group gap="xs" wrap="nowrap">
                     {updateAction === "activate" && (
                         <Button size="xs" variant="light" loading={isActivatingLatest} disabled={fileOperationRunning} onClick={() => void activateLatest()}>
-                            {t("home.action.activateLatest")}
+                            {t("home.action.activate.latest")}
                         </Button>
                     )}
 
                     {updateAction === "install" && (
                         <Button size="xs" variant="light" loading={isInstallingGameBundle} disabled={fileOperationRunning} onClick={() => openInstallModal(latestRelease)}>
-                            {t("home.action.installUpdate")}
+                            {t("home.action.install.update")}
                         </Button>
                     )}
 
                     <Button size="xs" variant="subtle" onClick={() => openDrawer("game-bundles")}>
-                        {t("home.action.openVersions")}
+                        {t("home.action.open.versions")}
                     </Button>
                 </Group>
             </Group>

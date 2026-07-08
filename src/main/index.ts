@@ -70,10 +70,10 @@ function getFriendlyUpdateErrorKey(error: unknown): string {
     const message = error instanceof Error ? error.message : String(error);
 
     if (message.includes("latest.yml") && message.includes("404")) {
-        return "updater.error.metadataMissing";
+        return "updater.error.metadata.missing";
     }
 
-    return "updater.error.checkFailed";
+    return "updater.error.check.failed";
 }
 
 function getUpdateErrorState(messageKey: string, localizationService: LocalizationService): UpdateState {
@@ -87,8 +87,8 @@ function setupUpdaterIpc(localizationService: LocalizationService): void {
         if (is.dev || !app.isPackaged) {
             setUpdateState({
                 status: "error",
-                messageKey: "updater.error.packagedOnly",
-                message: localizationService.t("updater.error.packagedOnly")
+                messageKey: "updater.error.packaged.only",
+                message: localizationService.t("updater.error.packaged.only")
             });
             return updateState;
         }
@@ -99,7 +99,7 @@ function setupUpdaterIpc(localizationService: LocalizationService): void {
 
     ipcMain.handle(Bridge.Updater.installNow, () => {
         if (updateState.status !== "downloaded") {
-            setUpdateState(getUpdateErrorState("updater.error.notDownloaded", localizationService));
+            setUpdateState(getUpdateErrorState("updater.error.not.downloaded", localizationService));
             return false;
         }
 

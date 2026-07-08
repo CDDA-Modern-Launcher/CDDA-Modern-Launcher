@@ -63,7 +63,7 @@ export const useModsStore = create<State>((set) => ({
                 case "updated":
                     break;
                 case "blocked-by-local-changes":
-                    set({ error: translate("contentSheet.mods.update.blockedDescription", { name: result.mod.displayName }) });
+                    set({ error: translate("content.sheet.mods.update.blocked.description", { name: result.mod.displayName }) });
                     break;
                 default:
                     set({ error: result.message });

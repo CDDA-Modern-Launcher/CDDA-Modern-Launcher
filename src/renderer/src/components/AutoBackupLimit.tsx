@@ -33,8 +33,8 @@ export function AutoBackupLimit(): React.JSX.Element {
 
     return (
         <Select
-            label={t("settings.backups.autoLimit")}
-            description={t("settings.backups.autoLimitDescription")}
+            label={t("settings.backups.auto.limit")}
+            description={t("settings.backups.auto.limit.description")}
             value={autoBackupLimit}
             data={autoBackupLimitOptions}
             allowDeselect={false}
@@ -50,7 +50,7 @@ function Renderer({ option }: ComboboxLikeRenderOptionInput<ComboboxItem>): Reac
 
     if (option.value === "disabled") {
         return (
-            <Tooltip label={t("settings.backups.limit.disabledTooltip")} position="right" withArrow>
+            <Tooltip label={t("settings.backups.limit.disabled.tooltip")} position="right" withArrow>
                 <Text size="sm">{option.label}</Text>
             </Tooltip>
         );

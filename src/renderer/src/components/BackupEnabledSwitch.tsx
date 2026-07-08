@@ -16,7 +16,7 @@ export function BackupEnabledSwitch(): React.JSX.Element {
     );
 
     return (
-        <Tooltip label={t("settings.backups.enabledTooltip")}>
+        <Tooltip label={t("settings.backups.enabled.tooltip")}>
             <Switch aria-label={t("settings.backups.enabled")} checked={backupsEnabled} onChange={handleChange} />
         </Tooltip>
     );

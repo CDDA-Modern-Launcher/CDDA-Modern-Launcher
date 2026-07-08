@@ -17,7 +17,7 @@ interface Props {
 
 export function GameBundleCard({ gameBundle, release, actionDisabled, onSetActive }: Props): React.JSX.Element {
     const t = useTranslate();
-    const openReleaseNotesModal = useCallback(() => openModal("showReleaseNotes", t("releaseNotes.modal.title"), { notes: toInstalledReleaseNotesTarget(gameBundle, release) }), [gameBundle, release, t]);
+    const openReleaseNotesModal = useCallback(() => openModal("showReleaseNotes", t("release.notes.modal.title"), { notes: toInstalledReleaseNotesTarget(gameBundle, release) }), [gameBundle, release, t]);
     const handleDeleteClick = useCallback(() => openModal("deleteBackup", t("versions.delete.modal.title"), { gameBundle }), [gameBundle, t]);
 
     return (
@@ -29,7 +29,7 @@ export function GameBundleCard({ gameBundle, release, actionDisabled, onSetActiv
                         {gameBundle.isActive && <Badge variant="light">{t("versions.badge.active")}</Badge>}
                     </Group>
                     <Text size="xs" c="dimmed">
-                        {t("versions.installed.installedAt", { date: formatDate(gameBundle.manifest.installedAt) })}
+                        {t("versions.installed.installed.at", { date: formatDate(gameBundle.manifest.installedAt) })}
                     </Text>
                     <Text size="xs" c="dimmed">
                         {t("versions.installed.saves")}
@@ -38,17 +38,17 @@ export function GameBundleCard({ gameBundle, release, actionDisabled, onSetActiv
                 <Group gap="xs">
                     {!gameBundle.isActive && (
                         <Button size="xs" variant="light" disabled={actionDisabled} onClick={() => void onSetActive(gameBundle.id)}>
-                            {t("versions.action.makeActive")}
+                            {t("versions.action.make.active")}
                         </Button>
                     )}
                     <Button size="xs" variant="subtle" onClick={() => void window.api.game.openGameBundleFolder(gameBundle.id)}>
-                        {t("versions.action.openGameBundleFolder")}
+                        {t("versions.action.open.game.bundle.folder")}
                     </Button>
                     <Button size="xs" variant="subtle" onClick={() => void window.api.game.openSavesFolder(gameBundle.id)}>
-                        {t("versions.action.openSavesFolder")}
+                        {t("versions.action.open.saves.folder")}
                     </Button>
                     <Button size="xs" variant="subtle" onClick={openReleaseNotesModal}>
-                        {t("versions.action.showChanges")}
+                        {t("versions.action.show.changes")}
                     </Button>
                     <Button size="xs" variant="subtle" disabled={gameBundle.isActive || actionDisabled} color="red" onClick={handleDeleteClick}>
                         {t("versions.action.delete")}

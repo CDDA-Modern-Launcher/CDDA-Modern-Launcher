@@ -38,7 +38,7 @@ export function BackupCreateButton({ activeGameBundleAvailable, worlds, currentW
                 <Tooltip label={tooltip}>{<Icon disabled={disabled} />}</Tooltip>
             </Menu.Target>
             <Menu.Dropdown>
-                <Menu.Label>{t("home.world.selectWorld")}</Menu.Label>
+                <Menu.Label>{t("home.world.select.world")}</Menu.Label>
                 {backupableWorlds.map((world) => (
                     <Menu.Item key={world.folderName} onClick={() => void onCreate(world.name)} rightSection={world.folderName === currentWorld?.folderName ? "✓" : undefined}>
                         <Stack gap={0}>
@@ -57,17 +57,17 @@ export function BackupCreateButton({ activeGameBundleAvailable, worlds, currentW
 function Icon({ disabled, onClick }: { disabled: boolean; onClick?: () => void }): React.JSX.Element {
     const t = useTranslate();
     return (
-        <ActionIcon size={42} variant="light" disabled={disabled} onClick={onClick} aria-label={t("home.backup.createTooltip")}>
+        <ActionIcon size={42} variant="light" disabled={disabled} onClick={onClick} aria-label={t("home.backup.create.tooltip")}>
             💾
         </ActionIcon>
     );
 }
 
 function getBackupButtonTooltip(t: TLocalizeFn, enabled: boolean, activeGameBundleAvailable: boolean, backupableWorldCount: number, savesStable: boolean, backupBusy: boolean): string {
-    if (!enabled) return t("home.backup.disabledTooltip");
-    if (!activeGameBundleAvailable) return t("home.backup.noInstallTooltip");
-    if (backupableWorldCount === 0) return t("home.backup.noSaveTooltip");
-    if (!savesStable) return t("home.backup.savingTooltip");
-    if (backupBusy) return t("home.backup.busyTooltip");
-    return t("home.backup.createTooltip");
+    if (!enabled) return t("home.backup.disabled.tooltip");
+    if (!activeGameBundleAvailable) return t("home.backup.no.install.tooltip");
+    if (backupableWorldCount === 0) return t("home.backup.no.save.tooltip");
+    if (!savesStable) return t("home.backup.saving.tooltip");
+    if (backupBusy) return t("home.backup.busy.tooltip");
+    return t("home.backup.create.tooltip");
 }

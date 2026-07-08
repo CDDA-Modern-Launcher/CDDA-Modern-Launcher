@@ -15,14 +15,14 @@ export function useDeleteBackup(): (backup: BackupInstanceInfo | null, skipConfi
                 void deleteBackup(backup.id);
             } else {
                 modals.openConfirmModal({
-                    title: t("backup.action.restoreConfirm.title"),
+                    title: t("backup.action.restore.confirm.title"),
                     children: (
                         <Stack gap="xs">
                             <Text size="sm">
                                 {t("backup.delete.description", { title: backup.comment.trim().length === 0 ? t("backup.latest.title") : backup.comment, world: backup.worldName, character: backup.characterName })}
                             </Text>
                             <Text size="xs" c="dimmed">
-                                {t("confirmation.shiftHint")}
+                                {t("confirmation.shift.hint")}
                             </Text>
                         </Stack>
                     ),

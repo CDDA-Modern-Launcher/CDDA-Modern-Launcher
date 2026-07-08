@@ -12,9 +12,9 @@ export function ReleaseAssertVariantView(): React.JSX.Element {
 
     const data = useMemo(
         () => [
-            { value: "graphics-and-sounds", label: t("settings.game.assetVariant.graphicsAndSounds") },
-            { value: "graphics", label: t("settings.game.assetVariant.graphics") },
-            { value: "tiles", label: t("settings.game.assetVariant.tiles") }
+            { value: "graphics-and-sounds", label: t("settings.game.asset.variant.graphics.and.sounds") },
+            { value: "graphics", label: t("settings.game.asset.variant.graphics") },
+            { value: "tiles", label: t("settings.game.asset.variant.tiles") }
         ],
         [t]
     );
@@ -28,5 +28,5 @@ export function ReleaseAssertVariantView(): React.JSX.Element {
         [setReleaseAssetVariant]
     );
 
-    return <Select label={t("settings.game.assetVariant")} description={t("settings.game.assetVariantDescription")} value={releaseAssetVariant} data={data} allowDeselect={false} onChange={handleChange} />;
+    return <Select label={t("settings.game.asset.variant")} description={t("settings.game.asset.variant.description")} value={releaseAssetVariant} data={data} allowDeselect={false} onChange={handleChange} />;
 }

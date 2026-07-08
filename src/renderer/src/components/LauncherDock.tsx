@@ -61,12 +61,12 @@ export function LauncherDock(): ReactNode {
                             </Button>
                         </Menu.Target>
                         <Menu.Dropdown>
-                            <Menu.Label>{t("dock.game.menuTitle")}</Menu.Label>
+                            <Menu.Label>{t("dock.game.menu.title")}</Menu.Label>
                             {channels.map((channel) => (
                                 <ItemView channel={channel} selectedChannel={selectedChannel} key={channel.id} />
                             ))}
                             <Menu.Divider />
-                            <Menu.Item disabled>{t("dock.game.addCustom")}</Menu.Item>
+                            <Menu.Item disabled>{t("dock.game.add.custom")}</Menu.Item>
                         </Menu.Dropdown>
                     </Menu>
                 </Group>

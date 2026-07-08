@@ -84,8 +84,8 @@ export class WorkspaceService {
 
     private async prepare(path: string): Promise<WorkspaceStatus> {
         const directoryState = await getDirectoryState(path);
-        if (directoryState.status === "missing") return { status: "invalid", path: path, message: this.localizationService.t("repository.error.selectedMissing") };
-        if (directoryState.status === "not-directory") return { status: "invalid", path: path, message: this.localizationService.t("repository.error.selectedNotDirectory") };
+        if (directoryState.status === "missing") return { status: "invalid", path: path, message: this.localizationService.t("repository.error.selected.missing") };
+        if (directoryState.status === "not-directory") return { status: "invalid", path: path, message: this.localizationService.t("repository.error.selected.not.directory") };
 
         const configPath = join(path, REPOSITORY_CONFIG_FILE_NAME);
         const existingConfig = await this.readConfig(configPath);
@@ -108,8 +108,8 @@ export class WorkspaceService {
                 path: path,
                 message:
                     existingConfig.status === "missing"
-                        ? this.localizationService.t("repository.error.nonEmptyWithoutConfig", { fileName: REPOSITORY_CONFIG_FILE_NAME })
-                        : this.localizationService.t("repository.error.invalidExistingConfig", { fileName: REPOSITORY_CONFIG_FILE_NAME })
+                        ? this.localizationService.t("repository.error.non.empty.without.config", { fileName: REPOSITORY_CONFIG_FILE_NAME })
+                        : this.localizationService.t("repository.error.invalid.existing.config", { fileName: REPOSITORY_CONFIG_FILE_NAME })
             };
         }
 
@@ -127,8 +127,8 @@ export class WorkspaceService {
 
     private async validateWorkspace(path: string): Promise<WorkspaceStatus> {
         const directoryState = await getDirectoryState(path);
-        if (directoryState.status === "missing") return { status: "invalid", path: path, message: this.localizationService.t("repository.error.savedMissing") };
-        if (directoryState.status === "not-directory") return { status: "invalid", path: path, message: this.localizationService.t("repository.error.savedNotDirectory") };
+        if (directoryState.status === "missing") return { status: "invalid", path: path, message: this.localizationService.t("repository.error.saved.missing") };
+        if (directoryState.status === "not-directory") return { status: "invalid", path: path, message: this.localizationService.t("repository.error.saved.not.directory") };
 
         const config = await this.readConfig(join(path, REPOSITORY_CONFIG_FILE_NAME));
         if (config.status === "ok") {
@@ -142,8 +142,8 @@ export class WorkspaceService {
             path: path,
             message:
                 config.status === "missing"
-                    ? this.localizationService.t("repository.error.savedWithoutConfig", { fileName: REPOSITORY_CONFIG_FILE_NAME })
-                    : this.localizationService.t("repository.error.savedInvalidConfig", { fileName: REPOSITORY_CONFIG_FILE_NAME })
+                    ? this.localizationService.t("repository.error.saved.without.config", { fileName: REPOSITORY_CONFIG_FILE_NAME })
+                    : this.localizationService.t("repository.error.saved.invalid.config", { fileName: REPOSITORY_CONFIG_FILE_NAME })
         };
     }
 

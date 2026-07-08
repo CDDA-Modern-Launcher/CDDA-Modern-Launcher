@@ -70,18 +70,18 @@ export function BackupWorkspaceStrip(): React.JSX.Element | null {
                         </Badge>
                     </Group>
                     <Text size="xs" c="dimmed">
-                        {t("backup.latest.worldAndCharacter", {
+                        {t("backup.latest.world.and.character", {
                             world: backup.worldName,
                             character: backup.characterName
                         })}
                     </Text>
                     <Text size="xs" c="dimmed">
-                        {t("backup.latest.createdAt", { createdAt: formatBackupTimestamp(backup.createdAt) ?? t("home.world.unknown") })}
+                        {t("backup.latest.created.at", { createdAt: formatBackupTimestamp(backup.createdAt) ?? t("home.world.unknown") })}
                     </Text>
                 </Stack>
                 <Stack gap={4} align="flex-end" className="backup-strip__actions">
                     <Group gap="xs" wrap="nowrap">
-                        <Tooltip label={restoreDisabled ? t("backup.action.restoreBlockedRunning") : t("backup.action.restoreTooltip")}>
+                        <Tooltip label={restoreDisabled ? t("backup.action.restore.blocked.running") : t("backup.action.restore.tooltip")}>
                             <Button size="xs" variant="light" disabled={restoreDisabled} onClick={handleRestoreClick}>
                                 {t("backup.action.restore")}
                             </Button>

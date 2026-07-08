@@ -16,12 +16,12 @@ export function ReleaseNotesModal({ innerProps: { notes } }: ContextModalProps<{
                 <Group gap="xs">
                     {notes.publishedAt !== undefined && (
                         <Text size="xs" c="dimmed">
-                            {t("releaseNotes.modal.publishedAt", { date: formatDate(notes.publishedAt) })}
+                            {t("release.notes.modal.published.at", { date: formatDate(notes.publishedAt) })}
                         </Text>
                     )}
                     {notes.htmlUrl !== undefined && (
                         <Anchor size="xs" component="button" type="button" onClick={() => void window.api.shell.openExternal(notes.htmlUrl!)}>
-                            {t("releaseNotes.modal.openOnGithub")}
+                            {t("release.notes.modal.open.on.github")}
                         </Anchor>
                     )}
                 </Group>
@@ -29,7 +29,7 @@ export function ReleaseNotesModal({ innerProps: { notes } }: ContextModalProps<{
 
             {body.length === 0 ? (
                 <Text size="sm" c="dimmed">
-                    {t("releaseNotes.modal.empty")}
+                    {t("release.notes.modal.empty")}
                 </Text>
             ) : (
                 <Box component="pre" className="release-notes-text">

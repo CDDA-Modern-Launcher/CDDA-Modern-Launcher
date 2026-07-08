@@ -26,8 +26,8 @@ export function ModCard({ mod }: Props): ReactNode {
 
     const forceUpdateMod = (mod: ModInstanceInfo): void => {
         modals.openConfirmModal({
-            title: t("contentSheet.mods.update.forceConfirmTitle"),
-            children: <Text size="sm">{t("contentSheet.mods.update.forceConfirm", { name: mod.displayName })}</Text>,
+            title: t("content.sheet.mods.update.force.confirm.title"),
+            children: <Text size="sm">{t("content.sheet.mods.update.force.confirm", { name: mod.displayName })}</Text>,
             labels: { confirm: t("common.update"), cancel: t("common.cancel") },
             confirmProps: { color: "red" },
             onConfirm: () => void update(mod, true)
@@ -36,8 +36,8 @@ export function ModCard({ mod }: Props): ReactNode {
 
     const removeMod = (mod: ModInstanceInfo): void => {
         modals.openConfirmModal({
-            title: t("contentSheet.mods.remove.confirmTitle"),
-            children: <Text size="sm">{t("contentSheet.mods.remove.confirm", { name: mod.displayName })}</Text>,
+            title: t("content.sheet.mods.remove.confirm.title"),
+            children: <Text size="sm">{t("content.sheet.mods.remove.confirm", { name: mod.displayName })}</Text>,
             labels: { confirm: t("common.delete"), cancel: t("common.cancel") },
             confirmProps: { color: "red" },
             onConfirm: () => void remove(mod)
@@ -68,30 +68,30 @@ export function ModCard({ mod }: Props): ReactNode {
                 )}
                 {mod.hasLocalChanges && (
                     <Text size="sm" c="orange">
-                        {t("contentSheet.mods.localChanges")}
+                        {t("content.sheet.mods.local.changes")}
                     </Text>
                 )}
                 {mod.updateAvailable && (
                     <Text size="sm" c="blue">
-                        {t("contentSheet.mods.updateAvailable")}
+                        {t("content.sheet.mods.update.available")}
                     </Text>
                 )}
 
                 <Group gap="xs">
                     <Button size="xs" variant="light" onClick={() => update(mod)} disabled={busyAction !== null} loading={busyModId === mod.id && busyAction === "update"}>
-                        {t("contentSheet.mods.update.button")}
+                        {t("content.sheet.mods.update.button")}
                     </Button>
                     {mod.hasLocalChanges && (
                         <Button size="xs" variant="light" color="red" onClick={() => forceUpdateMod(mod)} disabled={busyAction !== null}>
                             {/* todo: tooltip */}
-                            {t("contentSheet.mods.update.forceButton")}
+                            {t("content.sheet.mods.update.force.button")}
                         </Button>
                     )}
                     <Button size="xs" variant="subtle" onClick={() => openFolder(mod)} disabled={busyAction !== null}>
-                        {t("contentSheet.selection.openFolder")}
+                        {t("content.sheet.selection.open.folder")}
                     </Button>
                     <Button size="xs" variant="subtle" color="red" onClick={() => removeMod(mod)} disabled={busyAction !== null} loading={busyModId === mod.id && busyAction === "remove"}>
-                        {t("contentSheet.mods.remove.button")}
+                        {t("content.sheet.mods.remove.button")}
                     </Button>
                 </Group>
             </Stack>

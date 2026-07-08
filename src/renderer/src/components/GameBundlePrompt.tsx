@@ -20,13 +20,13 @@ export function GameBundlePrompt(): ReactNode {
     const latestRelease = gameState.status === "ready" ? gameState.latestRelease : null;
     const disabled = latestRelease === null || fileOperationRunning;
     const hasInstalledVersions = gameState.status === "ready" && gameState.gameBundles.length > 0;
-    const description = latestRelease === null ? t("home.install.noRelease") : t("home.install.description");
+    const description = latestRelease === null ? t("home.install.no.release") : t("home.install.description");
     const activeGameBundle = gameState.status === "ready" ? gameState.gameBundle : null;
 
     const openInstallModal = useCallback(
         (release: GithubRelease | null): void => {
             if (release === null) return;
-            openModal("installRelease", t("home.action.installUpdate"), { release, hasInstalledVersions });
+            openModal("installRelease", t("home.action.install.update"), { release, hasInstalledVersions });
         },
         [hasInstalledVersions, t]
     );
@@ -44,7 +44,7 @@ export function GameBundlePrompt(): ReactNode {
                         {t("home.action.install")}
                     </Button>
                     <Button size="xs" variant="subtle" onClick={() => openDrawer("game-bundles")}>
-                        {t("home.action.chooseVersion")}
+                        {t("home.action.choose.version")}
                     </Button>
                 </Group>
             </Stack>

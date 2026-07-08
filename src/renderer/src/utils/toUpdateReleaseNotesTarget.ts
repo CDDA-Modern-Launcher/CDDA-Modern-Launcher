@@ -8,7 +8,7 @@ import { TLocalizeFn } from "@renderer/stores/useLocaleStore";
 
 export function toUpdateReleaseNotesTarget(activeGameBundle: GameBundle, latestRelease: GithubRelease, updateReleases: GithubRelease[], t: TLocalizeFn): ReleaseNotesTarget {
     return {
-        title: t("releaseNotes.modal.updateTitle", {
+        title: t("release.notes.modal.update.title", {
             current: getReleaseDisplayName(activeGameBundle),
             latest: getReleaseNameDisplay(latestRelease.name)
         }),

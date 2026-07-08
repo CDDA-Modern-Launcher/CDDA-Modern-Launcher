@@ -45,10 +45,10 @@ export function DeleteGameBundleModal({ id, innerProps: { gameBundle }, context 
     return (
         <Stack gap="md">
             <Text size="sm" c="dimmed">
-                {t("deleteGameBundle.modal.description", { version: getReleaseDisplayName(gameBundle) })}
+                {t("delete.game.bundle.modal.description", { version: getReleaseDisplayName(gameBundle) })}
             </Text>
 
-            <Checkbox size="sm" checked={deleteUserdata} onChange={(event) => setDeleteUserdata(event.currentTarget.checked)} label={t("versions.option.deleteUserdata")} />
+            <Checkbox size="sm" checked={deleteUserdata} onChange={(event) => setDeleteUserdata(event.currentTarget.checked)} label={t("versions.option.delete.userdata")} />
 
             {!!error && (
                 <Alert variant="light" color="red" title={t("common.error.title")}>

@@ -22,9 +22,9 @@ export function SaveStatusLine(): React.JSX.Element {
 }
 
 function getSaveStatusText(t: TLocalizeFn, activeGameBundleAvailable: boolean, world: GameWorldInfo | null, worldCount: number): string {
-    if (!activeGameBundleAvailable) return t("home.saveStatus.noGameBundle");
-    if (worldCount === 0) return t("home.saveStatus.noWorlds");
-    if (world === null) return t("home.saveStatus.multipleWorlds", { count: worldCount.toString() });
+    if (!activeGameBundleAvailable) return t("home.save.status.no.game.bundle");
+    if (worldCount === 0) return t("home.save.status.no.worlds");
+    if (world === null) return t("home.save.status.multiple.worlds", { count: worldCount.toString() });
     const character = world.characterName ?? t("home.world.unknown");
-    return t("home.saveStatus.singleWorld", { world: world.name, character });
+    return t("home.save.status.single.world", { world: world.name, character });
 }

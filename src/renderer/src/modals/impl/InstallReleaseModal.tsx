@@ -61,9 +61,9 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
 
             {hasInstalledVersions && (
                 <Stack gap="xs" className="game-bundle-options">
-                    <Checkbox size="sm" checked={copyUserdata} onChange={(event) => setCopyUserdata(event.currentTarget.checked)} label={t("install.option.copyUserdata")} />
+                    <Checkbox size="sm" checked={copyUserdata} onChange={(event) => setCopyUserdata(event.currentTarget.checked)} label={t("install.option.copy.userdata")} />
 
-                    <Checkbox size="sm" checked={removeOlderGameBundles} onChange={(event) => setRemoveOlderGameBundles(event.currentTarget.checked)} label={t("install.option.removeOldVersions")} />
+                    <Checkbox size="sm" checked={removeOlderGameBundles} onChange={(event) => setRemoveOlderGameBundles(event.currentTarget.checked)} label={t("install.option.remove.old.versions")} />
                 </Stack>
             )}
 

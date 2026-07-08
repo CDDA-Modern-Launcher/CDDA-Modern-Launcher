@@ -68,18 +68,18 @@ export class GameBackupService {
     }
 
     async createAutoBackup(context: GameBackupContext): Promise<EBackupCreateResult> {
-        if (!context.gameRunning) return { status: "unavailable", message: this.t("backup.error.autoRequiresRunning") };
+        if (!context.gameRunning) return { status: "unavailable", message: this.t("backup.error.auto.requires.running") };
         if (this.isBusy) return { status: "blocked", message: this.t("backup.error.busy") };
         const settings = await this.repositoryService.getWorkspaceSettings();
-        if (!settings.backupsEnabled || settings.autoBackupLimit === "disabled") return { status: "unavailable", message: this.t("backup.error.autoDisabled") };
+        if (!settings.backupsEnabled || settings.autoBackupLimit === "disabled") return { status: "unavailable", message: this.t("backup.error.auto.disabled") };
         return this.createBackup(context, "auto");
     }
 
     async restoreBackup(context: GameBackupContext, backupId: string): Promise<EBackupRestoreResult> {
-        if (context.gameRunning) return { status: "blocked", message: this.t("backup.error.restoreBlockedRunning") };
+        if (context.gameRunning) return { status: "blocked", message: this.t("backup.error.restore.blocked.running") };
         if (this.isBusy) return { status: "blocked", message: this.t("backup.error.busy") };
         const backup = await findBackup(context.gameBundle, backupId);
-        if (backup === null) return { status: "unavailable", message: this.t("backup.error.notFound") };
+        if (backup === null) return { status: "unavailable", message: this.t("backup.error.not.found") };
         const savePath = join(context.gameBundle.userdataPath, "save");
         const worldPath = join(savePath, backup.worldFolderName);
         const tempPath = `${worldPath}.restore-${Date.now()}`;
@@ -109,23 +109,23 @@ export class GameBackupService {
     }
 
     async deleteBackup(gameBundle: GameBundle | null, backupId: string): Promise<EBackupDeleteResult> {
-        if (gameBundle === null) return { status: "unavailable", message: this.t("game.error.noGameBundle") };
+        if (gameBundle === null) return { status: "unavailable", message: this.t("game.error.no.game.bundle") };
         const backup = await findBackup(gameBundle, backupId);
-        if (backup === null) return { status: "unavailable", message: this.t("backup.error.notFound") };
+        if (backup === null) return { status: "unavailable", message: this.t("backup.error.not.found") };
         await rm(backup.path, { recursive: true, force: true });
         await this.emitSummary(gameBundle);
         return { status: "deleted" };
     }
 
     async renameBackup(gameBundle: GameBundle | null, backupId: string, comment: string): Promise<EBackupRenameResult> {
-        if (gameBundle === null) return { status: "unavailable", message: this.t("game.error.noGameBundle") };
+        if (gameBundle === null) return { status: "unavailable", message: this.t("game.error.no.game.bundle") };
         const backup = await findBackup(gameBundle, backupId);
-        if (backup === null) return { status: "unavailable", message: this.t("backup.error.notFound") };
+        if (backup === null) return { status: "unavailable", message: this.t("backup.error.not.found") };
         const updated: BackupInfo = { ...toBackupInfo(backup), comment: comment.trim(), type: "manual" };
         await writeFile(join(backup.path, BACKUP_INFO_FILE_NAME), `${JSON.stringify(updated, null, 2)}\n`, "utf8");
         const summary = await this.emitSummary(gameBundle);
         const renamed = summary.backups.find((candidate) => candidate.id === backupId);
-        return renamed === undefined ? { status: "unavailable", message: this.t("backup.error.notFound") } : { status: "renamed", backup: renamed };
+        return renamed === undefined ? { status: "unavailable", message: this.t("backup.error.not.found") } : { status: "renamed", backup: renamed };
     }
 
     stop(): void {
@@ -139,12 +139,12 @@ export class GameBackupService {
     private async createBackup(context: GameBackupContext, type: TBackupKind): Promise<EBackupCreateResult> {
         const settings = await this.repositoryService.getWorkspaceSettings();
         if (!settings.backupsEnabled) return { status: "unavailable", message: this.t("backup.error.disabled") };
-        if (!context.savesStable) return { status: "blocked", message: this.t("backup.error.savesChanging") };
+        if (!context.savesStable) return { status: "blocked", message: this.t("backup.error.saves.changing") };
         if (this.isBusy) return { status: "blocked", message: this.t("backup.error.busy") };
         const world = context.saves?.currentWorld ?? null;
-        if (world === null || world.characterName === null) return { status: "unavailable", message: this.t("backup.error.worldAndCharacterMissing") };
+        if (world === null || world.characterName === null) return { status: "unavailable", message: this.t("backup.error.world.and.character.missing") };
         const sourceWorldPath = join(context.gameBundle.userdataPath, "save", world.folderName);
-        if (!(await pathExists(sourceWorldPath))) return { status: "unavailable", message: this.t("backup.error.worldFolderMissing") };
+        if (!(await pathExists(sourceWorldPath))) return { status: "unavailable", message: this.t("backup.error.world.folder.missing") };
 
         const id = `${new Date().toISOString().replace(/[.:]/g, "-")}-${type}`;
         const backupPath = join(getBackupsPath(context.gameBundle), safePathSegment(id));
@@ -173,7 +173,7 @@ export class GameBackupService {
             const backup = summary.backups.find((candidate) => candidate.id === id);
             this.setProgress({ status: "completed" }, true);
             queueMicrotask(() => this.setProgress({ status: "idle" }, true));
-            return backup === undefined ? { status: "error", message: this.t("backup.error.createdBackupMissing") } : { status: "created", backup };
+            return backup === undefined ? { status: "error", message: this.t("backup.error.created.backup.missing") } : { status: "created", backup };
         } catch (error) {
             await rm(backupPath, { recursive: true, force: true });
             const message = error instanceof Error ? error.message : String(error);

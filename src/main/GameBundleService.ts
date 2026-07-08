@@ -61,7 +61,7 @@ export class GameBundleService {
 
     async getState(refreshLatest = false, forceRefresh = false): Promise<GameBundleState> {
         const repository = await this.workspaceService.getWorkspaceStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repositoryNotReady") };
+        if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repository.not.ready") };
 
         const channel = getSelectedChannel(repository.config);
         const { gameBundles } = await this.registry.readAndRepair(repository.path, repository.config, channel.id);
@@ -111,7 +111,7 @@ export class GameBundleService {
     async launchActiveGameBundle(options: GameLaunchOptions = {}): Promise<EGameLaunchResult> {
         if (this.operations.isRunning()) return this.operations.busyResult<EGameLaunchResult>();
         const state = await this.getState(false);
-        if (state.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repositoryNotReady") };
+        if (state.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repository.not.ready") };
         const result = await this.runtime.launch(state.gameBundle, options, (gameBundle) => this.saves.updateActiveGameBundle(gameBundle));
         if (result.status === "launched" || result.status === "already-running") void this.emitState(false);
         return result;
@@ -146,7 +146,7 @@ export class GameBundleService {
     async createManualBackup(options: CreateManualBackupOptions = {}): Promise<EBackupCreateResult> {
         return this.operations.run("creating-backup", async () => {
             const context = await this.saves.getBackupContext(options.worldName);
-            if (context === null) return { status: "unavailable", message: this.localizationService.t("game.error.noGameBundle") };
+            if (context === null) return { status: "unavailable", message: this.localizationService.t("game.error.no.game.bundle") };
             const result = await this.backups.createManualBackup(context);
             if (result.status === "created") this.saves.touchAutoBackupCooldown(context.gameBundle.id, result.backup.worldFolderName);
             return result;
@@ -156,7 +156,7 @@ export class GameBundleService {
     async restoreBackup(backupId: string): Promise<EBackupRestoreResult> {
         return this.operations.run("restoring-backup", async () => {
             const context = await this.saves.getBackupContext();
-            if (context === null) return { status: "unavailable", message: this.localizationService.t("game.error.noGameBundle") };
+            if (context === null) return { status: "unavailable", message: this.localizationService.t("game.error.no.game.bundle") };
             const result = await this.backups.restoreBackup(context, backupId);
             if (result.status === "restored") void this.emitState(false);
             return result;
@@ -180,13 +180,13 @@ export class GameBundleService {
     private async installLatestGameBundleUnlocked(options: GameBundleInstallOptions): Promise<EGameBundleInstallResult> {
         this.events.emitInstallProgress({ status: "resolving-release" }, true);
         const repository = await this.workspaceService.getWorkspaceStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repositoryNotReady") };
+        if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repository.not.ready") };
 
         try {
             const channel = getSelectedChannel(repository.config);
             const releases = await this.releases.fetch(channel, false);
             const release = options.releaseId === undefined ? releases[0] : releases.find((candidate) => candidate.id === options.releaseId);
-            if (release === undefined) return this.installError(this.localizationService.t("game.error.noCompatibleReleaseAsset"));
+            if (release === undefined) return this.installError(this.localizationService.t("game.error.no.compatible.release.asset"));
 
             const gameBundlesBefore = await this.registry.read(repository.path, repository.config, channel.id);
             const existingGameBundle = gameBundlesBefore.find((gameBundle) => gameBundle.id === release.id);
@@ -214,10 +214,10 @@ export class GameBundleService {
 
     private async setActiveGameBundleUnlocked(gameBundleId: string): Promise<EGameBundleSetActiveResult> {
         const repository = await this.workspaceService.getWorkspaceStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repositoryNotReady") };
+        if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repository.not.ready") };
         const channel = getSelectedChannel(repository.config);
         const gameBundles = await this.registry.read(repository.path, repository.config, channel.id);
-        if (!gameBundles.some((gameBundle) => gameBundle.id === gameBundleId)) return { status: "error", message: this.localizationService.t("game.error.gameBundleMissing") };
+        if (!gameBundles.some((gameBundle) => gameBundle.id === gameBundleId)) return { status: "error", message: this.localizationService.t("game.error.game.bundle.missing") };
         await this.activateBundle(repository.path, repository.config, channel.id, gameBundleId);
         await this.emitStateWithLatestRelease(await this.safeFindLatest(channel));
         return { status: "updated" };
@@ -225,11 +225,11 @@ export class GameBundleService {
 
     private async deleteGameBundleUnlocked(gameBundleId: string, options: GameBundleDeleteOptions): Promise<EGameBundleDeleteResult> {
         const repository = await this.workspaceService.getWorkspaceStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repositoryNotReady") };
+        if (repository.status !== "ready") return { status: "unavailable", message: this.localizationService.t("game.error.repository.not.ready") };
         const channel = getSelectedChannel(repository.config);
         const gameBundle = (await this.registry.read(repository.path, repository.config, channel.id)).find((candidate) => candidate.id === gameBundleId);
-        if (gameBundle === undefined) return { status: "error", message: this.localizationService.t("game.error.gameBundleMissing") };
-        if (gameBundle.isActive) return { status: "blocked", message: this.localizationService.t("game.error.activeGameBundleDeleteBlocked") };
+        if (gameBundle === undefined) return { status: "error", message: this.localizationService.t("game.error.game.bundle.missing") };
+        if (gameBundle.isActive) return { status: "blocked", message: this.localizationService.t("game.error.active.game.bundle.delete.blocked") };
         await this.registry.delete(gameBundle, options.deleteUserdata);
         await this.emitState(false);
         return { status: "deleted" };

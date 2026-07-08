@@ -17,7 +17,7 @@ interface Props {
 
 export function GameBundleReleaseCard({ release, isGameBundleReady, isInstallingGameBundle, actionDisabled, onRequestInstall }: Props): React.JSX.Element {
     const t = useTranslate();
-    const openReleaseNotesModal = useCallback(() => openModal("showReleaseNotes", t("releaseNotes.modal.title"), { notes: toReleaseNotesTarget(release) }), [release, t]);
+    const openReleaseNotesModal = useCallback(() => openModal("showReleaseNotes", t("release.notes.modal.title"), { notes: toReleaseNotesTarget(release) }), [release, t]);
 
     return (
         <Card withBorder radius="md" p="sm" className="version-card">
@@ -28,7 +28,7 @@ export function GameBundleReleaseCard({ release, isGameBundleReady, isInstalling
                         {isGameBundleReady && <Badge variant="light">{t("versions.badge.installed")}</Badge>}
                     </Group>
                     <Text size="xs" c="dimmed">
-                        {t("versions.available.publishedAt", { date: formatDate(release.publishedAt) })}
+                        {t("versions.available.published.at", { date: formatDate(release.publishedAt) })}
                     </Text>
                     <Text size="xs" c="dimmed">
                         {release.asset.name}
@@ -36,7 +36,7 @@ export function GameBundleReleaseCard({ release, isGameBundleReady, isInstalling
                 </Stack>
                 <Group gap="xs" wrap="nowrap">
                     <Button size="xs" variant="subtle" onClick={openReleaseNotesModal}>
-                        {t("versions.action.showChanges")}
+                        {t("versions.action.show.changes")}
                     </Button>
                     <Button size="xs" disabled={isGameBundleReady || actionDisabled} loading={isInstallingGameBundle} onClick={() => onRequestInstall(release)}>
                         {isGameBundleReady ? t("versions.action.installed") : t("versions.action.install")}

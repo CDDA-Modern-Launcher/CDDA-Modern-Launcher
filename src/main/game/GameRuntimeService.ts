@@ -32,10 +32,10 @@ export class GameRuntimeService {
 
     async launch(gameBundle: GameBundle | null, options: GameLaunchOptions = {}, onLaunched: (gameBundle: GameBundle) => Promise<void>): Promise<EGameLaunchResult> {
         if (this.runtime.status === "running") return { status: "already-running" };
-        if (gameBundle === null) return { status: "unavailable", message: this.localizationService.t("game.error.noGameBundle") };
+        if (gameBundle === null) return { status: "unavailable", message: this.localizationService.t("game.error.no.game.bundle") };
 
         const executablePath = await this.resolveExecutablePath(gameBundle);
-        if (executablePath === null) return { status: "unavailable", message: this.localizationService.t("game.error.executableMissing") };
+        if (executablePath === null) return { status: "unavailable", message: this.localizationService.t("game.error.executable.missing") };
 
         await mkdir(gameBundle.userdataPath, { recursive: true });
         const args = ["--userdir", gameBundle.userdataPath];

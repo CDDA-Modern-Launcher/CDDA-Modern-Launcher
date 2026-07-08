@@ -35,7 +35,7 @@ export function setupGameBundleIpc(gameBundleService: GameBundleService, localiz
 }
 
 async function openFolder(path: string | null, localizationService: LocalizationService): Promise<EGameFolderOpenResult> {
-    if (path === null) return { status: "unavailable", message: localizationService.t("game.error.folderUnavailable") };
+    if (path === null) return { status: "unavailable", message: localizationService.t("game.error.folder.unavailable") };
     const error = await shell.openPath(path);
     return error.length === 0 ? { status: "opened" } : { status: "error", message: error };
 }

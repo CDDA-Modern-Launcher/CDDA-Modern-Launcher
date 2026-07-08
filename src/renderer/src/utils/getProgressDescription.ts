@@ -4,11 +4,11 @@ import { TLocalizeFn } from "@renderer/stores/useLocaleStore";
 
 export function getProgressDescription(progress: GameBundleInstallProgress, t: TLocalizeFn): string {
     if (progress.status === "downloading")
-        return t("install.progress.downloadingDescription", { size: formatBytes(progress.transferredBytes), total: progress.totalBytes === null ? "?" : formatBytes(progress.totalBytes) });
-    if (progress.status === "extracting") return t("install.progress.extractingDescription", { version: progress.releaseName });
-    if (progress.status === "preparing-saves") return t("install.progress.preparingSavesDescription");
-    if (progress.status === "finalizing") return t("install.progress.finalizingDescription");
-    if (progress.status === "completed") return t("install.progress.completedDescription");
+        return t("install.progress.downloading.description", { size: formatBytes(progress.transferredBytes), total: progress.totalBytes === null ? "?" : formatBytes(progress.totalBytes) });
+    if (progress.status === "extracting") return t("install.progress.extracting.description", { version: progress.releaseName });
+    if (progress.status === "preparing-saves") return t("install.progress.preparing.saves.description");
+    if (progress.status === "finalizing") return t("install.progress.finalizing.description");
+    if (progress.status === "completed") return t("install.progress.completed.description");
     if (progress.status === "error") return progress.message;
-    return t("install.progress.resolvingReleaseDescription");
+    return t("install.progress.resolving.release.description");
 }

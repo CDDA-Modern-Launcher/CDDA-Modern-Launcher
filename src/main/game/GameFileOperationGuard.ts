@@ -19,7 +19,7 @@ export class GameFileOperationGuard {
     }
 
     busyResult<T extends { status: string; message?: string }>(): T {
-        return { status: "blocked", message: this.localizationService.t("game.error.fileOperationBusy") } as T;
+        return { status: "blocked", message: this.localizationService.t("game.error.file.operation.busy") } as T;
     }
 
     async run<T extends { status: string; message?: string }>(kind: GameFileOperationKind, action: () => Promise<T>): Promise<T> {
