@@ -93,7 +93,7 @@ function LocaleIcon({ option }: { option: LocaleOption | undefined }): React.JSX
 function ThemeSelector(): ReactNode {
     const t = useTranslate();
 
-    const themeSource = useAppearanceStore((state) => state.theme);
+    const themeSource = useAppearanceStore((state) => state.themeSource);
     const setThemeSource = useAppearanceStore((state) => state.setThemeSource);
 
     const themeOptions = getThemeOptions(t);

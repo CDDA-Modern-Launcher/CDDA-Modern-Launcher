@@ -2,6 +2,7 @@ import { TAppThemeSource } from "../appearance/TAppThemeSource";
 import { TAppTheme } from "../appearance/TAppTheme";
 
 export type AppearanceApi = {
+    getInitialAppearance: () => AppearanceBundle;
     getThemeSource: () => Promise<TAppThemeSource>;
     setThemeSource: (themeSource: TAppThemeSource) => Promise<AppearanceBundle>;
 

@@ -9,6 +9,10 @@ import { Bridge } from "../../shared/bridge-api/Bridge";
 export async function setupAppearanceIpc(settings: AppSettings): Promise<void> {
     nativeTheme.themeSource = await settings.getThemeSource();
 
+    ipcMain.on(Bridge.Appearance.getInitialAppearance, (event) => {
+        event.returnValue = getAppearanceBundle();
+    });
+
     ipcMain.handle(Bridge.Appearance.getThemeSource, () => nativeTheme.themeSource);
     ipcMain.handle(Bridge.Appearance.setThemeSource, async (_event, themeSource: TAppThemeSource) => {
         await settings.setThemeSource(themeSource);

@@ -9,6 +9,7 @@ export const Bridge = {
         onStateChanged: "updater:state-changed"
     },
     Appearance: {
+        getInitialAppearance: "appearance:getInitialAppearance",
         getThemeSource: "appearance:getThemeSource",
         setThemeSource: "appearance:setThemeSource",
         getTheme: "appearance:getTheme",

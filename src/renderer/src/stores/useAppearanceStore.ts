@@ -11,15 +11,20 @@ interface State extends IMountableState {
     theme: TAppTheme;
 }
 
-export const useAppearanceStore = create<State>()((set) => ({
-    themeSource: "system",
-    setThemeSource: async (themeSource: TAppThemeSource): Promise<AppearanceBundle> => await window.api.appearance.setThemeSource(themeSource),
+const initialAppearance = window.api.appearance.getInitialAppearance();
 
-    theme: "dark",
+export const useAppearanceStore = create<State>()((set) => ({
+    themeSource: initialAppearance.themeSource,
+    setThemeSource: async (themeSource: TAppThemeSource): Promise<AppearanceBundle> => {
+        const appearance = await window.api.appearance.setThemeSource(themeSource);
+        set(appearance);
+        return appearance;
+    },
+
+    theme: initialAppearance.theme,
 
     mount: () => {
-        void window.api.appearance.getThemeSource().then((themeSource) => set({ themeSource }));
-        void window.api.appearance.getTheme().then((theme) => set({ theme }));
+        void Promise.all([window.api.appearance.getThemeSource(), window.api.appearance.getTheme()]).then(([themeSource, theme]) => set({ themeSource, theme }));
         return window.api.appearance.onAppearanceChanged(({ themeSource, theme }: { themeSource: TAppThemeSource; theme: TAppTheme }) => set({ themeSource, theme }));
     }
 }));

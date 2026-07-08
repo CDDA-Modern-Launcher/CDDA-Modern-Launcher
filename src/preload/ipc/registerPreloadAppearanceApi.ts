@@ -6,6 +6,7 @@ import { Bridge } from "../../shared/bridge-api/Bridge";
 
 export function registerPreloadAppearanceApi(): AppearanceApi {
     return {
+        getInitialAppearance: (): AppearanceBundle => ipcRenderer.sendSync(Bridge.Appearance.getInitialAppearance) as AppearanceBundle,
         getThemeSource: (): Promise<TAppThemeSource> => ipcRenderer.invoke(Bridge.Appearance.getThemeSource),
         setThemeSource: async (appearance: TAppThemeSource): Promise<AppearanceBundle> => ipcRenderer.invoke(Bridge.Appearance.setThemeSource, appearance),
 
