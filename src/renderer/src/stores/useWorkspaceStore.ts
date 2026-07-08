@@ -4,6 +4,7 @@ import { IMountableState } from "@renderer/types/IMountableState";
 
 interface State extends IMountableState {
     workspaceStatus: WorkspaceStatus;
+    isLoaded: boolean;
 
     isSelectingRepository: boolean;
     setSelectingRepository: (isSelectingRepository: boolean) => void;
@@ -12,7 +13,8 @@ interface State extends IMountableState {
 }
 
 export const useWorkspaceStore = create<State>((set) => ({
-    workspaceStatus: { status: "unconfigured" },
+    workspaceStatus: { status: "loading", path: "" },
+    isLoaded: false,
 
     isSelectingRepository: false,
 
@@ -46,10 +48,14 @@ export const useWorkspaceStore = create<State>((set) => ({
     },
 
     mount: () => {
-        void window.api.workspace.getStatus().then((status) => set({ workspaceStatus: status }));
+        void window.api.workspace.getStatus().then((status) => set({ workspaceStatus: status, isLoaded: true }));
 
         return function cleanup() {
             //
         };
     }
 }));
+
+export function useIsWorkspaceLoaded(): boolean {
+    return useWorkspaceStore((state) => state.isLoaded);
+}

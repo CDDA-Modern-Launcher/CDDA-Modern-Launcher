@@ -9,21 +9,39 @@ import { useAppearanceStore } from "@renderer/stores/useAppearanceStore";
 import { defaultModalProps } from "@renderer/utils/DefaultModalProps";
 import { DrawerOwner } from "@renderer/components/DrawerOwner";
 import { contextModals } from "@renderer/modals/contextModals";
+import { useIsLocaleLoaded } from "@renderer/stores/useLocaleStore";
+import { useIsWorkspaceLoaded } from "@renderer/stores/useWorkspaceStore";
+import { useConfigStore } from "@renderer/stores/useConfigStore";
+
+function StartupScreen(): React.JSX.Element {
+    return <div className="app-startup-screen" />;
+}
 
 export default function App(): React.JSX.Element {
     const colorTheme = useAppearanceStore((state) => state.theme);
+    const isLocaleLoaded = useIsLocaleLoaded();
+    const isWorkspaceLoaded = useIsWorkspaceLoaded();
+    const isConfigLoaded = useConfigStore((state) => state.isLoaded);
+    const isReady = isLocaleLoaded && isWorkspaceLoaded && isConfigLoaded;
+
     return (
         <MantineProvider forceColorScheme={colorTheme}>
             <ModalsProvider modalProps={defaultModalProps} modals={contextModals}>
-                <UpdateFloatingCard />
+                {isReady ? (
+                    <>
+                        <UpdateFloatingCard />
 
-                <main className="app-shell">
-                    <WorkspaceView />
-                </main>
+                        <main className="app-shell">
+                            <WorkspaceView />
+                        </main>
 
-                <LauncherDock />
+                        <LauncherDock />
 
-                <DrawerOwner />
+                        <DrawerOwner />
+                    </>
+                ) : (
+                    <StartupScreen />
+                )}
             </ModalsProvider>
         </MantineProvider>
     );

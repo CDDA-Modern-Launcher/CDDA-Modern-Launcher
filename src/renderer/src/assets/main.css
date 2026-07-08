@@ -49,6 +49,12 @@ code {
     height: 100vh;
 }
 
+.app-startup-screen {
+    width: 100vw;
+    height: 100vh;
+    background: var(--app-shell-background);
+}
+
 .app-shell {
     height: 100vh;
     min-height: 0;
