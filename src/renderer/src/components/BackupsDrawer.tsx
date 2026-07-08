@@ -1,28 +1,18 @@
 import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstanceInfo";
-import React, { ReactNode, useCallback } from "react";
-import { Alert, Badge, Button, Card, Drawer, Group, Stack, Text, Title, Tooltip } from "@mantine/core";
+import React, { ReactNode } from "react";
+import { Alert, Badge, Card, Drawer, Group, Stack, Text, Title } from "@mantine/core";
 import { formatBackupTimestamp } from "@renderer/utils/formatBackupTimestamp";
-
-import { RenameBackupButton } from "@renderer/components/RenameBackupButton";
 import { LocalizedText } from "@renderer/components/LocalizedText";
 import { TLocalizeFn, useTranslate } from "@renderer/stores/useLocaleStore";
-import { useIsGameRunning } from "@renderer/stores/useGameRuntimeStore";
-import { useGameFileOperationStore } from "@renderer/stores/useGameFileOperationStore";
-import { useDeleteBackup } from "@renderer/hooks/useDeleteBackup";
 import { useGameBackupStore } from "@renderer/stores/useGameBackupStore";
-import { useRestoreBackup } from "@renderer/hooks/useRestoreBackup";
 import { useDrawerStore, useIsDrawerOpened } from "@renderer/stores/useDrawerStore";
+import { BackupControl } from "@renderer/components/backups/BackupControl";
 
 export function BackupsDrawer(): React.JSX.Element {
     const t = useTranslate();
     const isOpened = useIsDrawerOpened("backups");
     const close = useDrawerStore((state) => state.close);
-
-    const gameRunning = useIsGameRunning();
-    const fileOperationRunning = useGameFileOperationStore((state) => state.isRunning);
     const backupSummary = useGameBackupStore((state) => state.summary);
-    const restoreBackup = useRestoreBackup();
-    const deleteBackup = useDeleteBackup();
 
     return (
         <Drawer opened={isOpened} onClose={close} position="right" size={520} title={<Title order={3}>{t("backups.title")}</Title>}>
@@ -33,9 +23,7 @@ export function BackupsDrawer(): React.JSX.Element {
                         <LocalizedText size="sm" i18nKey="backups.empty.description" />
                     </Alert>
                 ) : (
-                    backupSummary.backups.map((backup) => (
-                        <BackupView backup={backup} t={t} gameRunning={gameRunning} fileOperationRunning={fileOperationRunning} restoreBackup={restoreBackup} deleteBackup={deleteBackup} key={backup.id} />
-                    ))
+                    backupSummary.backups.map((backup) => <BackupView backup={backup} t={t} key={backup.id} />)
                 )}
             </Stack>
         </Drawer>
@@ -45,18 +33,9 @@ export function BackupsDrawer(): React.JSX.Element {
 interface BackupViewProps {
     backup: BackupInstanceInfo;
     t: TLocalizeFn;
-    gameRunning: boolean;
-    fileOperationRunning: boolean;
-    restoreBackup: ReturnType<typeof useRestoreBackup>;
-    deleteBackup: ReturnType<typeof useDeleteBackup>;
 }
 
-function BackupView({ backup, t, gameRunning, fileOperationRunning, restoreBackup, deleteBackup }: BackupViewProps): ReactNode {
-    const handleRestoreClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => restoreBackup(backup, event.shiftKey), [backup, restoreBackup]);
-    const handleDeleteClick = useCallback(async (event: React.MouseEvent<HTMLButtonElement>) => deleteBackup(backup, event.shiftKey), [backup, deleteBackup]);
-
-    const restoreDisabled = gameRunning || fileOperationRunning;
-
+function BackupView({ backup, t }: BackupViewProps): ReactNode {
     return (
         <Card key={backup.id} withBorder radius="md" p="sm">
             <Group justify="space-between" align="flex-start" gap="sm" wrap="nowrap">
@@ -76,17 +55,8 @@ function BackupView({ backup, t, gameRunning, fileOperationRunning, restoreBacku
                     <LocalizedText size="xs" c="dimmed" i18nKey="backup.latest.world.and.character" variables={{ world: backup.worldName, character: backup.characterName }} />
                     <LocalizedText size="xs" c="dimmed" i18nKey="backup.latest.created.at" variables={{ createdAt: formatBackupTimestamp(backup.createdAt) ?? t("home.world.unknown") }} />
                 </Stack>
-                <Stack gap={4} align="stretch" className="backup-drawer-item__actions">
-                    <Tooltip label={gameRunning ? t("backup.action.restore.blocked.running") : t("backup.action.restore.tooltip")}>
-                        <Button size="xs" disabled={restoreDisabled} onClick={handleRestoreClick}>
-                            {t("backup.action.restore")}
-                        </Button>
-                    </Tooltip>
-                    <RenameBackupButton backup={backup} disabled={fileOperationRunning} />
-                    <Button size="xs" variant="subtle" color="red" disabled={fileOperationRunning} onClick={handleDeleteClick}>
-                        {t("backup.action.delete")}
-                    </Button>
-                </Stack>
+
+                <BackupControl backup={backup} />
             </Group>
         </Card>
     );

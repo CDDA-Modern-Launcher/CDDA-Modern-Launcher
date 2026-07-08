@@ -66,8 +66,8 @@ code {
     background: var(--app-shell-background);
 }
 
-.repository-card {
-    width: min(720px, 100%);
+.workspace-card {
+    width: min(90vw, 100%);
     background-color: var(--app-card-background);
     backdrop-filter: blur(20px);
 }
@@ -169,14 +169,6 @@ code {
     }
 }
 
-.home-dashboard {
-    width: min(980px, 100%);
-}
-
-.home-hero-card {
-    width: 100%;
-}
-
 .home-secondary-grid {
     width: 100%;
 }
@@ -244,17 +236,9 @@ code {
     flex: 1 1 auto;
 }
 
-.backup-strip__actions {
-    flex: 0 0 auto;
-}
-
 .backup-drawer-item__text {
     min-width: 0;
     flex: 1 1 auto;
-}
-
-.backup-drawer-item__actions {
-    flex: 0 0 auto;
 }
 
 .launcher-dock__mods-button {

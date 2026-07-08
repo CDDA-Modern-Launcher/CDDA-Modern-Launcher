@@ -1,6 +1,6 @@
 import type React from "react";
 import { Alert, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
-import { REPOSITORY_CONFIG_FILE_NAME } from "../../../shared/Const";
+import { REPOSITORY_CONFIG_FILE_NAME } from "../../../../shared/Const";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { LocalizedText } from "@renderer/components/LocalizedText";
@@ -12,7 +12,7 @@ export function WorkspaceInvalidView(): React.JSX.Element {
     const onSelectRepositoryClick = useWorkspaceStore((state) => state.selectRepository);
 
     return (
-        <Card withBorder radius="lg" p="xl" className="repository-card">
+        <Card withBorder radius="lg" p="xl" className="workspace-card">
             <Stack gap="lg">
                 <Stack gap={4}>
                     <LocalizedText size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow" i18nKey="repository.setup.eyebrow" />

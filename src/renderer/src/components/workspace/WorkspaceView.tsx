@@ -1,8 +1,8 @@
 import React from "react";
-import { WorkspaceLoadingView } from "@renderer/components/WorkspaceLoadingView";
-import { WorkspaceInvalidView } from "@renderer/components/WorkspaceInvalidView";
+import { WorkspaceLoadingView } from "@renderer/components/workspace/WorkspaceLoadingView";
+import { WorkspaceInvalidView } from "@renderer/components/workspace/WorkspaceInvalidView";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
-import { WorkspaceReadyView } from "@renderer/components/WorkspaceReadyView";
+import { WorkspaceReadyView } from "@renderer/components/workspace/WorkspaceReadyView";
 
 export function WorkspaceView(): React.JSX.Element {
     const repository = useWorkspaceStore((state) => state.workspaceStatus);

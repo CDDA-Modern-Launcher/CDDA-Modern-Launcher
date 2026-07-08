@@ -9,8 +9,9 @@ import { GameChannelDefinition } from "../../../shared/game-channel/GameChannelD
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { useOpenDrawerSimple } from "@renderer/stores/useDrawerStore";
+import { useConfigStore } from "@renderer/stores/useConfigStore";
 
-export function LauncherDock(): ReactNode {
+export function AppBottomDock(): ReactNode {
     const t = useTranslate();
     const repository = useWorkspaceStore((state) => state.workspaceStatus);
     const isReady = repository.status === "ready";
@@ -21,6 +22,7 @@ export function LauncherDock(): ReactNode {
     const isGameBundleInstallInProgress = isGameBundleInstallBlockingProgress(gameBundleInstallProgress);
     const modIndicatorState = getModIndicatorState(modRepositoryState);
     const openDrawer = useOpenDrawerSimple();
+    const backupsEnabled = useConfigStore((state) => state.backupsEnabled);
 
     useEffect(() => window.api.game.onGameBundleInstallProgress(setGameBundleInstallProgress), []);
 
@@ -56,7 +58,7 @@ export function LauncherDock(): ReactNode {
                 <Group gap="xs" wrap="nowrap" className="launcher-dock__section">
                     <Menu shadow="md" width={310} position="top-start" disabled={!isReady || isGameBundleInstallInProgress}>
                         <Menu.Target>
-                            <Button variant="subtle" size="xs" radius="md" disabled={!isReady || isGameBundleInstallInProgress} className="launcher-dock__button launcher-dock__game-button">
+                            <Button variant="gradient" size="xs" radius="md" disabled={!isReady || isGameBundleInstallInProgress} className="launcher-dock__button launcher-dock__game-button">
                                 {selectedChannel === null ? t("dock.game.unavailable") : `${selectedChannel.shortName} · ${localizeChannelName(selectedChannel.channelName, t)}`}
                             </Button>
                         </Menu.Target>
@@ -69,9 +71,19 @@ export function LauncherDock(): ReactNode {
                             <Menu.Item disabled>{t("dock.game.add.custom")}</Menu.Item>
                         </Menu.Dropdown>
                     </Menu>
+
+                    <Button size="xs" variant="light" onClick={() => openDrawer("game-bundles")}>
+                        {t("versions.title")}
+                    </Button>
                 </Group>
 
                 <Group gap="xs" wrap="nowrap" className="launcher-dock__section launcher-dock__section--right">
+                    {backupsEnabled && (
+                        <Button size="xs" variant="light" onClick={() => openDrawer("backups")}>
+                            {t("backup.action.manage")}
+                        </Button>
+                    )}
+
                     <Button variant="light" size="xs" radius="md" onClick={() => openDrawer("mods")} className="launcher-dock__button launcher-dock__mods-button">
                         {t("dock.mods")}
                         {modIndicatorState !== "idle" && <span className={`launcher-dock__mods-indicator launcher-dock__mods-indicator--${modIndicatorState}`} aria-hidden="true" />}

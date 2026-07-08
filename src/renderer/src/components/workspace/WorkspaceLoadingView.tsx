@@ -1,13 +1,13 @@
 import type React from "react";
 import { Card, Group, Loader, Stack, Text, Title } from "@mantine/core";
-import { REPOSITORY_CONFIG_FILE_NAME } from "../../../shared/Const";
+import { REPOSITORY_CONFIG_FILE_NAME } from "../../../../shared/Const";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function WorkspaceLoadingView({ path }: { path: string }): React.JSX.Element {
     const t = useTranslate();
     return (
-        <Card withBorder radius="lg" p="xl" className="repository-card">
+        <Card withBorder radius="lg" p="xl" className="workspace-card">
             <Group gap="lg" wrap="nowrap">
                 <Loader />
                 <Stack gap={2}>

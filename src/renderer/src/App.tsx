@@ -1,7 +1,7 @@
 import React from "react";
 
-import { WorkspaceView } from "./components/WorkspaceView";
-import { LauncherDock } from "./components/LauncherDock";
+import { WorkspaceView } from "./components/workspace/WorkspaceView";
+import { AppBottomDock } from "./components/AppBottomDock";
 import { UpdateFloatingCard } from "./components/UpdateFloatingCard";
 import { ModalsProvider } from "@mantine/modals";
 import { MantineProvider } from "@mantine/core";
@@ -35,7 +35,7 @@ export default function App(): React.JSX.Element {
                             <WorkspaceView />
                         </main>
 
-                        <LauncherDock />
+                        <AppBottomDock />
 
                         <DrawerOwner />
                     </>

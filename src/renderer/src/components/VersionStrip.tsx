@@ -10,15 +10,12 @@ import { getUpdateReleases } from "@renderer/utils/getUpdateReleases";
 import { useGameReleasesStore } from "@renderer/stores/useGameReleasesStore";
 import { useGameFileOperationStore } from "@renderer/stores/useGameFileOperationStore";
 import { GithubRelease } from "../../../shared/GithubRelease";
-import { useOpenDrawerSimple } from "@renderer/stores/useDrawerStore";
 import { toUpdateReleaseNotesTarget } from "@renderer/utils/toUpdateReleaseNotesTarget";
 import { openModal } from "@renderer/modals/contextModals";
 import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function VersionStrip(): ReactNode {
     const t = useTranslate();
-    const openDrawer = useOpenDrawerSimple();
-
     const gameState = useGameStateStore((state) => state.state);
     const installRunning = useGameBundleInstallStore(selectIsGameBundleInstallRunning);
     const availableReleases = useGameReleasesStore((state) => state.releases);
@@ -110,20 +107,16 @@ export function VersionStrip(): ReactNode {
 
                 <Group gap="xs" wrap="nowrap">
                     {updateAction === "activate" && (
-                        <Button size="xs" variant="light" loading={isActivatingLatest} disabled={fileOperationRunning} onClick={() => void activateLatest()}>
+                        <Button size="xs" variant="gradient" loading={isActivatingLatest} disabled={fileOperationRunning} onClick={() => void activateLatest()}>
                             {t("home.action.activate.latest")}
                         </Button>
                     )}
 
                     {updateAction === "install" && (
-                        <Button size="xs" variant="light" loading={isInstallingGameBundle} disabled={fileOperationRunning} onClick={() => openInstallModal(latestRelease)}>
+                        <Button size="xs" variant="gradient" loading={isInstallingGameBundle} disabled={fileOperationRunning} onClick={() => openInstallModal(latestRelease)}>
                             {t("home.action.install.update")}
                         </Button>
                     )}
-
-                    <Button size="xs" variant="subtle" onClick={() => openDrawer("game-bundles")}>
-                        {t("home.action.open.versions")}
-                    </Button>
                 </Group>
             </Group>
         </Card>
