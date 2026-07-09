@@ -98,6 +98,8 @@ export function SelfUpdaterStatus(): React.JSX.Element | null {
 
     useEffect(() => {
         switch (state.status) {
+            case "not-available":
+            case "skipped":
             case "idle":
             case "checking":
                 isNoticeOpen = false;
@@ -162,10 +164,6 @@ export function SelfUpdaterStatus(): React.JSX.Element | null {
                     color: "blue",
                     withBorder: true
                 });
-                break;
-            case "not-available":
-                break;
-            case "skipped":
                 break;
             case "error":
                 showOrUpdate({
