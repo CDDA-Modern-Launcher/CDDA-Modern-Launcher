@@ -40,11 +40,12 @@ export class GameEvents {
         this.send(Bridge.Game.backupSummaryChanged, update);
     }
 
-    emitInstallProgress(progress: GameBundleInstallProgress, immediate = false): void {
-        if (!immediate && this.shouldThrottleInstallProgress(progress)) return;
+    emitInstallProgress(progress: GameBundleInstallProgress, immediate = false): boolean {
+        if (!immediate && this.shouldThrottleInstallProgress(progress)) return false;
         this.lastInstallProgressKey = getInstallProgressKey(progress);
         this.lastInstallProgressAt = Date.now();
         this.send(Bridge.Game.gameBundleInstallProgress, progress);
+        return true;
     }
 
     emitBackupProgress(progress: BackupProgress, immediate = false): void {

@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
-import { Alert, Button, Checkbox, Group, Stack, Text } from "@mantine/core";
+import { Alert, Button, Card, Checkbox, Group, Progress, Stack, Text } from "@mantine/core";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { ContextModalProps } from "@mantine/modals";
 import { GithubRelease } from "../../../../shared/GithubRelease";
 import { getErrorMessage } from "../../../../shared/getErrorMessage";
 import { useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
 import { LocalizedText } from "@renderer/components/LocalizedText";
+import { getProgressTitle } from "@renderer/utils/getProgressTitle";
+import { getIndeterminateProgressValue } from "@renderer/utils/getIndeterminateProgressValue";
+import { getProgressDescription } from "@renderer/utils/getProgressDescription";
 
 interface Props {
     release: GithubRelease;
@@ -15,7 +18,6 @@ interface Props {
 
 export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVersions }, context }: ContextModalProps<Props>): React.JSX.Element {
     const t = useTranslate();
-    const [installing, setInstalling] = useState(false);
     const [copyUserdata, setCopyUserdata] = useState(true);
     const [removeOlderGameBundles, setRemoveOlderGameBundles] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -23,30 +25,28 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
     const releaseName = useMemo(() => getReleaseNameDisplay(release.name), [release]);
 
     const installLatestGameBundle = useGameBundleInstallStore((state) => state.installLatest);
+    const isInstallingGameBundle = useGameBundleInstallStore((state) => state.isInstalling);
 
     const handleClose = useCallback(() => context.closeModal(id), [context, id]);
 
     const handleConfirm = useCallback(async () => {
         try {
-            setInstalling(true);
             await installLatestGameBundle({ releaseId: release.id, makeActive: true, copyUserdata, removeOlderGameBundles });
             handleClose();
         } catch (e) {
             console.error("Can't install", e);
             setError(getErrorMessage(e));
-        } finally {
-            setInstalling(false);
         }
     }, [copyUserdata, handleClose, installLatestGameBundle, release.id, removeOlderGameBundles]);
 
     useEffect(() => {
         context.updateModal({
             modalId: id,
-            closeOnClickOutside: !installing,
-            closeOnEscape: !installing,
-            withCloseButton: !installing
+            closeOnClickOutside: !isInstallingGameBundle,
+            closeOnEscape: !isInstallingGameBundle,
+            withCloseButton: !isInstallingGameBundle
         });
-    }, [context, id, installing]);
+    }, [context, id, isInstallingGameBundle]);
 
     return (
         <Stack gap="md">
@@ -60,9 +60,15 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
 
             {hasInstalledVersions && (
                 <Stack gap="xs" className="game-bundle-options">
-                    <Checkbox size="sm" checked={copyUserdata} onChange={(event) => setCopyUserdata(event.currentTarget.checked)} label={t("install.option.copy.userdata")} />
+                    <Checkbox size="sm" checked={copyUserdata} onChange={(event) => setCopyUserdata(event.currentTarget.checked)} label={t("install.option.copy.userdata")} disabled={isInstallingGameBundle} />
 
-                    <Checkbox size="sm" checked={removeOlderGameBundles} onChange={(event) => setRemoveOlderGameBundles(event.currentTarget.checked)} label={t("install.option.remove.old.versions")} />
+                    <Checkbox
+                        size="sm"
+                        checked={removeOlderGameBundles}
+                        onChange={(event) => setRemoveOlderGameBundles(event.currentTarget.checked)}
+                        label={t("install.option.remove.old.versions")}
+                        disabled={isInstallingGameBundle}
+                    />
                 </Stack>
             )}
 
@@ -72,15 +78,43 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
                 </Alert>
             )}
 
+            <InstallProgress isInstallingGameBundle={isInstallingGameBundle} />
+
             <Group justify="flex-end" gap="xs">
-                <Button variant="subtle" onClick={handleClose} disabled={installing}>
+                <Button variant="subtle" onClick={handleClose} disabled={isInstallingGameBundle}>
                     {t("common.cancel")}
                 </Button>
 
-                <Button loading={installing} onClick={handleConfirm}>
+                <Button loading={isInstallingGameBundle} onClick={handleConfirm}>
                     {t("versions.action.install")}
                 </Button>
             </Group>
         </Stack>
+    );
+}
+
+function InstallProgress({ isInstallingGameBundle }: { isInstallingGameBundle: boolean }): React.JSX.Element | null {
+    const t = useTranslate();
+    const progress = useGameBundleInstallStore((state) => state.progress);
+
+    if (!isInstallingGameBundle) return null;
+
+    const percent = progress.status === "downloading" || progress.status === "extracting" ? progress.percent : null;
+
+    return (
+        <Card withBorder radius="md" p="sm">
+            <Stack gap="xs">
+                <Group justify="space-between" wrap="nowrap">
+                    <Text size="sm" fw={700}>
+                        {getProgressTitle(progress, t)}
+                    </Text>
+                    {percent !== null && <Text size="xs">{percent}%</Text>}
+                </Group>
+                <Progress value={percent ?? getIndeterminateProgressValue(progress)} animated={progress.status !== "completed" && progress.status !== "error"} />
+                <Text size="xs" c="dimmed">
+                    {getProgressDescription(progress, t)}
+                </Text>
+            </Stack>
+        </Card>
     );
 }

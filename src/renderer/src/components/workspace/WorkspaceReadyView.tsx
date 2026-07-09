@@ -6,7 +6,6 @@ import { Alert, Badge, Button, Card, Group, Loader, Stack, Text, Title } from "@
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { getGameChannelRepositoryUrl } from "../../../../shared/game-channel/getGameChannelRepositoryUrl";
 import { SaveStatusLine } from "@renderer/components/SaveStatusLine";
-import { GameBundleInstallProgressCard } from "@renderer/components/GameBundleInstallProgressCard";
 import { GameBundlePrompt } from "@renderer/components/GameBundlePrompt";
 import { VersionStrip } from "@renderer/components/VersionStrip";
 import { WorkspaceBackupStrip } from "@renderer/components/backups/WorkspaceBackupStrip";
@@ -94,7 +93,6 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                     </Alert>
                 )}
 
-                <GameBundleInstallProgressCard />
                 <GameBundlePrompt />
                 <VersionStrip />
                 <WorkspaceBackupStrip />

@@ -1,6 +1,7 @@
 import { createWriteStream } from "node:fs";
 import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { performance } from "node:perf_hooks";
 import { Readable } from "node:stream";
 import { finished } from "node:stream/promises";
 
@@ -26,6 +27,8 @@ import { GameBundleRegistry } from "./GameBundleRegistry";
 import { GameEvents } from "./GameEvents";
 
 const KEEP_DOWNLOADED_GAME_BUNDLES = 3;
+const DOWNLOAD_PROGRESS_MIN_INTERVAL_MS = 250;
+const DOWNLOAD_PROGRESS_UNKNOWN_TOTAL_STEP_BYTES = 1024 * 1024;
 
 export class GameReleaseService {
     private readonly gitHubNetwork = new GitHubNetworkManager();
@@ -113,40 +116,97 @@ export class GameReleaseService {
             return;
         }
 
+        const startedAt = performance.now();
+        const startedCpu = process.cpuUsage();
         const temporaryPath = `${targetPath}.tmp-${Date.now()}`;
         const response = isGitHubUrl(url) ? await this.gitHubNetwork.fetch(url) : await fetch(url);
         if (!response.ok || response.body === null) throw new Error(`Download failed: ${response.status} ${response.statusText}`);
         const totalBytes = Number(response.headers.get("content-length"));
         const knownTotalBytes = Number.isFinite(totalBytes) && totalBytes > 0 ? totalBytes : expectedBytes > 0 ? expectedBytes : null;
         let transferredBytes = 0;
-        this.events.emitInstallProgress({ status: "downloading", releaseName, percent: null, transferredBytes, totalBytes: knownTotalBytes });
+        let chunkCount = 0;
+        let ipcProgressEventCount = 0;
+        let lastProgressEmitAt = 0;
+        let lastProgressPercent: number | null = null;
+        let lastProgressTransferredStep = -1;
+
+        const emitProgress = (force = false): void => {
+            const percent = knownTotalBytes === null ? null : Math.max(0, Math.min(100, Math.round((transferredBytes / knownTotalBytes) * 100)));
+            const transferredStep = Math.floor(transferredBytes / DOWNLOAD_PROGRESS_UNKNOWN_TOTAL_STEP_BYTES);
+            const now = Date.now();
+            const shouldEmit = force || percent !== lastProgressPercent || (knownTotalBytes === null && transferredStep !== lastProgressTransferredStep) || now - lastProgressEmitAt >= DOWNLOAD_PROGRESS_MIN_INTERVAL_MS;
+
+            if (!shouldEmit) return;
+
+            lastProgressEmitAt = now;
+            lastProgressPercent = percent;
+            lastProgressTransferredStep = transferredStep;
+            if (this.events.emitInstallProgress({ status: "downloading", releaseName, percent, transferredBytes, totalBytes: knownTotalBytes })) {
+                ipcProgressEventCount += 1;
+            }
+        };
+
+        emitProgress(true);
         await mkdir(dirname(targetPath), { recursive: true });
         await rm(temporaryPath, { force: true });
         const fileStream = createWriteStream(temporaryPath);
         const source = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0]);
         source.on("data", (chunk: Buffer | Uint8Array) => {
+            chunkCount += 1;
             transferredBytes += chunk.byteLength;
-            const percent = knownTotalBytes === null ? null : Math.max(0, Math.min(100, Math.round((transferredBytes / knownTotalBytes) * 100)));
-            this.events.emitInstallProgress({ status: "downloading", releaseName, percent, transferredBytes, totalBytes: knownTotalBytes });
+            emitProgress();
         });
         await finished(source.pipe(fileStream));
+        emitProgress(true);
         await rename(temporaryPath, targetPath);
+        logFileOperationDiagnostics("download", startedAt, startedCpu, {
+            chunkCount,
+            ipcProgressEventCount,
+            size: transferredBytes,
+            targetPath
+        });
     }
 
     private async extractArchive(archivePath: string, targetPath: string, releaseName: string): Promise<void> {
+        const startedAt = performance.now();
+        const startedCpu = process.cpuUsage();
+        let ipcProgressEventCount = 0;
+
         await mkdir(targetPath, { recursive: true });
         let percent = 0;
-        this.events.emitInstallProgress({ status: "extracting", releaseName, percent });
+        if (this.events.emitInstallProgress({ status: "extracting", releaseName, percent })) {
+            ipcProgressEventCount += 1;
+        }
         const timer = setInterval(() => {
             percent = Math.min(96, percent + Math.max(1, Math.round((96 - percent) * 0.16)));
-            this.events.emitInstallProgress({ status: "extracting", releaseName, percent });
+            if (this.events.emitInstallProgress({ status: "extracting", releaseName, percent })) {
+                ipcProgressEventCount += 1;
+            }
         }, 450);
         try {
             if (archivePath.toLowerCase().endsWith(".zip")) await extractZip(archivePath, { dir: targetPath });
             else await runCommand("tar", ["-xf", archivePath, "-C", targetPath]);
-            this.events.emitInstallProgress({ status: "extracting", releaseName, percent: 100 });
+            if (this.events.emitInstallProgress({ status: "extracting", releaseName, percent: 100 })) {
+                ipcProgressEventCount += 1;
+            }
         } finally {
             clearInterval(timer);
+            logFileOperationDiagnostics("extract", startedAt, startedCpu, {
+                archivePath,
+                ipcProgressEventCount,
+                targetPath
+            });
         }
     }
+}
+
+function logFileOperationDiagnostics(operation: string, startedAt: number, startedCpu: NodeJS.CpuUsage, details: Record<string, string | number>): void {
+    const elapsedMs = Math.round(performance.now() - startedAt);
+    const cpu = process.cpuUsage(startedCpu);
+    const cpuMs = Math.round((cpu.user + cpu.system) / 1000);
+    const formattedDetails = Object.entries(details)
+        .map(([key, value]) => `${key}=${value}`)
+        .join(" ");
+
+    console.info(`[game-bundle] ${operation} complete elapsedMs=${elapsedMs} cpuMs=${cpuMs} ${formattedDetails}`);
 }
