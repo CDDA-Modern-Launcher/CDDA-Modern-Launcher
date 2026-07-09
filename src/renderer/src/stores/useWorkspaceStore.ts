@@ -12,6 +12,8 @@ interface State extends IMountableState {
     setSelectedChannel: (channelId: string) => Promise<void>;
 }
 
+// todo ensure workspace change causes mods re-check
+
 export const useWorkspaceStore = create<State>((set) => ({
     workspaceStatus: { status: "loading", path: "" },
     isLoaded: false,

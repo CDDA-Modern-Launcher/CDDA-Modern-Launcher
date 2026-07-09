@@ -7,6 +7,7 @@ export function registerPreloadUpdaterApi(): UpdaterApi {
     return {
         getState: () => ipcRenderer.invoke(Bridge.Updater.getState),
         checkNow: () => ipcRenderer.invoke(Bridge.Updater.checkNow),
+        downloadNow: () => ipcRenderer.invoke(Bridge.Updater.downloadNow),
         installNow: () => ipcRenderer.invoke(Bridge.Updater.installNow),
         dismiss: () => ipcRenderer.invoke(Bridge.Updater.dismiss),
         skipVersion: (version: string) => ipcRenderer.invoke(Bridge.Updater.skipVersion, version),

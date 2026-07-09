@@ -2,7 +2,6 @@ import React from "react";
 
 import { WorkspaceView } from "./components/workspace/WorkspaceView";
 import { AppBottomDock } from "./components/AppBottomDock";
-import { UpdateFloatingCard } from "./components/UpdateFloatingCard";
 import { ModalsProvider } from "@mantine/modals";
 import { MantineProvider } from "@mantine/core";
 import { useAppearanceStore } from "@renderer/stores/useAppearanceStore";
@@ -12,6 +11,8 @@ import { contextModals } from "@renderer/modals/contextModals";
 import { useIsLocaleLoaded } from "@renderer/stores/useLocaleStore";
 import { useIsWorkspaceLoaded } from "@renderer/stores/useWorkspaceStore";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
+import { Notifications } from "@mantine/notifications";
+import { SelfUpdaterStatus } from "@renderer/components/SelfUpdaterStatus";
 
 function StartupScreen(): React.JSX.Element {
     return <div className="app-startup-screen" />;
@@ -27,9 +28,11 @@ export default function App(): React.JSX.Element {
     return (
         <MantineProvider forceColorScheme={colorTheme}>
             <ModalsProvider modalProps={defaultModalProps} modals={contextModals}>
+                <Notifications position="top-right" />
+
                 {isReady ? (
                     <>
-                        <UpdateFloatingCard />
+                        <SelfUpdaterStatus />
 
                         <main className="app-shell">
                             <WorkspaceView />

@@ -1,45 +1,18 @@
 import { Button, Group, Paper, Tooltip } from "@mantine/core";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
 import { ModRepositoryState } from "../../../shared/mods/ModRepositoryState";
-import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { useOpenDrawerSimple } from "@renderer/stores/useDrawerStore";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
 import { SelectGameVariant } from "@renderer/components/SelectGameVariant";
+import { useModsStore } from "@renderer/stores/useModsStore";
 
 export function AppBottomDock(): ReactNode {
     const t = useTranslate();
-    const repository = useWorkspaceStore((state) => state.workspaceStatus);
-    const [modRepositoryState, setModRepositoryState] = useState<ModRepositoryState>({ status: "unconfigured", mods: [], checking: false });
+    const modRepositoryState = useModsStore((state) => state.state);
     const modIndicatorState = getModIndicatorState(modRepositoryState);
     const openDrawer = useOpenDrawerSimple();
     const backupsEnabled = useConfigStore((state) => state.backupsEnabled);
-
-    useEffect(() => {
-        let mounted = true;
-
-        window.api.mods
-            .getState()
-            .then((state) => {
-                if (mounted) {
-                    setModRepositoryState(state);
-                }
-            })
-            .catch((error) => console.error("Failed to load mods state for dock", error));
-
-        const unsubscribeChanged = window.api.mods.onChanged((event) => {
-            setModRepositoryState(event.state);
-        });
-        const unsubscribeNotice = window.api.mods.onNotice((event) => {
-            setModRepositoryState(event.state);
-        });
-
-        return () => {
-            mounted = false;
-            unsubscribeChanged();
-            unsubscribeNotice();
-        };
-    }, [repository]);
 
     return (
         <Paper withBorder radius="lg" shadow="xl" className="launcher-dock">

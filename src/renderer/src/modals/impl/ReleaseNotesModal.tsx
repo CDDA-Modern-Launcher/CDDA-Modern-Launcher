@@ -5,6 +5,7 @@ import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { ContextModalProps } from "@mantine/modals";
 import { ReleaseNotesTarget } from "@renderer/types/ReleaseNotesTarget";
 import { LocalizedText } from "@renderer/components/LocalizedText";
+import { openUrl } from "@renderer/utils/openUrl";
 
 type ReleaseNotesCard = {
     title: string;
@@ -134,7 +135,7 @@ function getReleaseNotesLinkLabel(url: string): string {
 
 function renderExternalLink(url: string, label: React.ReactNode, className?: string, key?: React.Key): React.JSX.Element {
     return (
-        <Anchor key={key} component="button" type="button" onClick={() => void window.api.shell.openExternal(url)} className={className}>
+        <Anchor key={key} component="button" type="button" onClick={() => openUrl(url)} className={className}>
             {label}
         </Anchor>
     );
@@ -233,7 +234,7 @@ export function ReleaseNotesModal({ innerProps: { notes } }: ContextModalProps<{
                 <Group gap="xs">
                     {notes.publishedAt !== undefined && <LocalizedText size="xs" c="dimmed" i18nKey="release.notes.modal.published.at" variables={{ date: formatDate(notes.publishedAt) }} />}
                     {notes.htmlUrl !== undefined && (
-                        <Anchor size="xs" component="button" type="button" onClick={() => void window.api.shell.openExternal(notes.htmlUrl!)}>
+                        <Anchor size="xs" component="button" type="button" onClick={() => openUrl(notes.htmlUrl!)}>
                             {t("release.notes.modal.open.on.github")}
                         </Anchor>
                     )}

@@ -1,4 +1,5 @@
 import "@mantine/core/styles.css";
+import "@mantine/notifications/styles.css";
 import "./assets/main.css";
 
 import { Root } from "@renderer/Root";

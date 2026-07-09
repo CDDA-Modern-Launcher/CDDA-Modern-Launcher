@@ -18,21 +18,17 @@ import { AppSettings } from "./settings/AppSettings";
 import { setupLauncherSettingsIpc } from "./ipc/setupLauncherSettingsIpc";
 import { Bridge } from "../shared/bridge-api/Bridge";
 import { setupShellIpc } from "./ipc/setupShellIpc";
-
-type UpdateState =
-    | { status: "idle" }
-    | { status: "checking" }
-    | { status: "available"; version: string }
-    | { status: "downloading"; version: string; percent: number }
-    | { status: "downloaded"; version: string }
-    | { status: "not-available"; version?: string }
-    | { status: "skipped"; version: string }
-    | { status: "error"; message: string; messageKey?: string };
+import { UpdateState } from "../shared/bridge-api/types/UpdateState";
+import { LocaleKeys } from "../shared/localization/types/LocaleFile";
 
 let updateState: UpdateState = { status: "idle" };
 let skippedVersion: string | null = null;
 let mockUpdateTimer: NodeJS.Timeout | null = null;
 let hasMockDownloadedUpdate = false;
+let lastPublishedDownloadProgressKey: string | null = null;
+let lastPublishedDownloadProgressAt = 0;
+
+const DOWNLOAD_PROGRESS_MIN_INTERVAL_MS = 250;
 
 function logUpdater(message: string, data?: unknown): void {
     const text = data === undefined ? message : `${message} ${JSON.stringify(data)}`;
@@ -51,6 +47,46 @@ function logUpdater(message: string, data?: unknown): void {
 
 function setUpdateState(state: UpdateState): void {
     updateState = state;
+
+    if (state.status !== "downloading") {
+        lastPublishedDownloadProgressKey = null;
+        lastPublishedDownloadProgressAt = 0;
+    }
+
+    publishUpdateState(state);
+}
+
+function setDownloadUpdateState(state: Extract<UpdateState, { status: "downloading" }>, immediate = false): void {
+    updateState = state;
+
+    if (!immediate && shouldThrottleDownloadProgress(state)) return;
+
+    lastPublishedDownloadProgressKey = getDownloadProgressKey(state);
+    lastPublishedDownloadProgressAt = Date.now();
+    publishUpdateState(state);
+}
+
+function shouldThrottleDownloadProgress(state: Extract<UpdateState, { status: "downloading" }>): boolean {
+    const key = getDownloadProgressKey(state);
+    return key === lastPublishedDownloadProgressKey && Date.now() - lastPublishedDownloadProgressAt < DOWNLOAD_PROGRESS_MIN_INTERVAL_MS;
+}
+
+function getDownloadProgressKey(state: Extract<UpdateState, { status: "downloading" }>): string {
+    const totalBytes = state.totalBytes === undefined ? "unknown" : state.totalBytes;
+    return `${state.version}:${state.percent}:${totalBytes}`;
+}
+
+function getKnownByteCount(value: number | undefined): number | undefined {
+    if (value === undefined || !Number.isFinite(value) || value < 0) return undefined;
+    return Math.round(value);
+}
+
+function getKnownTotalBytes(value: number | undefined): number | undefined {
+    const bytes = getKnownByteCount(value);
+    return bytes === undefined || bytes === 0 ? undefined : bytes;
+}
+
+function publishUpdateState(state: UpdateState): void {
     logUpdater("[updater] state changed", state);
 
     for (const window of BrowserWindow.getAllWindows()) {
@@ -66,7 +102,7 @@ function shouldIgnoreVersion(version: string): boolean {
     return skippedVersion !== null && skippedVersion === version;
 }
 
-function getFriendlyUpdateErrorKey(error: unknown): string {
+function getFriendlyUpdateErrorKey(error: unknown): LocaleKeys {
     const message = error instanceof Error ? error.message : String(error);
 
     if (message.includes("latest.yml") && message.includes("404")) {
@@ -76,7 +112,7 @@ function getFriendlyUpdateErrorKey(error: unknown): string {
     return "updater.error.check.failed";
 }
 
-function getUpdateErrorState(messageKey: string, localizationService: LocalizationService): UpdateState {
+function getUpdateErrorState(messageKey: LocaleKeys, localizationService: LocalizationService): UpdateState {
     return { status: "error", messageKey, message: localizationService.t(messageKey) };
 }
 
@@ -94,6 +130,24 @@ function setupUpdaterIpc(localizationService: LocalizationService): void {
         }
 
         await autoUpdater.checkForUpdates();
+        return updateState;
+    });
+
+    ipcMain.handle(Bridge.Updater.downloadNow, async () => {
+        if (updateState.status !== "available") {
+            setUpdateState(getUpdateErrorState("updater.error.not.available", localizationService));
+            return updateState;
+        }
+
+        const version = updateState.version;
+
+        if (hasMockDownloadedUpdate) {
+            simulateDownloadProgress(version);
+            return updateState;
+        }
+
+        setDownloadUpdateState({ status: "downloading", version, percent: 0 }, true);
+        await autoUpdater.downloadUpdate();
         return updateState;
     });
 
@@ -131,32 +185,40 @@ function setupUpdaterIpc(localizationService: LocalizationService): void {
     });
 }
 
-function simulateDownloadedUpdate(version = app.getVersion()): void {
-    if (mockUpdateTimer !== null) {
-        clearTimeout(mockUpdateTimer);
-        mockUpdateTimer = null;
-    }
+function clearMockUpdateTimer(): void {
+    if (mockUpdateTimer === null) return;
 
-    hasMockDownloadedUpdate = false;
+    clearTimeout(mockUpdateTimer);
+    mockUpdateTimer = null;
+}
+
+function simulateDownloadedUpdate(version = app.getVersion()): void {
+    clearMockUpdateTimer();
+    hasMockDownloadedUpdate = true;
     setUpdateState({ status: "checking" });
 
     mockUpdateTimer = setTimeout(() => {
         setUpdateState({ status: "available", version });
+        mockUpdateTimer = null;
+    }, 500);
+}
+
+function simulateDownloadProgress(version: string): void {
+    clearMockUpdateTimer();
+    setDownloadUpdateState({ status: "downloading", version, percent: 0, transferredBytes: 0, totalBytes: 157 * 1024 * 1024 }, true);
+
+    mockUpdateTimer = setTimeout(() => {
+        setDownloadUpdateState({ status: "downloading", version, percent: 37, transferredBytes: 58 * 1024 * 1024, totalBytes: 157 * 1024 * 1024 }, true);
 
         mockUpdateTimer = setTimeout(() => {
-            setUpdateState({ status: "downloading", version, percent: 37 });
+            setDownloadUpdateState({ status: "downloading", version, percent: 100, transferredBytes: 157 * 1024 * 1024, totalBytes: 157 * 1024 * 1024 }, true);
 
             mockUpdateTimer = setTimeout(() => {
-                setUpdateState({ status: "downloading", version, percent: 100 });
-
-                mockUpdateTimer = setTimeout(() => {
-                    hasMockDownloadedUpdate = true;
-                    setUpdateState({ status: "downloaded", version });
-                    mockUpdateTimer = null;
-                }, 400);
-            }, 700);
+                setUpdateState({ status: "downloaded", version });
+                mockUpdateTimer = null;
+            }, 400);
         }, 700);
-    }, 500);
+    }, 700);
 }
 
 function setupAutoUpdater(localizationService: LocalizationService): void {
@@ -165,7 +227,7 @@ function setupAutoUpdater(localizationService: LocalizationService): void {
         return;
     }
 
-    autoUpdater.autoDownload = true;
+    autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
 
     autoUpdater.on("checking-for-update", () => {
@@ -191,10 +253,12 @@ function setupAutoUpdater(localizationService: LocalizationService): void {
     autoUpdater.on("download-progress", (progress: ProgressInfo) => {
         const version = updateState.status === "available" || updateState.status === "downloading" ? updateState.version : "unknown";
 
-        setUpdateState({
+        setDownloadUpdateState({
             status: "downloading",
             version,
-            percent: Math.max(0, Math.min(100, Math.round(progress.percent)))
+            percent: Math.max(0, Math.min(100, Math.round(progress.percent))),
+            transferredBytes: getKnownByteCount(progress.transferred),
+            totalBytes: getKnownTotalBytes(progress.total)
         });
     });
 

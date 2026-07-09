@@ -2,6 +2,7 @@ export const Bridge = {
     Updater: {
         getState: "updater:get-state",
         checkNow: "updater:check-now",
+        downloadNow: "updater:download-now",
         installNow: "updater:install-now",
         dismiss: "updater:dismiss",
         skipVersion: "updater:skip-version",

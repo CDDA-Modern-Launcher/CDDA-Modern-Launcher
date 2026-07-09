@@ -14,6 +14,7 @@ import { PrimaryGameActions } from "@renderer/components/PrimaryGameActions";
 import { useGameStateStore } from "@renderer/stores/useGameStateStore";
 import { useGameReleasesStore } from "@renderer/stores/useGameReleasesStore";
 import { LocalizedText } from "@renderer/components/LocalizedText";
+import { openUrl } from "@renderer/utils/openUrl";
 
 export function WorkspaceReadyView({ repository }: { repository: Extract<WorkspaceStatus, { status: "ready" }> }): React.JSX.Element {
     const t = useTranslate();
@@ -47,7 +48,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
 
                         <Group gap="xs">
                             <Badge variant="light">{localizeChannelName(selectedChannel.channelName, t)}</Badge>
-                            <Badge component="button" variant="outline" className="home-repository-badge" onClick={() => void window.api.shell.openExternal(getGameChannelRepositoryUrl(selectedChannel))}>
+                            <Badge component="button" variant="outline" className="home-repository-badge" onClick={() => openUrl(getGameChannelRepositoryUrl(selectedChannel))}>
                                 {selectedChannel.githubOwner}/{selectedChannel.githubRepo}
                             </Badge>
                             {activeGameBundleId !== null && (
