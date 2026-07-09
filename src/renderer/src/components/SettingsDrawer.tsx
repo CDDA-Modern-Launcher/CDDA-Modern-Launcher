@@ -7,7 +7,7 @@ import { ManualBackupRotation } from "@renderer/components/ManualBackupRotation"
 import { BackupEnabledSwitch } from "@renderer/components/BackupEnabledSwitch";
 import { ReleaseAssertVariantView } from "@renderer/components/ReleaseAssertVariantView";
 import { useLocaleInfo, useSetLocale, useTranslate } from "@renderer/stores/useLocaleStore";
-import { useDrawerStore, useIsDrawerOpened } from "@renderer/stores/useDrawerStore";
+import { useCloseDrawer, useIsDrawerOpened } from "@renderer/stores/useDrawerStore";
 import { useAppearanceStore } from "@renderer/stores/useAppearanceStore";
 import { getThemeOptions } from "@renderer/utils/getThemeOptions";
 import { isAppTheme } from "../../../shared/appearance/isAppTheme";
@@ -17,7 +17,7 @@ import { LocaleOption } from "../../../shared/localization/types/LocaleOption";
 export function SettingsDrawer(): ReactNode {
     const t = useTranslate();
 
-    const close = useDrawerStore((state) => state.close);
+    const close = useCloseDrawer();
     const isOpened = useIsDrawerOpened("settings");
 
     return (

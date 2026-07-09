@@ -5,13 +5,13 @@ import { formatBackupTimestamp } from "@renderer/utils/formatBackupTimestamp";
 import { LocalizedText } from "@renderer/components/LocalizedText";
 import { TLocalizeFn, useTranslate } from "@renderer/stores/useLocaleStore";
 import { useGameBackupStore } from "@renderer/stores/useGameBackupStore";
-import { useDrawerStore, useIsDrawerOpened } from "@renderer/stores/useDrawerStore";
+import { useCloseDrawer, useIsDrawerOpened } from "@renderer/stores/useDrawerStore";
 import { BackupControl } from "@renderer/components/backups/BackupControl";
 
 export function BackupsDrawer(): React.JSX.Element {
     const t = useTranslate();
     const isOpened = useIsDrawerOpened("backups");
-    const close = useDrawerStore((state) => state.close);
+    const close = useCloseDrawer();
     const backupSummary = useGameBackupStore((state) => state.summary);
 
     return (

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useCallback } from "react";
 
 type TDrawer = { kind: null } | { kind: "backups" } | { kind: "mods" } | { kind: "settings" } | { kind: "game-bundles" };
 
@@ -8,15 +9,25 @@ interface State {
     close: () => void;
 }
 
-export const useDrawerStore = create<State>((set) => ({
+const useDrawerStore = create<State>((set) => ({
     drawer: { kind: null },
     openDrawer: (drawer: TDrawer) => set({ drawer }),
     close: () => set({ drawer: { kind: null } })
 }));
 
-export function useOpenDrawerSimple(): (kind: TDrawer["kind"]) => void {
+export function useCloseDrawer(): () => void {
+    const close = useDrawerStore((state) => state.close);
+    return () => close();
+}
+
+export function useOpenDrawer(kind: TDrawer["kind"]) {
     const openDrawer = useDrawerStore((state) => state.openDrawer);
-    return (kind: TDrawer["kind"]) => openDrawer({ kind });
+    return () => openDrawer({ kind });
+}
+
+export function useOpenDrawerFn(): (kind: TDrawer["kind"]) => void {
+    const openDrawer = useDrawerStore((state) => state.openDrawer);
+    return useCallback((kind: TDrawer["kind"]) => openDrawer({ kind }), [openDrawer]);
 }
 
 export function useIsDrawerOpened(kind: TDrawer["kind"]): boolean {

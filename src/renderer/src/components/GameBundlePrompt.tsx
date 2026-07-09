@@ -5,12 +5,12 @@ import { useGameStateStore } from "@renderer/stores/useGameStateStore";
 import { selectIsGameBundleInstallRunning, useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
 import { useGameFileOperationStore } from "@renderer/stores/useGameFileOperationStore";
 import { GithubRelease } from "../../../shared/GithubRelease";
-import { useOpenDrawerSimple } from "@renderer/stores/useDrawerStore";
+import { useOpenDrawer } from "@renderer/stores/useDrawerStore";
 import { openModal } from "@renderer/modals/contextModals";
 
 export function GameBundlePrompt(): ReactNode {
     const t = useTranslate();
-    const openDrawer = useOpenDrawerSimple();
+    const openGameBundlesDrawer = useOpenDrawer("game-bundles");
 
     const gameState = useGameStateStore((state) => state.state);
     const isInstallingGameBundle = useGameBundleInstallStore((state) => state.isInstalling);
@@ -43,7 +43,7 @@ export function GameBundlePrompt(): ReactNode {
                     <Button size="xs" loading={isInstallingGameBundle} disabled={disabled} onClick={() => openInstallModal(latestRelease)}>
                         {t("home.action.install")}
                     </Button>
-                    <Button size="xs" variant="subtle" onClick={() => openDrawer("game-bundles")}>
+                    <Button size="xs" variant="subtle" onClick={openGameBundlesDrawer}>
                         {t("home.action.choose.version")}
                     </Button>
                 </Group>

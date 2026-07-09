@@ -1,9 +1,7 @@
 import React, { useCallback } from "react";
 import { Button, Menu, Text } from "@mantine/core";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
-import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
-import { getEffectiveGameChannels } from "../../../shared/game-channel/getEffectiveGameChannels";
-import { findGameChannel } from "../../../shared/game-channel/findGameChannel";
+import { useGameChannels, useSelectedGameChannel, useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { GameBundleInstallProgress } from "../../../shared/game-bundle/GameBundleInstallProgress";
 import { useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
@@ -11,10 +9,10 @@ import { GameChannelDefinition } from "../../../shared/game-channel/GameChannelD
 
 export function SelectGameVariant(): React.JSX.Element {
     const t = useTranslate();
-    const repository = useWorkspaceStore((state) => state.workspaceStatus);
-    const isReady = repository.status === "ready";
-    const channels = isReady ? getEffectiveGameChannels(repository.config.customGameChannels) : [];
-    const selectedChannel = isReady ? findGameChannel(channels, repository.config.selectedChannelId) : null;
+    const workspace = useWorkspaceStore((state) => state.workspaceStatus);
+    const isReady = workspace.status === "ready";
+    const channels = useGameChannels();
+    const selectedChannel = useSelectedGameChannel();
     const gameBundleInstallProgress = useGameBundleInstallStore((state) => state.progress);
     const isGameBundleInstallInProgress = isGameBundleInstallBlockingProgress(gameBundleInstallProgress);
 

@@ -1,17 +1,14 @@
 import { Button, Group, Paper, Tooltip } from "@mantine/core";
 import { ReactNode } from "react";
-import { ModRepositoryState } from "../../../shared/mods/ModRepositoryState";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
-import { useOpenDrawerSimple } from "@renderer/stores/useDrawerStore";
+import { useOpenDrawerFn } from "@renderer/stores/useDrawerStore";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
 import { SelectGameVariant } from "@renderer/components/SelectGameVariant";
-import { useModsStore } from "@renderer/stores/useModsStore";
+import { ModsDockButton } from "@renderer/components/mods/ModsDockButton";
 
 export function AppBottomDock(): ReactNode {
     const t = useTranslate();
-    const modRepositoryState = useModsStore((state) => state.state);
-    const modIndicatorState = getModIndicatorState(modRepositoryState);
-    const openDrawer = useOpenDrawerSimple();
+    const openDrawer = useOpenDrawerFn();
     const backupsEnabled = useConfigStore((state) => state.backupsEnabled);
 
     return (
@@ -32,10 +29,7 @@ export function AppBottomDock(): ReactNode {
                         </Button>
                     )}
 
-                    <Button variant="light" size="xs" radius="md" onClick={() => openDrawer("mods")} className="launcher-dock__button launcher-dock__mods-button">
-                        {t("dock.mods")}
-                        {modIndicatorState !== "idle" && <span className={`launcher-dock__mods-indicator launcher-dock__mods-indicator--${modIndicatorState}`} aria-hidden="true" />}
-                    </Button>
+                    <ModsDockButton />
 
                     <Tooltip label={t("dock.settings.tooltip")} position="top">
                         <Button variant="filled" size="xs" radius="md" onClick={() => openDrawer("settings")} className="launcher-dock__settings-button">
@@ -49,11 +43,4 @@ export function AppBottomDock(): ReactNode {
             </Group>
         </Paper>
     );
-}
-
-function getModIndicatorState(state: ModRepositoryState): "idle" | "checking" | "updates" {
-    if (state.status !== "ready") return "idle";
-    if (state.mods.some((mod) => mod.updateAvailable)) return "updates";
-    if (state.checking) return "checking";
-    return "idle";
 }

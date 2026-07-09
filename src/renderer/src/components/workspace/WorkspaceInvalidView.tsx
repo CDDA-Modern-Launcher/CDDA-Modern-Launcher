@@ -7,7 +7,7 @@ import { LocalizedText } from "@renderer/components/LocalizedText";
 
 export function WorkspaceInvalidView(): React.JSX.Element {
     const t = useTranslate();
-    const repository = useWorkspaceStore((state) => state.workspaceStatus);
+    const workspace = useWorkspaceStore((state) => state.workspaceStatus);
     const isSelecting = useWorkspaceStore((state) => state.isSelectingRepository);
     const onSelectRepositoryClick = useWorkspaceStore((state) => state.selectRepository);
 
@@ -19,11 +19,11 @@ export function WorkspaceInvalidView(): React.JSX.Element {
                     <Title order={1}>{t("repository.setup.title")}</Title>
                     <LocalizedText c="dimmed" i18nKey="repository.setup.description" />
                 </Stack>
-                {repository.status === "invalid" && (
+                {workspace.status === "invalid" && (
                     <Alert color="red" title={t("repository.setup.invalid.title")} variant="light">
                         <Stack gap={6}>
-                            {repository.path.length > 0 && <Text size="sm">{repository.path}</Text>}
-                            <Text size="sm">{repository.message}</Text>
+                            {workspace.path.length > 0 && <Text size="sm">{workspace.path}</Text>}
+                            <Text size="sm">{workspace.message}</Text>
                         </Stack>
                     </Alert>
                 )}

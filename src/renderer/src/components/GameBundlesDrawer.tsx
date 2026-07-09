@@ -5,7 +5,7 @@ import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { GameBundleReleaseCard } from "@renderer/components/GameBundleReleaseCard";
 import { GameBundleCard } from "@renderer/components/GameBundleCard";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
-import { useDrawerStore, useIsDrawerOpened } from "@renderer/stores/useDrawerStore";
+import { useCloseDrawer, useIsDrawerOpened } from "@renderer/stores/useDrawerStore";
 import { useGameStateStore } from "@renderer/stores/useGameStateStore";
 import { useGameReleasesStore } from "@renderer/stores/useGameReleasesStore";
 import { useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
@@ -16,7 +16,7 @@ import { LocalizedText } from "@renderer/components/LocalizedText";
 export function GameBundlesDrawer(): React.JSX.Element {
     const t = useTranslate();
 
-    const close = useDrawerStore((state) => state.close);
+    const close = useCloseDrawer();
     const isOpened = useIsDrawerOpened("game-bundles");
 
     const gameState = useGameStateStore((state) => state.state);

@@ -14,8 +14,15 @@ import { isRepositoryConfig } from "../utils/isRepositoryConfig";
 import { areWorkspaceConfigsEqual } from "./areWorkspaceConfigsEqual";
 import { configToWorkspaceSettings } from "./configToWorkspaceSettings";
 import { DEFAULT_WORKSPACE_SETTINGS } from "./DEFAULT_WORKSPACE_SETTINGS";
-import { normalizeRepositoryConfig } from "./normalizeRepositoryConfig";
 import { getDirectoryState } from "../utils/getDirectoryState";
+import { normalizeCustomChannel } from "./normalizeCustomChannel";
+import { normalizeStringRecord } from "../utils/normalizeStringRecord";
+import { isReleaseAssetVariant } from "../../shared/release-asset/isReleaseAssetVariant";
+import { DEFAULT_RELEASE_ASSET_VARIANT } from "../../shared/release-asset/DEFAULT_RELEASE_ASSET_VARIANT";
+import { DEFAULT_BACKUP_SETTINGS } from "../../shared/backups/DEFAULT_BACKUP_SETTINGS";
+import { isAutoBackupLimit } from "../../shared/backups/isAutoBackupLimit";
+import { isBackupRotationLimit } from "../../shared/backups/isBackupRotationLimit";
+import { isAutoBackupCooldown } from "../../shared/backups/isAutoBackupCooldown";
 
 export class WorkspaceService {
     private configIoQueue: Promise<void> = Promise.resolve();
@@ -42,8 +49,8 @@ export class WorkspaceService {
     }
 
     async saveConfig(repositoryPath: string, config: RepositoryConfig): Promise<void> {
-        await this.writeConfig(repositoryPath, normalizeRepositoryConfig(config));
-        this.emitWorkspaceSettingsChanged(configToWorkspaceSettings(normalizeRepositoryConfig(config)));
+        await this.writeConfig(repositoryPath, this.normalizeRepositoryConfig(config));
+        this.emitWorkspaceSettingsChanged(configToWorkspaceSettings(this.normalizeRepositoryConfig(config)));
     }
 
     listenWorkspaceSettings(listener: (settings: SettingsIPC) => void): () => void {
@@ -61,7 +68,7 @@ export class WorkspaceService {
         if (currentStatus.status !== "ready") return currentStatus;
         const channels = getEffectiveGameChannels(currentStatus.config.customGameChannels);
         const selectedChannelId = channels.some((channel) => channel.id === channelId) ? channelId : DEFAULT_GAME_CHANNEL_ID;
-        const config = normalizeRepositoryConfig({ ...currentStatus.config, selectedChannelId });
+        const config = this.normalizeRepositoryConfig({ ...currentStatus.config, selectedChannelId });
         await this.writeConfig(currentStatus.path, config);
         return { status: "ready", path: currentStatus.path, config };
     }
@@ -69,7 +76,7 @@ export class WorkspaceService {
     async updateWorkspaceSettings(patch: Partial<SettingsIPC>): Promise<SettingsIPC> {
         const currentStatus = await this.getWorkspaceStatus();
         if (currentStatus.status !== "ready") throw new Error("Repository is not ready");
-        const config = normalizeRepositoryConfig({ ...currentStatus.config, ...patch });
+        const config = this.normalizeRepositoryConfig({ ...currentStatus.config, ...patch });
         await this.writeConfig(currentStatus.path, config);
         const settings = configToWorkspaceSettings(config);
         this.emitWorkspaceSettingsChanged(settings);
@@ -91,7 +98,7 @@ export class WorkspaceService {
         const existingConfig = await this.readConfig(configPath);
 
         if (existingConfig.status === "ok") {
-            const config = normalizeRepositoryConfig(existingConfig.config);
+            const config = this.normalizeRepositoryConfig(existingConfig.config);
 
             if (!areWorkspaceConfigsEqual(existingConfig.config, config)) {
                 await this.writeConfig(path, config);
@@ -113,7 +120,7 @@ export class WorkspaceService {
             };
         }
 
-        const config: RepositoryConfig = normalizeRepositoryConfig({
+        const config: RepositoryConfig = this.normalizeRepositoryConfig({
             selectedChannelId: DEFAULT_GAME_CHANNEL_ID,
             customGameChannels: [],
             activeGameBundleByChannel: {}
@@ -125,6 +132,24 @@ export class WorkspaceService {
         return status;
     }
 
+    private normalizeRepositoryConfig(config: Partial<RepositoryConfig>): RepositoryConfig {
+        const customChannels = Array.isArray(config.customGameChannels) ? config.customGameChannels.map(normalizeCustomChannel).filter((channel) => channel !== null) : [];
+        const channels = getEffectiveGameChannels(customChannels);
+        const selectedChannelId = typeof config.selectedChannelId === "string" && channels.some((channel) => channel.id === config.selectedChannelId) ? config.selectedChannelId : DEFAULT_GAME_CHANNEL_ID;
+
+        return {
+            schemaVersion: 1,
+            selectedChannelId,
+            customGameChannels: customChannels,
+            activeGameBundleByChannel: normalizeStringRecord(config.activeGameBundleByChannel),
+            releaseAssetVariant: isReleaseAssetVariant(config.releaseAssetVariant) ? config.releaseAssetVariant : DEFAULT_RELEASE_ASSET_VARIANT,
+            backupsEnabled: typeof config.backupsEnabled === "boolean" ? config.backupsEnabled : DEFAULT_BACKUP_SETTINGS.backupsEnabled,
+            autoBackupLimit: isAutoBackupLimit(config.autoBackupLimit) ? config.autoBackupLimit : DEFAULT_BACKUP_SETTINGS.autoBackupLimit,
+            manualBackupRotationLimit: isBackupRotationLimit(config.manualBackupRotationLimit) ? config.manualBackupRotationLimit : DEFAULT_BACKUP_SETTINGS.manualBackupRotationLimit,
+            autoBackupCooldown: isAutoBackupCooldown(config.autoBackupCooldown) ? config.autoBackupCooldown : DEFAULT_BACKUP_SETTINGS.autoBackupCooldown
+        };
+    }
+
     private async validateWorkspace(path: string): Promise<WorkspaceStatus> {
         const directoryState = await getDirectoryState(path);
         if (directoryState.status === "missing") return { status: "invalid", path: path, message: this.localizationService.t("repository.error.saved.missing") };
@@ -132,7 +157,7 @@ export class WorkspaceService {
 
         const config = await this.readConfig(join(path, REPOSITORY_CONFIG_FILE_NAME));
         if (config.status === "ok") {
-            const normalizedConfig = normalizeRepositoryConfig(config.config);
+            const normalizedConfig = this.normalizeRepositoryConfig(config.config);
             if (!areWorkspaceConfigsEqual(config.config, normalizedConfig)) await this.writeConfig(path, normalizedConfig);
             return { status: "ready", path: path, config: normalizedConfig };
         }

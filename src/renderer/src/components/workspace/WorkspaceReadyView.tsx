@@ -1,7 +1,5 @@
 import { WorkspaceStatus } from "../../../../shared/workspace/WorkspaceStatus";
 import React, { useEffect } from "react";
-import { getEffectiveGameChannels } from "../../../../shared/game-channel/getEffectiveGameChannels";
-import { findGameChannel } from "../../../../shared/game-channel/findGameChannel";
 import { Alert, Badge, Button, Card, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { getGameChannelRepositoryUrl } from "../../../../shared/game-channel/getGameChannelRepositoryUrl";
@@ -15,11 +13,12 @@ import { useGameStateStore } from "@renderer/stores/useGameStateStore";
 import { useGameReleasesStore } from "@renderer/stores/useGameReleasesStore";
 import { LocalizedText } from "@renderer/components/LocalizedText";
 import { openUrl } from "@renderer/utils/openUrl";
+import { useSelectedGameChannel } from "@renderer/stores/useWorkspaceStore";
+import { WorkspaceInvalidView } from "@renderer/components/workspace/WorkspaceInvalidView";
 
 export function WorkspaceReadyView({ repository }: { repository: Extract<WorkspaceStatus, { status: "ready" }> }): React.JSX.Element {
     const t = useTranslate();
-    const channels = getEffectiveGameChannels(repository.config.customGameChannels);
-    const selectedChannel = findGameChannel(channels, repository.config.selectedChannelId);
+    const selectedChannel = useSelectedGameChannel();
 
     const gameState = useGameStateStore((state) => state.state);
     const isCheckingLatest = useGameStateStore((state) => state.isCheckingLatest);
@@ -31,11 +30,15 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
     useEffect(() => {
         clearReleases();
         queueMicrotask(() => void loadGame());
-    }, [clearReleases, loadGame, repository.path, selectedChannel.id]);
+    }, [clearReleases, loadGame, repository.path, selectedChannel]);
 
     const activeGameBundle = gameState.status === "ready" ? gameState.gameBundle : null;
     const activeGameBundleId = activeGameBundle?.id ?? null;
     const updateAvailable = gameState.status === "ready" && gameState.updateAvailable;
+
+    if (!selectedChannel) {
+        return <WorkspaceInvalidView />;
+    }
 
     return (
         <Card withBorder radius="lg" p="xl" className="workspace-card">

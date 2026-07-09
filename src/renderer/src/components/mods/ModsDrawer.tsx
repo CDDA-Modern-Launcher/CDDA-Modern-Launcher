@@ -1,10 +1,8 @@
 import { ReactNode, useCallback, useMemo } from "react";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
-import { useDrawerStore, useIsDrawerOpened } from "@renderer/stores/useDrawerStore";
+import { useCloseDrawer, useIsDrawerOpened } from "@renderer/stores/useDrawerStore";
 import { ActionIcon, Drawer, Group, Menu, Stack, Text, Title, Tooltip } from "@mantine/core";
-import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
-import { findGameChannel } from "../../../shared/game-channel/findGameChannel";
-import { getEffectiveGameChannels } from "../../../shared/game-channel/getEffectiveGameChannels";
+import { useSelectedGameChannel } from "@renderer/stores/useWorkspaceStore";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { compareMods } from "@renderer/utils/compareMods";
 import { ContentSection } from "@renderer/components/ContentSection";
@@ -13,30 +11,28 @@ import { useModsStore } from "@renderer/stores/useModsStore";
 import { useShallow } from "zustand/react/shallow";
 import { openModal } from "@renderer/modals/contextModals";
 import { LocalizedText } from "@renderer/components/LocalizedText";
-import { ModRepositoryState } from "../../../shared/mods/ModRepositoryState";
+import { ModRepositoryState } from "../../../../shared/mods/ModRepositoryState";
 
 export function ModsDrawer(): ReactNode {
     const t = useTranslate();
 
-    const close = useDrawerStore((state) => state.close);
+    const close = useCloseDrawer();
     const isOpened = useIsDrawerOpened("mods");
 
-    const ws = useWorkspaceStore((state) => state.workspaceStatus);
-    const channel = ws.status === "ready" ? findGameChannel(getEffectiveGameChannels(ws.config.customGameChannels), ws.config.selectedChannelId) : null;
-    const channelName = channel === null ? null : `${channel.gameName} · ${localizeChannelName(channel.channelName, t)}`;
+    const selectedGameChannel = useSelectedGameChannel();
+    const selectedGameChannelName = selectedGameChannel === null ? null : `${selectedGameChannel.gameName} · ${localizeChannelName(selectedGameChannel.channelName, t)}`;
 
-    const { state, checkUpdates, busyAction, error } = useModsStore(
+    const { modRepoState, checkUpdates, busyAction, error } = useModsStore(
         useShallow((state) => ({
-            state: state.state,
+            modRepoState: state.state,
             checkUpdates: state.checkUpdates,
             busyAction: state.busyAction,
             error: state.error
         }))
     );
+    const isRepositoryReady = modRepoState.status === "ready";
 
-    const sortedMods = useMemo(() => [...state.mods].sort(compareMods), [state.mods]);
-
-    const isRepositoryReady = ws.status === "ready" && state.status === "ready";
+    const sortedMods = useMemo(() => [...modRepoState.mods].sort(compareMods), [modRepoState.mods]);
 
     const handleAddGitMod = useCallback(() => openModal("addModFromGit", t("content.sheet.mods.git.modal.title"), {}), [t]);
 
@@ -44,13 +40,9 @@ export function ModsDrawer(): ReactNode {
         <Drawer opened={isOpened} onClose={close} position="right" size={420} title={<Title order={3}>{t("content.sheet.mods.title")}</Title>}>
             <Stack gap="xl">
                 <Stack gap="sm" className="content-sheet__intro">
-                    {channelName === null ? (
-                        <LocalizedText size="sm" c="dimmed" i18nKey="content.sheet.mods.channel.hint.unavailable" />
-                    ) : (
-                        <LocalizedText size="sm" c="dimmed" i18nKey="content.sheet.mods.channel.hint" variables={{ channel: channelName }} />
-                    )}
+                    {!!selectedGameChannelName && <LocalizedText size="sm" c="dimmed" i18nKey="content.sheet.mods.channel.hint" variables={{ channel: selectedGameChannelName }} />}
 
-                    <StateMessage isRepositoryReady={isRepositoryReady} state={state} />
+                    <StateMessage isRepositoryReady={isRepositoryReady} state={modRepoState} />
 
                     {!!error && (
                         <Text size="sm" c="red">
@@ -84,7 +76,7 @@ export function ModsDrawer(): ReactNode {
                                     radius="md"
                                     onClick={checkUpdates}
                                     disabled={!isRepositoryReady || busyAction !== null}
-                                    loading={busyAction === "check-updates" || state.checking}
+                                    loading={busyAction === "check-updates" || modRepoState.checking}
                                     aria-label={t("content.sheet.mods.check.button")}
                                 >
                                     ↻

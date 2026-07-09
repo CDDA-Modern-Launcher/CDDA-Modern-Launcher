@@ -13,7 +13,11 @@ import { isReleaseAssetVariant } from "../../shared/release-asset/isReleaseAsset
 import { Bridge } from "../../shared/bridge-api/Bridge";
 
 export function setupLauncherSettingsIpc(repositoryService: WorkspaceService): void {
-    repositoryService.listenWorkspaceSettings((settings) => emitSettingsChanged(settings));
+    repositoryService.listenWorkspaceSettings((settings) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+            window.webContents.send(Bridge.Settings.changed, settings);
+        }
+    });
 
     ipcMain.handle(Bridge.Settings.get, () => repositoryService.getWorkspaceSettings());
 
@@ -40,10 +44,4 @@ export function setupLauncherSettingsIpc(repositoryService: WorkspaceService): v
         if (!isBackupRotationLimit(manualBackupRotationLimit)) throw new Error(`Unsupported manual backup rotation limit: ${String(manualBackupRotationLimit)}`);
         return repositoryService.updateWorkspaceSettings({ manualBackupRotationLimit });
     });
-}
-
-function emitSettingsChanged(settings: SettingsIPC): void {
-    for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(Bridge.Settings.changed, settings);
-    }
 }
