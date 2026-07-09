@@ -1,4 +1,4 @@
-import { Anchor, Button, Card, Group, Stack } from "@mantine/core";
+import { ActionIcon, Anchor, Button, Card, Group, Stack, Tooltip } from "@mantine/core";
 import { ReactNode, useCallback, useMemo, useState } from "react";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { getUpdateAction } from "@renderer/utils/getUpdateAction";
@@ -13,6 +13,8 @@ import { GithubRelease } from "../../../shared/GithubRelease";
 import { toUpdateReleaseNotesTarget } from "@renderer/utils/toUpdateReleaseNotesTarget";
 import { openModal } from "@renderer/modals/contextModals";
 import { LocalizedText } from "@renderer/components/LocalizedText";
+import { IconRefreshDot } from "@tabler/icons-react";
+import { defaultIconProps } from "@renderer/utils/defaultIconProps";
 
 export function WorkspaceInstalledVersionStrip(): ReactNode {
     const t = useTranslate();
@@ -73,8 +75,12 @@ export function WorkspaceInstalledVersionStrip(): ReactNode {
         }
     };
 
+    const handleRefreshClick = useCallback(() => void refreshGame(true, true), [refreshGame]);
+
     if (!activeGameBundle || installRunning) return null;
     const currentVersion = getReleaseDisplayName(activeGameBundle);
+
+    const checkAgainText = t("home.action.check.again");
 
     return (
         <Card withBorder radius="md" p="sm" className="home-version-strip">
@@ -94,9 +100,7 @@ export function WorkspaceInstalledVersionStrip(): ReactNode {
                         ) : (
                             <LocalizedText size="xs" c="dimmed" i18nKey="home.version.latest.installed" />
                         )}
-                        <Anchor component="button" type="button" size="xs" disabled={isCheckingLatest || fileOperationRunning} onClick={() => void refreshGame(true, true)}>
-                            {t("home.action.check.again")}
-                        </Anchor>
+
                         {updateAvailable && latestRelease !== null && (
                             <Anchor component="button" type="button" size="xs" disabled={isLoadingReleaseNotes || fileOperationRunning} onClick={showUpdateChanges}>
                                 {isLoadingReleaseNotes ? t("home.action.loading.update.changes") : t("home.action.show.update.changes")}
@@ -117,6 +121,12 @@ export function WorkspaceInstalledVersionStrip(): ReactNode {
                             {t("home.action.install.update")}
                         </Button>
                     )}
+
+                    <Tooltip label={checkAgainText} disabled={isCheckingLatest || fileOperationRunning}>
+                        <ActionIcon size={30} variant="subtle" aria-label={checkAgainText} disabled={isCheckingLatest || fileOperationRunning} onClick={handleRefreshClick}>
+                            <IconRefreshDot {...defaultIconProps} />
+                        </ActionIcon>
+                    </Tooltip>
                 </Group>
             </Group>
         </Card>

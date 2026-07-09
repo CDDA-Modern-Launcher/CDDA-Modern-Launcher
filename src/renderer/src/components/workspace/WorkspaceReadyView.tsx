@@ -41,8 +41,10 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
             <Stack gap="lg">
                 <Group justify="space-between" align="flex-start" wrap="nowrap">
                     <Stack gap={4}>
-                        <LocalizedText size="sm" c="dimmed" tt="uppercase" fw={700} className="eyebrow" i18nKey="home.eyebrow" />
-                        <Title order={1}>{selectedChannel.gameName}</Title>
+                        <Title order={1} className="game-variant_title">
+                            {selectedChannel.gameName}
+                        </Title>
+
                         <Group gap="xs">
                             <Badge variant="light">{localizeChannelName(selectedChannel.channelName, t)}</Badge>
                             <Badge component="button" variant="outline" className="home-repository-badge" onClick={() => void window.api.shell.openExternal(getGameChannelRepositoryUrl(selectedChannel))}>
@@ -60,6 +62,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                             )}
                         </Group>
                     </Stack>
+
                     <Badge color={activeGameBundle === null ? "gray" : updateAvailable ? "blue" : "green"} variant="light" size="lg">
                         {activeGameBundle === null ? t("home.status.no.game.bundle") : updateAvailable ? t("home.status.update.available") : t("home.status.installed")}
                     </Badge>

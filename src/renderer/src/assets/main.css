@@ -343,3 +343,7 @@ code {
     flex-shrink: 0;
     font-size: var(--mantine-font-size-xs);
 }
+
+.game-variant_title {
+    margin-top: -13px;
+}

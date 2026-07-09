@@ -126,7 +126,6 @@ export const RU_LOCALE = {
         "home.backup.no.install.tooltip": "Сначала установите игру.",
         "home.backup.no.save.tooltip": "Для бэкапа нужен найденный мир и персонаж.",
         "home.backup.saving.tooltip": "Дождитесь завершения изменений в файлах сохранения.",
-        "home.eyebrow": "Выбранная игра",
         "home.game.state.error.description": "Сейчас не удалось прочитать состояние game bundle игры.",
         "home.game.state.error.title": "Не удалось проверить версии игры",
         "home.game.state.loading.description": "Читаем локальные game bundle и ищем последний совместимый релиз.",

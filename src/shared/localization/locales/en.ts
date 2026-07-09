@@ -127,7 +127,6 @@ export const EN_LOCALE = {
         "home.backup.no.install.tooltip": "Install the game first.",
         "home.backup.no.save.tooltip": "A detected world and character are required for backup.",
         "home.backup.saving.tooltip": "Wait until save file changes settle.",
-        "home.eyebrow": "Selected game",
         "home.game.state.error.description": "Cannot read game bundle state right now.",
         "home.game.state.error.title": "Game version check failed",
         "home.game.state.loading.description": "Reading local game bundles and looking for the latest compatible release.",
