@@ -37,14 +37,14 @@ export const useModsStore = create<State>((set) => ({
 
     busyModId: null,
 
-    modRepoState: { status: "unconfigured", mods: [], checking: false },
-    setState: (state: ModRepositoryState) => set({ modRepoState: state }),
+    state: { status: "unconfigured", mods: [], checking: false },
+    setState: (state: ModRepositoryState) => set({ state }),
 
     checkUpdates: async () => {
         set({ busyAction: "check-updates", error: null });
         try {
             const result = await window.api.mods.checkUpdates();
-            set({ modRepoState: result.state });
+            set({ state: result.state });
             if (result.status !== "checked") {
                 set({ error: result.message });
             }
@@ -57,7 +57,7 @@ export const useModsStore = create<State>((set) => ({
         set({ busyAction: "update", busyModId: mod.id, error: null });
         try {
             const result = await window.api.mods.update(mod.id, { force });
-            set({ modRepoState: result.state });
+            set({ state: result.state });
 
             switch (result.status) {
                 case "updated":
@@ -78,7 +78,7 @@ export const useModsStore = create<State>((set) => ({
         set({ busyAction: "remove", busyModId: mod.id, error: null });
         try {
             const result = await window.api.mods.remove(mod.id);
-            set({ modRepoState: result.state });
+            set({ state: result.state });
 
             switch (result.status) {
                 case "deleted":
@@ -103,7 +103,7 @@ export const useModsStore = create<State>((set) => ({
         set({ busyAction: "install", error: null });
         try {
             const result = await window.api.mods.installFromUrl(gitUrl);
-            set({ modRepoState: result.state });
+            set({ state: result.state });
 
             switch (result.status) {
                 case "installed":
@@ -118,10 +118,10 @@ export const useModsStore = create<State>((set) => ({
     },
 
     mount: () => {
-        void window.api.mods.getState().then((state) => set({ modRepoState: state }));
+        void window.api.mods.getState().then((state) => set({ state: state }));
 
-        const unsubscribeChanged = window.api.mods.onChanged((event) => set({ modRepoState: event.state }));
-        const unsubscribeNotice = window.api.mods.onNotice((event) => set({ modRepoState: event.state }));
+        const unsubscribeChanged = window.api.mods.onChanged((event) => set({ state: event.state }));
+        const unsubscribeNotice = window.api.mods.onNotice((event) => set({ state: event.state }));
 
         return function cleanup() {
             unsubscribeChanged();

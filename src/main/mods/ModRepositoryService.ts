@@ -178,7 +178,7 @@ export class ModRepositoryService {
         this.emitChanged(state);
 
         if (notice !== null) {
-            this.emitNotice({ type: "updates-available", updateCount: notice.updateCount, dirtyCount: notice.dirtyCount, modRepoState: state });
+            this.emitNotice({ type: "updates-available", updateCount: notice.updateCount, dirtyCount: notice.dirtyCount, state: state });
         }
 
         if (outcome.status === "error") {
@@ -503,7 +503,7 @@ export class ModRepositoryService {
     }
 
     private emitChanged(state: ModRepositoryState): void {
-        const event: ModRepositoryChangedEvent = { modRepoState: state };
+        const event: ModRepositoryChangedEvent = { state: state };
 
         for (const window of BrowserWindow.getAllWindows()) {
             window.webContents.send(Bridge.Mods.onChanged, event);

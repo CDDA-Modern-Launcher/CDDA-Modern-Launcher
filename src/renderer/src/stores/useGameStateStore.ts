@@ -14,14 +14,14 @@ export interface GameStateStoreState extends IMountableState {
 }
 
 export const useGameStateStore = create<GameStateStoreState>()((set) => ({
-    modRepoState: { status: "loading" },
+    state: { status: "loading" },
     isCheckingLatest: false,
 
     mount: () => {
-        const unsubscribeState = window.api.game.onStateChanged((state) => set({ modRepoState: state }));
-        const unsubscribeBackups = window.api.game.onBackupSummaryChanged((update) => set((current) => ({ modRepoState: withBackupSummary(current.state, update.summary, update.gameBundleId) })));
-        const unsubscribeSaves = window.api.game.onSaveSummaryChanged((update) => set((current) => ({ modRepoState: withSaveSummary(current.state, update.saves, update.gameBundleId) })));
-        const unsubscribeSaveActivity = window.api.game.onSaveActivityChanged((update) => set((current) => ({ modRepoState: withSaveActivity(current.state, update.stable, update.gameBundleId) })));
+        const unsubscribeState = window.api.game.onStateChanged((state) => set({ state: state }));
+        const unsubscribeBackups = window.api.game.onBackupSummaryChanged((update) => set((current) => ({ state: withBackupSummary(current.state, update.summary, update.gameBundleId) })));
+        const unsubscribeSaves = window.api.game.onSaveSummaryChanged((update) => set((current) => ({ state: withSaveSummary(current.state, update.saves, update.gameBundleId) })));
+        const unsubscribeSaveActivity = window.api.game.onSaveActivityChanged((update) => set((current) => ({ state: withSaveActivity(current.state, update.stable, update.gameBundleId) })));
 
         return function cleanup() {
             unsubscribeSaveActivity();
@@ -32,18 +32,18 @@ export const useGameStateStore = create<GameStateStoreState>()((set) => ({
     },
 
     load: async () => {
-        set({ modRepoState: { status: "loading" }, isCheckingLatest: false });
+        set({ state: { status: "loading" }, isCheckingLatest: false });
         try {
             const localState = await window.api.game.getState({ refreshLatest: false });
-            set({ modRepoState: localState });
+            set({ state: localState });
             if (localState.status !== "ready") return;
 
             set({ isCheckingLatest: true });
             try {
-                set({ modRepoState: await window.api.game.getState({ refreshLatest: true, forceRefresh: false }) });
+                set({ state: await window.api.game.getState({ refreshLatest: true, forceRefresh: false }) });
             } catch (error) {
                 set((current) => ({
-                    modRepoState:
+                    state:
                         current.state.status === "ready"
                             ? { ...current.state, latestRelease: null, latestReleaseError: error instanceof Error ? error.message : String(error), updateAvailable: false }
                             : toGameStateError(error)
@@ -52,16 +52,16 @@ export const useGameStateStore = create<GameStateStoreState>()((set) => ({
                 set({ isCheckingLatest: false });
             }
         } catch (error) {
-            set({ modRepoState: toGameStateError(error) });
+            set({ state: toGameStateError(error) });
         }
     },
 
     refresh: async (refreshLatest = true, forceRefresh = false) => {
         if (refreshLatest) set({ isCheckingLatest: true });
         try {
-            set({ modRepoState: await window.api.game.getState({ refreshLatest, forceRefresh }) });
+            set({ state: await window.api.game.getState({ refreshLatest, forceRefresh }) });
         } catch (error) {
-            set({ modRepoState: toGameStateError(error) });
+            set({ state: toGameStateError(error) });
         } finally {
             if (refreshLatest) set({ isCheckingLatest: false });
         }
