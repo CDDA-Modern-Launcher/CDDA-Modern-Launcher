@@ -207,24 +207,59 @@ code {
     background-color: var(--app-panel-background);
 }
 
-.release-notes-text {
+.release-notes-cards {
     max-height: min(60vh, 640px);
-    margin: 0;
-    padding: 12px;
     overflow: auto;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+    padding-right: 4px;
+}
+
+.release-notes-card {
+    padding: 12px 14px;
+    border: 1px solid var(--mantine-color-default-border);
     border-radius: var(--mantine-radius-md);
     background-color: var(--app-panel-background);
-    font-family: ui-monospace,
-    SFMono-Regular,
-    SF Mono,
-    Menlo,
-    Consolas,
-    Liberation Mono,
-    monospace;
-    font-size: 12px;
-    line-height: 1.5;
+}
+
+.release-notes-card__header {
+    margin-bottom: 8px;
+}
+
+.release-notes-card__title,
+.release-notes-card__line-text {
+    min-width: 0;
+}
+
+.release-notes-card__published-at {
+    flex-shrink: 0;
+}
+
+.release-notes-card__author {
+    font-size: var(--mantine-font-size-xs);
+}
+
+.release-notes-card__inline-link {
+    font-size: var(--mantine-font-size-sm);
+}
+
+.release-notes-card__section-title {
+    margin-top: 2px;
+    line-height: 1.4;
+}
+
+.release-notes-card__line {
+    line-height: 1.45;
+}
+
+.release-notes-card__marker {
+    width: 14px;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.release-notes-card__line-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.45;
 }
 
 .backup-strip {
@@ -298,4 +333,13 @@ code {
         transform: scale(0.9);
         box-shadow: 0 0 0 0 rgba(34, 139, 230, 0);
     }
+}
+
+.release-notes-card__title-group {
+    min-width: 0;
+}
+
+.release-notes-card__header-link {
+    flex-shrink: 0;
+    font-size: var(--mantine-font-size-xs);
 }

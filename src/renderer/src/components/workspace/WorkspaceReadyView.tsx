@@ -7,7 +7,7 @@ import { localizeChannelName } from "@renderer/utils/localizeChannelName";
 import { getGameChannelRepositoryUrl } from "../../../../shared/game-channel/getGameChannelRepositoryUrl";
 import { SaveStatusLine } from "@renderer/components/SaveStatusLine";
 import { GameBundlePrompt } from "@renderer/components/GameBundlePrompt";
-import { VersionStrip } from "@renderer/components/VersionStrip";
+import { WorkspaceInstalledVersionStrip } from "@renderer/components/WorkspaceInstalledVersionStrip";
 import { WorkspaceBackupStrip } from "@renderer/components/backups/WorkspaceBackupStrip";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { PrimaryGameActions } from "@renderer/components/PrimaryGameActions";
@@ -94,7 +94,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                 )}
 
                 <GameBundlePrompt />
-                <VersionStrip />
+                <WorkspaceInstalledVersionStrip />
                 <WorkspaceBackupStrip />
                 <PrimaryGameActions />
             </Stack>

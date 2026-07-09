@@ -12,6 +12,6 @@ export function toUpdateReleaseNotesTarget(activeGameBundle: GameBundle, latestR
             current: getReleaseDisplayName(activeGameBundle),
             latest: getReleaseNameDisplay(latestRelease.name)
         }),
-        body: formatUpdateReleaseNotes(updateReleases, t)
+        body: formatUpdateReleaseNotes(updateReleases)
     };
 }

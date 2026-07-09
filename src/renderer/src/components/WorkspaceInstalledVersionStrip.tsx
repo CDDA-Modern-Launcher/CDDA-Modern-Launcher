@@ -14,7 +14,7 @@ import { toUpdateReleaseNotesTarget } from "@renderer/utils/toUpdateReleaseNotes
 import { openModal } from "@renderer/modals/contextModals";
 import { LocalizedText } from "@renderer/components/LocalizedText";
 
-export function VersionStrip(): ReactNode {
+export function WorkspaceInstalledVersionStrip(): ReactNode {
     const t = useTranslate();
     const gameState = useGameStateStore((state) => state.state);
     const installRunning = useGameBundleInstallStore(selectIsGameBundleInstallRunning);
