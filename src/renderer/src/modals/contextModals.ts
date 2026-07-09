@@ -1,5 +1,5 @@
 import { GameBundle } from "../../../shared/game-bundle/GameBundle";
-import { ContextModalProps, modals } from "@mantine/modals";
+import { ContextModalProps, modals, type OpenContextModal } from "@mantine/modals";
 import React from "react";
 import { DeleteGameBundleModal } from "@renderer/modals/impl/DeleteGameBundleModal";
 import { ReleaseNotesTarget } from "@renderer/types/ReleaseNotesTarget";
@@ -18,7 +18,15 @@ export type ModalPayloads = {
     addModFromGit: { _?: void };
 };
 
-type AppContextModals = { [TName in keyof ModalPayloads]: React.FC<ContextModalProps<ModalPayloads[TName]>> };
+type AppContextModals = {
+    [TName in keyof ModalPayloads]: React.FC<ContextModalProps<ModalPayloads[TName]>>;
+};
+
+type OpenModalOptions = Omit<OpenContextModal, "modal" | "title" | "innerProps">;
+
+type AppContextModalDefaults = Partial<{
+    [TName in keyof ModalPayloads]: OpenModalOptions;
+}>;
 
 export const contextModals: AppContextModals = {
     deleteBackup: DeleteGameBundleModal,
@@ -28,6 +36,18 @@ export const contextModals: AppContextModals = {
     addModFromGit: AddGitModModalNew
 };
 
-export function openModal<TName extends keyof ModalPayloads>(modal: TName, title: string, innerProps: ModalPayloads[TName]): string {
-    return modals.openContextModal({ modal, title, innerProps });
+const contextModalDefaults: AppContextModalDefaults = {
+    showReleaseNotes: {
+        size: "90vw"
+    }
+};
+
+export function openModal<TName extends keyof ModalPayloads>(modal: TName, title: string, innerProps: ModalPayloads[TName], options?: OpenModalOptions): string {
+    return modals.openContextModal({
+        modal,
+        title,
+        innerProps,
+        ...contextModalDefaults[modal],
+        ...options
+    });
 }

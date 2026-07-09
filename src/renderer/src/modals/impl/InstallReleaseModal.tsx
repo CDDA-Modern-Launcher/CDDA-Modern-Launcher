@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { Alert, Button, Card, Checkbox, Group, Progress, Stack, Text } from "@mantine/core";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
@@ -26,6 +26,10 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
 
     const installLatestGameBundle = useGameBundleInstallStore((state) => state.installLatest);
     const isInstallingGameBundle = useGameBundleInstallStore((state) => state.isInstalling);
+
+    const handleCopyCheck = useCallback((event: ChangeEvent<HTMLInputElement>) => setCopyUserdata(event.currentTarget.checked), []);
+
+    const handleRemoveCheck = useCallback((event: ChangeEvent<HTMLInputElement>) => setRemoveOlderGameBundles(event.currentTarget.checked), []);
 
     const handleClose = useCallback(() => context.closeModal(id), [context, id]);
 
@@ -60,15 +64,8 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
 
             {hasInstalledVersions && (
                 <Stack gap="xs" className="game-bundle-options">
-                    <Checkbox size="sm" checked={copyUserdata} onChange={(event) => setCopyUserdata(event.currentTarget.checked)} label={t("install.option.copy.userdata")} disabled={isInstallingGameBundle} />
-
-                    <Checkbox
-                        size="sm"
-                        checked={removeOlderGameBundles}
-                        onChange={(event) => setRemoveOlderGameBundles(event.currentTarget.checked)}
-                        label={t("install.option.remove.old.versions")}
-                        disabled={isInstallingGameBundle}
-                    />
+                    <Checkbox size="sm" checked={copyUserdata} onChange={handleCopyCheck} label={t("install.option.copy.userdata")} disabled={isInstallingGameBundle} />
+                    <Checkbox size="sm" checked={removeOlderGameBundles} onChange={handleRemoveCheck} label={t("install.option.remove.old.versions")} disabled={isInstallingGameBundle} />
                 </Stack>
             )}
 

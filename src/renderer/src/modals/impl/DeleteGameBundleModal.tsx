@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { ChangeEvent, useCallback, useEffect, useState } from "react";
 import { Alert, Button, Checkbox, Group, Stack } from "@mantine/core";
 import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
@@ -18,6 +18,8 @@ export function DeleteGameBundleModal({ id, innerProps: { gameBundle }, context 
     const [error, setError] = useState<string | null>(null);
 
     const handleClose = useCallback(() => context.closeModal(id), [context, id]);
+
+    const handleCheck = useCallback((event: ChangeEvent<HTMLInputElement>) => setDeleteUserdata(event.currentTarget.checked), []);
 
     const handleDelete = useCallback(async () => {
         if (!gameBundle) return;
@@ -47,7 +49,7 @@ export function DeleteGameBundleModal({ id, innerProps: { gameBundle }, context 
         <Stack gap="md">
             <LocalizedText size="sm" c="dimmed" i18nKey="delete.game.bundle.modal.description" variables={{ version: getReleaseDisplayName(gameBundle) }} />
 
-            <Checkbox size="sm" checked={deleteUserdata} onChange={(event) => setDeleteUserdata(event.currentTarget.checked)} label={t("versions.option.delete.userdata")} />
+            <Checkbox size="sm" checked={deleteUserdata} onChange={handleCheck} label={t("versions.option.delete.userdata")} disabled={deleting} />
 
             {!!error && (
                 <Alert variant="light" color="red" title={t("common.error.title")}>
