@@ -6,7 +6,6 @@ export const Bridge = {
         installNow: "updater:install-now",
         dismiss: "updater:dismiss",
         skipVersion: "updater:skip-version",
-        showMockDownloadedUpdate: "updater:mock-downloaded",
         onStateChanged: "updater:state-changed"
     },
     Appearance: {

@@ -11,7 +11,6 @@ export function registerPreloadUpdaterApi(): UpdaterApi {
         installNow: () => ipcRenderer.invoke(Bridge.Updater.installNow),
         dismiss: () => ipcRenderer.invoke(Bridge.Updater.dismiss),
         skipVersion: (version: string) => ipcRenderer.invoke(Bridge.Updater.skipVersion, version),
-        showMockDownloadedUpdate: (version?: string) => ipcRenderer.invoke(Bridge.Updater.showMockDownloadedUpdate, version),
         onStateChanged: (callback: (state: UpdateState) => void) => {
             const listener = (_event: IpcRendererEvent, state: UpdateState): void => callback(state);
             ipcRenderer.on(Bridge.Updater.onStateChanged, listener);

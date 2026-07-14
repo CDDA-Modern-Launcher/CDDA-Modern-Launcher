@@ -7,6 +7,5 @@ export type UpdaterApi = {
     installNow: () => Promise<boolean>;
     dismiss: () => Promise<UpdateState>;
     skipVersion: (version: string) => Promise<UpdateState>;
-    showMockDownloadedUpdate: (version?: string) => Promise<UpdateState>;
     onStateChanged: (callback: (state: UpdateState) => void) => () => void;
 };
