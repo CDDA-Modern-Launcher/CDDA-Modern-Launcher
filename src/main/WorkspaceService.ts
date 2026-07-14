@@ -22,6 +22,7 @@ import { TAutoBackupLimit } from "../shared/backups/types/TAutoBackupLimit";
 import { TAutoBackupCooldown } from "../shared/backups/types/TAutoBackupCooldown";
 import { TReleaseAssetVariant } from "../shared/release-asset/TReleaseAssetVariant";
 import { parse, ParseError, printParseErrorCode } from "jsonc-parser";
+import { publishGameState, synchronizeActiveBundle } from "./game/GameStateEvents";
 
 const DEFAULT_WORKSPACE_SETTINGS: SettingsIPC = {
     releaseAssetVariant: DEFAULT_RELEASE_ASSET_VARIANT,
@@ -35,7 +36,10 @@ class WorkspaceService {
     private configIoQueue: Promise<void> = Promise.resolve();
     private workspaceStatus: WorkspaceStatus = { status: "unconfigured" };
 
-    constructor() {
+    async initialize(): Promise<void> {
+        const workspacePath = appSettings.get("workspacePath");
+        this.workspaceStatus = workspacePath ? await this.validateWorkspace(workspacePath) : { status: "unconfigured" };
+
         ipcMain.handle(Bridge.Workspace.getStatus, () => this.getWorkspaceStatus());
         ipcMain.handle(Bridge.Workspace.setChannel, (_event, channelId: string) => this.setSelectedChannel(channelId));
         ipcMain.handle(Bridge.Workspace.selectNewFolder, async (event): Promise<EWorkspaceSelectResult> => {
@@ -54,11 +58,6 @@ class WorkspaceService {
         ipcMain.handle(Bridge.Settings.setBackupRotationLimit, async (_, manualBackupRotationLimit: TBackupRotationLimit): Promise<SettingsIPC> => this.updateWorkspaceSettings({ manualBackupRotationLimit }));
     }
 
-    async initialize(): Promise<void> {
-        const workspacePath = appSettings.get("workspacePath");
-        this.workspaceStatus = workspacePath ? await this.validateWorkspace(workspacePath) : { status: "unconfigured" };
-    }
-
     getWorkspaceStatus(): WorkspaceStatus {
         return this.workspaceStatus;
     }
@@ -71,6 +70,8 @@ class WorkspaceService {
         const status = await this.prepare(workspacePath);
         this.workspaceStatus = status;
         if (status.status === "ready") appSettings.set({ workspacePath });
+        await synchronizeActiveBundle();
+        await publishGameState();
         return status;
     }
 
@@ -90,7 +91,10 @@ class WorkspaceService {
         const workspace = this.getReadyWorkspace();
         if (workspace === null) return this.workspaceStatus;
         const selectedChannelId = workspace.gameChannels.some((channel) => channel.id === channelId) ? channelId : DEFAULT_GAME_CHANNEL_ID;
-        return this.saveConfig({ ...workspace.config, selectedChannelId });
+        const status = await this.saveConfig({ ...workspace.config, selectedChannelId });
+        await synchronizeActiveBundle();
+        await publishGameState();
+        return status;
     }
 
     async updateWorkspaceSettings(patch: Partial<SettingsIPC>): Promise<SettingsIPC> {

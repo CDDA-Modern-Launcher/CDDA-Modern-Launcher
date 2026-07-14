@@ -18,27 +18,66 @@ import { EBackupRestoreResult } from "../shared/backups/types/EBackupRestoreResu
 
 import { EBackupRenameResult } from "../shared/backups/types/EBackupRenameResult";
 import { GameBundle } from "../shared/game-bundle/GameBundle";
-import { GameSaveSummary } from "../shared/GameSaveSummary";
-import { GameEvents } from "./game/GameEvents";
 import { pathExists } from "./utils/pathExists";
-import { copyRestoredWorld, createZipFromDirectory, findBackup, getBackupsPath, safePathSegment, scanBackups, toBackupInfo } from "./game/GameBackupFiles";
 import { workspaceService } from "./WorkspaceService";
+import { GameBackupContext } from "./GameBackupContext";
+import { scanBackups } from "./utils/backups/scanBackups";
+import { findBackup } from "./utils/backups/findBackup";
+import { getBackupsPath } from "./utils/backups/getBackupsPath";
+import { toBackupInfo } from "./utils/backups/toBackupInfo";
+import { createZipFromDirectory } from "./utils/backups/createZipFromDirectory";
+import { safePathSegment } from "./utils/safePathSegment";
+import { copyRestoredWorld } from "./utils/backups/copyRestoredWorld";
+import { broadcastIPC } from "./utils/broadcastIPC";
+import { Bridge } from "../shared/bridge-api/Bridge";
+import { broadcastBackupIPC } from "./utils/broadcastBackupIPC";
+import { CreateManualBackupOptions } from "../shared/backups/types/CreateManualBackupOptions";
+import { gameFileOperationGuard } from "./game/GameFileOperationGuard";
+import { gameSaveCoordinator } from "./game/GameSaveCoordinator";
+import { ipcMain } from "electron";
 
-export type GameBackupContext = {
-    gameBundle: GameBundle;
-    saves: GameSaveSummary | null;
-    gameRunning: boolean;
-    savesStable: boolean;
-};
-
-export class GameBackupService {
+class GameBackupService {
     private watcher: FSWatcher | null = null;
     private watchedGameBundleId: string | null = null;
     private watchedBackupsPath: string | null = null;
     private watcherRefreshTimer: NodeJS.Timeout | null = null;
     private isBusy = false;
 
-    constructor(private readonly events: GameEvents) {}
+    async initialize(): Promise<void> {
+        ipcMain.handle(Bridge.Game.createManualBackup, (_, options: CreateManualBackupOptions | undefined) => {
+            return gameFileOperationGuard.run("creating-backup", async () => {
+                const context = await gameSaveCoordinator.getBackupContext((options ?? {}).worldName);
+                if (context === null) return { status: "unavailable", message: translate("game.error.no.game.bundle") };
+                const result = await this.createManualBackup(context);
+                if (result.status === "created") gameSaveCoordinator.touchAutoBackupCooldown(context.gameBundle.id, result.backup.worldFolderName);
+                return result;
+            });
+        });
+
+        ipcMain.handle(Bridge.Game.restoreBackup, (_, backupId: string) => {
+            return gameFileOperationGuard.run("restoring-backup", async () => {
+                const context = await gameSaveCoordinator.getBackupContext();
+                if (context === null) return { status: "unavailable", message: translate("game.error.no.game.bundle") };
+                const result = await this.restoreBackup(context, backupId);
+                if (result.status === "restored") await gameSaveCoordinator.refreshActiveSaveSummary();
+                return result;
+            });
+        });
+
+        ipcMain.handle(Bridge.Game.deleteBackup, (_, backupId: string) => {
+            return gameFileOperationGuard.run("deleting-backup", async () => {
+                const context = await gameSaveCoordinator.getBackupContext();
+                return this.deleteBackup(context?.gameBundle ?? null, backupId);
+            });
+        });
+
+        ipcMain.handle(Bridge.Game.renameBackup, (_, backupId: string, comment: string) => {
+            return gameFileOperationGuard.run("renaming-backup", async () => {
+                const context = await gameSaveCoordinator.getBackupContext();
+                return this.renameBackup(context?.gameBundle ?? null, backupId, comment);
+            });
+        });
+    }
 
     async updateActiveGameBundle(gameBundle: GameBundle | null): Promise<void> {
         if (gameBundle === null) {
@@ -59,10 +98,6 @@ export class GameBackupService {
         return gameBundle === null ? { backups: [], latestBackup: null } : scanBackups(gameBundle);
     }
 
-    async createManualBackup(context: GameBackupContext): Promise<EBackupCreateResult> {
-        return this.createBackup(context, "manual");
-    }
-
     async createAutoBackup(context: GameBackupContext): Promise<EBackupCreateResult> {
         if (!context.gameRunning) return { status: "unavailable", message: translate("backup.error.auto.requires.running") };
         if (this.isBusy) return { status: "blocked", message: translate("backup.error.busy") };
@@ -71,7 +106,11 @@ export class GameBackupService {
         return this.createBackup(context, "auto");
     }
 
-    async restoreBackup(context: GameBackupContext, backupId: string): Promise<EBackupRestoreResult> {
+    private async createManualBackup(context: GameBackupContext): Promise<EBackupCreateResult> {
+        return this.createBackup(context, "manual");
+    }
+
+    private async restoreBackup(context: GameBackupContext, backupId: string): Promise<EBackupRestoreResult> {
         if (context.gameRunning) return { status: "blocked", message: translate("backup.error.restore.blocked.running") };
         if (this.isBusy) return { status: "blocked", message: translate("backup.error.busy") };
         const backup = await findBackup(context.gameBundle, backupId);
@@ -104,7 +143,7 @@ export class GameBackupService {
         }
     }
 
-    async deleteBackup(gameBundle: GameBundle | null, backupId: string): Promise<EBackupDeleteResult> {
+    private async deleteBackup(gameBundle: GameBundle | null, backupId: string): Promise<EBackupDeleteResult> {
         if (gameBundle === null) return { status: "unavailable", message: translate("game.error.no.game.bundle") };
         const backup = await findBackup(gameBundle, backupId);
         if (backup === null) return { status: "unavailable", message: translate("backup.error.not.found") };
@@ -113,7 +152,7 @@ export class GameBackupService {
         return { status: "deleted" };
     }
 
-    async renameBackup(gameBundle: GameBundle | null, backupId: string, comment: string): Promise<EBackupRenameResult> {
+    private async renameBackup(gameBundle: GameBundle | null, backupId: string, comment: string): Promise<EBackupRenameResult> {
         if (gameBundle === null) return { status: "unavailable", message: translate("game.error.no.game.bundle") };
         const backup = await findBackup(gameBundle, backupId);
         if (backup === null) return { status: "unavailable", message: translate("backup.error.not.found") };
@@ -122,10 +161,6 @@ export class GameBackupService {
         const summary = await this.emitSummary(gameBundle);
         const renamed = summary.backups.find((candidate) => candidate.id === backupId);
         return renamed === undefined ? { status: "unavailable", message: translate("backup.error.not.found") } : { status: "renamed", backup: renamed };
-    }
-
-    stop(): void {
-        this.stopWatching();
     }
 
     private async createBackup(context: GameBackupContext, type: TBackupKind): Promise<EBackupCreateResult> {
@@ -139,7 +174,7 @@ export class GameBackupService {
         if (!(await pathExists(sourceWorldPath))) return { status: "unavailable", message: translate("backup.error.world.folder.missing") };
 
         const id = `${new Date().toISOString().replace(/[.:]/g, "-")}-${type}`;
-        const backupPath = join(getBackupsPath(context.gameBundle), safePathSegment(id));
+        const backupPath = join(getBackupsPath(context.gameBundle), safePathSegment(id, "backup"));
         const archivePath = join(backupPath, BACKUP_ARCHIVE_FILE_NAME);
         const info: BackupInfo = {
             schemaVersion: 1,
@@ -195,7 +230,7 @@ export class GameBackupService {
     private async emitSummary(gameBundle: GameBundle): Promise<BackupSummary> {
         const summary = await scanBackups(gameBundle);
         const update: BackupSummaryUpdate = { gameBundleId: gameBundle.id, summary };
-        this.events.emitBackupSummary(update);
+        broadcastIPC(Bridge.Game.backupSummaryChanged, update);
         return summary;
     }
 
@@ -211,6 +246,8 @@ export class GameBackupService {
     }
 
     private setProgress(progress: BackupProgress, immediate = false): void {
-        this.events.emitBackupProgress(progress, immediate);
+        broadcastBackupIPC(progress, immediate);
     }
 }
+
+export const gameBackupService = new GameBackupService();

@@ -72,4 +72,8 @@ export const Bridge = {
         onChanged: "mods:changed",
         onNotice: "mods:notice"
     }
-};
+} as const;
+
+type DeepValueOf<T> = T extends string ? T : T extends Record<string, unknown> ? DeepValueOf<T[keyof T]> : never;
+
+export type BridgeChannel = DeepValueOf<typeof Bridge>;

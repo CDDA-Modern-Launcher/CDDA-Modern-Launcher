@@ -1,6 +1,6 @@
 import { createWriteStream } from "node:fs";
-import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join, relative } from "node:path";
 import { performance } from "node:perf_hooks";
 import { Readable } from "node:stream";
 import { finished } from "node:stream/promises";
@@ -22,21 +22,22 @@ import { matchesChannelKind } from "../utils/releases/matchesChannelKind";
 import { toGameRelease } from "../utils/releases/toGameRelease";
 import { withGitHubPageSize } from "../utils/releases/withGitHubPageSize";
 import { runCommand } from "../utils/runCommand";
-import { GameBundleRegistry } from "./GameBundleRegistry";
-import { GameEvents } from "./GameEvents";
 import { workspaceService } from "../WorkspaceService";
+import { findExecutable } from "../utils/findExecutable";
+import { findUserdataSource } from "../utils/findUserdataSource";
+import { pathExists } from "../utils/pathExists";
+import { copyDirectoryContents } from "../utils/copyDirectoryContents";
+import { GameBundleManifest } from "../../shared/game-bundle/GameBundleManifest";
+import { DOWNLOADS_DIRECTORY_NAME, GAME_BUNDLE_MANIFEST_FILE_NAME, GAME_BUNDLES_DIRECTORY_NAME, USERDATA_DIRECTORY_NAME } from "../../shared/Const";
+import { safePathSegment } from "../utils/safePathSegment";
+import { broadcastInstallIPC } from "../utils/broadcastInstallIPC";
 
 const KEEP_DOWNLOADED_GAME_BUNDLES = 3;
 const DOWNLOAD_PROGRESS_MIN_INTERVAL_MS = 250;
 const DOWNLOAD_PROGRESS_UNKNOWN_TOTAL_STEP_BYTES = 1024 * 1024;
 
-export class GameReleaseService {
+class GameReleaseService {
     private readonly gitHubNetwork = new GitHubNetworkManager();
-
-    constructor(
-        private readonly registry: GameBundleRegistry,
-        private readonly events: GameEvents
-    ) {}
 
     async findLatest(channel: GameChannelDefinition, forceRefresh: boolean): Promise<GithubRelease | null> {
         return (await this.fetch(channel, forceRefresh))[0] ?? null;
@@ -48,22 +49,52 @@ export class GameReleaseService {
     }
 
     async install(workspacePath: string, config: WorkspaceConfig, channel: GameChannelDefinition, release: GithubRelease, options: GameBundleInstallOptions, gameBundlesBefore: GameBundle[]): Promise<GameBundle> {
-        const gameBundlePath = this.registry.getBundlePath(workspacePath, channel.id, release.id);
-        const userdataPath = this.registry.getUserdataPath(workspacePath, channel.id, release.id);
+        const gameBundlePath = join(workspacePath, GAME_BUNDLES_DIRECTORY_NAME, channel.id, safePathSegment(release.id, "release"));
+        const userdataPath = join(workspacePath, USERDATA_DIRECTORY_NAME, channel.id, safePathSegment(release.id, "release"));
         const tempPath = `${gameBundlePath}.tmp-${Date.now()}`;
-        const downloadPath = this.registry.getDownloadPath(workspacePath, channel.id, basename(release.asset.name));
+        const downloadPath = join(workspacePath, DOWNLOADS_DIRECTORY_NAME, channel.id, basename(release.asset.name));
 
-        await this.registry.prepareInstallTarget(gameBundlePath, userdataPath, tempPath);
+        await mkdir(dirname(gameBundlePath), { recursive: true });
+        await mkdir(dirname(userdataPath), { recursive: true });
+        await rm(tempPath, { recursive: true, force: true });
+        await rm(gameBundlePath, { recursive: true, force: true });
+
         await this.downloadFile(release.asset.downloadUrl, downloadPath, release.name, release.asset.size);
         await this.extractArchive(downloadPath, tempPath, release.name);
-        this.events.emitInstallProgress({ status: "preparing-saves", releaseName: release.name });
-        const gameBundle = await this.registry.writeInstalledBundle(config, channel, release, options, gameBundlesBefore, tempPath, gameBundlePath, userdataPath);
-        this.events.emitInstallProgress({ status: "finalizing", releaseName: release.name });
+        broadcastInstallIPC({ status: "preparing-saves", releaseName: release.name });
+
+        const executablePath = await findExecutable(tempPath);
+        const sourceUserdata = options.copyUserdata ? findUserdataSource(gameBundlesBefore, config.activeGameBundleByChannel[channel.id]) : null;
+        await mkdir(userdataPath, { recursive: true });
+        if (sourceUserdata !== null && (await pathExists(sourceUserdata.userdataPath))) await copyDirectoryContents(sourceUserdata.userdataPath, userdataPath);
+
+        const manifest: GameBundleManifest = {
+            schemaVersion: 1,
+            channelId: channel.id,
+            releaseId: release.id,
+            releaseName: release.name,
+            tagName: release.tagName,
+            publishedAt: release.publishedAt,
+            htmlUrl: release.htmlUrl,
+            releaseBody: release.body,
+            assetName: release.asset.name,
+            installedAt: new Date().toISOString(),
+            executablePath: executablePath === null ? null : join(gameBundlePath, relative(tempPath, executablePath)),
+            userdataPath,
+            copiedUserdataFromGameBundleId: sourceUserdata?.id ?? null,
+            source: { owner: channel.githubOwner, repo: channel.githubRepo, branch: channel.githubBranch }
+        };
+        await writeFile(join(tempPath, GAME_BUNDLE_MANIFEST_FILE_NAME), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+        await rename(tempPath, gameBundlePath);
+
+        const gameBundle = { id: release.id, path: gameBundlePath, userdataPath, manifest, isActive: false };
+
+        broadcastInstallIPC({ status: "finalizing", releaseName: release.name });
         return gameBundle;
     }
 
     async cleanupDownloads(workspacePath: string, channelId: string): Promise<void> {
-        const downloadsPath = this.registry.getDownloadDirectory(workspacePath, channelId);
+        const downloadsPath = join(workspacePath, DOWNLOADS_DIRECTORY_NAME, channelId);
         let entries: string[];
         try {
             entries = await readdir(downloadsPath);
@@ -110,7 +141,7 @@ export class GameReleaseService {
     private async downloadFile(url: string, targetPath: string, releaseName: string, expectedBytes: number): Promise<void> {
         const reusableArchive = await getReusableArchive(targetPath, expectedBytes);
         if (reusableArchive !== null) {
-            this.events.emitInstallProgress({ status: "downloading", releaseName, percent: 100, transferredBytes: reusableArchive.size, totalBytes: reusableArchive.size });
+            broadcastInstallIPC({ status: "downloading", releaseName, percent: 100, transferredBytes: reusableArchive.size, totalBytes: reusableArchive.size });
             console.info(`[game-bundle] reuse downloaded archive path=${targetPath} size=${reusableArchive.size}`);
             return;
         }
@@ -140,7 +171,7 @@ export class GameReleaseService {
             lastProgressEmitAt = now;
             lastProgressPercent = percent;
             lastProgressTransferredStep = transferredStep;
-            if (this.events.emitInstallProgress({ status: "downloading", releaseName, percent, transferredBytes, totalBytes: knownTotalBytes })) {
+            if (broadcastInstallIPC({ status: "downloading", releaseName, percent, transferredBytes, totalBytes: knownTotalBytes })) {
                 ipcProgressEventCount += 1;
             }
         };
@@ -173,19 +204,19 @@ export class GameReleaseService {
 
         await mkdir(targetPath, { recursive: true });
         let percent = 0;
-        if (this.events.emitInstallProgress({ status: "extracting", releaseName, percent })) {
+        if (broadcastInstallIPC({ status: "extracting", releaseName, percent })) {
             ipcProgressEventCount += 1;
         }
         const timer = setInterval(() => {
             percent = Math.min(96, percent + Math.max(1, Math.round((96 - percent) * 0.16)));
-            if (this.events.emitInstallProgress({ status: "extracting", releaseName, percent })) {
+            if (broadcastInstallIPC({ status: "extracting", releaseName, percent })) {
                 ipcProgressEventCount += 1;
             }
         }, 450);
         try {
             if (archivePath.toLowerCase().endsWith(".zip")) await extractZip(archivePath, { dir: targetPath });
             else await runCommand("tar", ["-xf", archivePath, "-C", targetPath]);
-            if (this.events.emitInstallProgress({ status: "extracting", releaseName, percent: 100 })) {
+            if (broadcastInstallIPC({ status: "extracting", releaseName, percent: 100 })) {
                 ipcProgressEventCount += 1;
             }
         } finally {
@@ -209,3 +240,5 @@ function logFileOperationDiagnostics(operation: string, startedAt: number, start
 
     console.info(`[game-bundle] ${operation} complete elapsedMs=${elapsedMs} cpuMs=${cpuMs} ${formattedDetails}`);
 }
+
+export const gameReleaseService = new GameReleaseService();

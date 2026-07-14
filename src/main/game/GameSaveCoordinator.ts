@@ -1,46 +1,46 @@
 import { GameSaveSummaryUpdate } from "../../shared/GameSaveSummaryUpdate";
-import { GameRuntimeState } from "../../shared/GameRuntimeState";
 import { GameBundle } from "../../shared/game-bundle/GameBundle";
-import { GameBundleState } from "../../shared/game-bundle/GameBundleState";
 import { toAutoBackupCooldownMs } from "../../shared/backups/toAutoBackupCooldownMs";
-import { GameBackupContext, GameBackupService } from "../GameBackupService";
 import { GameSaveMonitor, GameSaveSettledActivity } from "../GameSaveMonitor";
 import { getAutoBackupTimerKey } from "../utils/saves/getAutoBackupTimerKey";
 import { getChangedWorldFolderNames } from "../utils/saves/getChangedWorldFolderNames";
 import { isAutoBackupInCooldown } from "../utils/saves/isAutoBackupInCooldown";
 import { readSaveSummary } from "../utils/saves/readSaveSummary";
-import { GameEvents } from "./GameEvents";
 import { workspaceService } from "../WorkspaceService";
+import { gameRuntimeService } from "./GameRuntimeService";
+import { GameBackupContext } from "../GameBackupContext";
+import { gameBackupService } from "../GameBackupService";
+import { gameBundleService } from "../GameBundleService";
+import { broadcastIPC } from "../utils/broadcastIPC";
+import { Bridge } from "../../shared/bridge-api/Bridge";
+import { GameSaveActivityUpdate } from "../../shared/GameSaveActivityUpdate";
 
 export class GameSaveCoordinator {
     private activeSaveMonitor: GameSaveMonitor | null = null;
     private activeSaveMonitorGameBundleId: string | null = null;
     private readonly latestBackupAtByWorld = new Map<string, number>();
 
-    constructor(
-        private readonly backups: GameBackupService,
-        private readonly events: GameEvents,
-        private readonly getGameState: () => Promise<GameBundleState>,
-        private readonly getRuntimeState: () => GameRuntimeState
-    ) {}
-
     async updateActiveGameBundle(activeGameBundle: GameBundle | null): Promise<void> {
         if (activeGameBundle === null) {
             this.stopActiveSaveMonitor();
-            await this.backups.updateActiveGameBundle(null);
+            await gameBackupService.updateActiveGameBundle(null);
             return;
         }
         if (this.activeSaveMonitorGameBundleId === activeGameBundle.id) {
-            await this.backups.updateActiveGameBundle(activeGameBundle);
+            await gameBackupService.updateActiveGameBundle(activeGameBundle);
             return;
         }
         this.stopActiveSaveMonitor();
         const gameBundleId = activeGameBundle.id;
-        const monitor = new GameSaveMonitor({ gameBundleId, userdataPath: activeGameBundle.userdataPath, onSettled: (activity) => this.processSettledSaveActivity(gameBundleId, activity) });
+        const monitor = new GameSaveMonitor({
+            userdataPath: activeGameBundle.userdataPath,
+            onActivityChanged: (stable) => this.publishSaveActivity(gameBundleId, stable),
+            onSettled: (activity) => this.processSettledSaveActivity(gameBundleId, activity)
+        });
         this.activeSaveMonitor = monitor;
         this.activeSaveMonitorGameBundleId = gameBundleId;
         await monitor.start();
-        await this.backups.updateActiveGameBundle(activeGameBundle);
+        await gameBackupService.updateActiveGameBundle(activeGameBundle);
     }
 
     getSavesStable(gameBundle: GameBundle | null): boolean {
@@ -48,15 +48,27 @@ export class GameSaveCoordinator {
     }
 
     async getBackupContext(worldName?: string): Promise<GameBackupContext | null> {
-        const state = await this.getGameState();
-        if (state.status !== "ready" || state.gameBundle === null) return null;
+        const gameBundle = await gameBundleService.getActiveGameBundle();
+        if (gameBundle === null) return null;
         const preferredWorldName = worldName?.trim();
-        const saves = preferredWorldName === undefined || preferredWorldName.length === 0 ? state.saves : await readSaveSummary(state.gameBundle.userdataPath, preferredWorldName);
-        return { gameBundle: state.gameBundle, saves, gameRunning: this.getRuntimeState().status === "running", savesStable: this.getSavesStable(state.gameBundle) };
+        const saves = await readSaveSummary(gameBundle.userdataPath, preferredWorldName === undefined || preferredWorldName.length === 0 ? gameBundleService.getPreferredWorld(gameBundle.id) : preferredWorldName);
+        return { gameBundle, saves, gameRunning: gameRuntimeService.getState().status === "running", savesStable: this.getSavesStable(gameBundle) };
+    }
+
+    async refreshActiveSaveSummary(): Promise<void> {
+        const gameBundle = await gameBundleService.getActiveGameBundle();
+        if (gameBundle === null) return;
+        const saves = await readSaveSummary(gameBundle.userdataPath, gameBundleService.getPreferredWorld(gameBundle.id));
+        broadcastIPC(Bridge.Game.saveSummaryChanged, { gameBundleId: gameBundle.id, saves });
     }
 
     touchAutoBackupCooldown(gameBundleId: string, worldFolderName: string): void {
         this.latestBackupAtByWorld.set(getAutoBackupTimerKey(gameBundleId, worldFolderName), Date.now());
+    }
+
+    private publishSaveActivity(gameBundleId: string, stable: boolean): void {
+        const update: GameSaveActivityUpdate = { gameBundleId, stable };
+        broadcastIPC(Bridge.Game.saveActivityChanged, update);
     }
 
     private stopActiveSaveMonitor(): void {
@@ -73,15 +85,16 @@ export class GameSaveCoordinator {
     private async processSettledSaveActivity(gameBundleId: string, activity: GameSaveSettledActivity): Promise<void> {
         console.info(`[game-save] refresh save summary gameBundleId=${gameBundleId} events=${activity.eventCount} changedPaths=${activity.changedPaths.length}`);
         const changedWorldFolderNames = getChangedWorldFolderNames(activity);
-        const state = await this.getGameState();
-        if (state.status !== "ready" || state.gameBundle?.id !== gameBundleId || state.saves === null) return;
-        const update: GameSaveSummaryUpdate = { gameBundleId, saves: state.saves };
-        this.events.emitSaveSummary(update);
+        const gameBundle = await gameBundleService.getActiveGameBundle();
+        if (gameBundle?.id !== gameBundleId) return;
+        const saves = await readSaveSummary(gameBundle.userdataPath, gameBundleService.getPreferredWorld(gameBundle.id));
+        const update: GameSaveSummaryUpdate = { gameBundleId, saves };
+        broadcastIPC(Bridge.Game.saveSummaryChanged, update);
         this.queueAutoBackupAfterSave(update, changedWorldFolderNames);
     }
 
     private queueAutoBackupAfterSave(update: GameSaveSummaryUpdate, changedWorldFolderNames: string[]): void {
-        if (this.getRuntimeState().status !== "running") return;
+        if (gameRuntimeService.getState().status !== "running") return;
         for (const worldFolderName of changedWorldFolderNames) {
             void this.createAutoBackupAfterSave(update, worldFolderName);
         }
@@ -92,7 +105,9 @@ export class GameSaveCoordinator {
         if (isAutoBackupInCooldown(this.latestBackupAtByWorld.get(getAutoBackupTimerKey(update.gameBundleId, worldFolderName)) ?? null, toAutoBackupCooldownMs(settings.autoBackupCooldown))) return;
         const context = await this.getBackupContext(worldFolderName);
         if (context === null || context.gameBundle.id !== update.gameBundleId) return;
-        const result = await this.backups.createAutoBackup(context);
+        const result = await gameBackupService.createAutoBackup(context);
         if (result.status === "created") this.touchAutoBackupCooldown(context.gameBundle.id, result.backup.worldFolderName);
     }
 }
+
+export const gameSaveCoordinator = new GameSaveCoordinator();

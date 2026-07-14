@@ -4,16 +4,18 @@ import { join } from "path";
 
 import icon from "../../resources/icon.png?asset";
 import { setupAppearanceIpc } from "./ipc/setupAppearanceIpc";
-import { GameBundleService } from "./GameBundleService";
-import { setupGameBundleIpc } from "./ipc/setupGameBundleIpc";
-import { ModRepositoryService } from "./mods/ModRepositoryService";
-import { setupModRepositoryIpc } from "./ipc/setupModRepositoryIpc";
+import { gameBundleService } from "./GameBundleService";
+import { modRepositoryService } from "./ModRepositoryService";
 import { workspaceService } from "./WorkspaceService";
 import { appSettings } from "./settings/AppSettings";
 import { setupShellIpc } from "./ipc/setupShellIpc";
 import { updaterService } from "./UpdaterService";
 import { l10n } from "./LocalizationService";
-import { resolveWindowBounds, WindowState } from "./settings/WindowState";
+import { attachWindowStatePersistence, resolveWindowBounds } from "./settings/WindowState";
+import { gameRuntimeService } from "./game/GameRuntimeService";
+import { gameFileOperationGuard } from "./game/GameFileOperationGuard";
+import { gameBackupService } from "./GameBackupService";
+import { gameStateService } from "./game/GameStateService";
 
 function createWindow(): void {
     const isDark = nativeTheme.shouldUseDarkColors;
@@ -34,35 +36,7 @@ function createWindow(): void {
         }
     });
 
-    let normalBounds = bounds;
-    let maximized = savedWindowState.maximized;
-
-    const saveWindowState = (): void => {
-        if (mainWindow.isDestroyed() || mainWindow.isMinimized() || mainWindow.isMaximized() || mainWindow.isFullScreen()) return;
-
-        normalBounds = mainWindow.getBounds();
-        maximized = false;
-        appSettings.set({ windowState: { bounds: normalBounds, maximized } });
-    };
-
-    mainWindow.on("move", saveWindowState);
-    mainWindow.on("resize", saveWindowState);
-    mainWindow.on("maximize", () => {
-        maximized = true;
-        appSettings.set({ windowState: { bounds: normalBounds, maximized } });
-    });
-    mainWindow.on("unmaximize", () => {
-        maximized = false;
-        normalBounds = mainWindow.getNormalBounds();
-        appSettings.set({ windowState: { bounds: normalBounds, maximized } });
-    });
-    mainWindow.on("close", () => {
-        const state: WindowState = {
-            bounds: mainWindow.isMinimized() || mainWindow.isMaximized() || mainWindow.isFullScreen() ? normalBounds : mainWindow.getBounds(),
-            maximized: mainWindow.isMinimized() || mainWindow.isFullScreen() ? maximized : mainWindow.isMaximized()
-        };
-        appSettings.set({ windowState: state });
-    });
+    attachWindowStatePersistence(mainWindow, savedWindowState, (state) => appSettings.set({ windowState: state }));
 
     mainWindow.on("ready-to-show", () => {
         if (savedWindowState.maximized) {
@@ -101,34 +75,33 @@ app.whenReady()
 
         await appSettings.initialize();
 
-        let settingsFlushed = false;
-        app.on("before-quit", (event) => {
-            if (settingsFlushed) return;
-
-            event.preventDefault();
-            settingsFlushed = true;
-            void appSettings.flush().finally(() => app.quit());
-        });
-
         l10n.initialize();
 
         await workspaceService.initialize();
-
-        const gameBundleService = new GameBundleService();
-        const modRepositoryService = new ModRepositoryService();
+        await gameFileOperationGuard.initialize();
+        await gameRuntimeService.initialize();
+        await gameBackupService.initialize();
+        await gameBundleService.initialize();
+        await gameStateService.initialize();
+        await modRepositoryService.initialize();
+        await updaterService.initialize();
 
         setupAppearanceIpc();
-        setupGameBundleIpc(gameBundleService);
-        setupModRepositoryIpc(modRepositoryService);
         setupShellIpc();
-        createWindow();
-        modRepositoryService.checkAllInBackground();
 
-        updaterService.initialize();
+        createWindow();
 
         app.on("activate", function () {
             // On macOS it's common to re-create a window in the app when the dock icon is clicked and there are no other windows open.
             if (BrowserWindow.getAllWindows().length === 0) createWindow();
+        });
+
+        let settingsFlushed = false;
+        app.on("before-quit", (event) => {
+            if (settingsFlushed) return;
+            event.preventDefault();
+            settingsFlushed = true;
+            void appSettings.flush().finally(() => app.quit());
         });
     })
     .catch((error: unknown) => {

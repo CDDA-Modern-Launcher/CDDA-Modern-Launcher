@@ -5,15 +5,12 @@ import { listWorldDirectories } from "./utils/listWorldDirectories";
 import { getKeySaveFileKind } from "./utils/getKeySaveFileKind";
 import { directoryExists } from "./utils/directoryExists";
 import { listExistingKeySaveFiles } from "./utils/listExistingKeySaveFiles";
-import { GameSaveActivityUpdate } from "../shared/GameSaveActivityUpdate";
-import { BrowserWindow } from "electron";
-import { Bridge } from "../shared/bridge-api/Bridge";
 
 type GameSaveMonitorOptions = {
     userdataPath: string;
     settleDelayMs?: number;
     onSettled: (activity: GameSaveSettledActivity) => void | Promise<void>;
-    gameBundleId: string;
+    onActivityChanged: (stable: boolean) => void;
 };
 
 export type GameSaveSettledActivity = {
@@ -43,11 +40,11 @@ const WATCH_REBUILD_DELAY_MS = 300;
 const SAVE_DIRECTORY_NAME = "save";
 
 export class GameSaveMonitor {
-    private readonly gameBundleId: string;
     private readonly userdataPath: string;
     private readonly savePath: string;
     private readonly settleDelayMs: number;
     private readonly onSettled: (activity: GameSaveSettledActivity) => void | Promise<void>;
+    private readonly onActivityChanged: (stable: boolean) => void;
     private readonly watchers = new Map<string, FSWatcher>();
     private readonly watcherKinds = new Map<string, WatchTargetKind>();
     private readonly pendingChangedPaths = new Set<string>();
@@ -63,11 +60,11 @@ export class GameSaveMonitor {
     private pendingPlayerSaveArchiveChange = false;
 
     constructor(options: GameSaveMonitorOptions) {
-        this.gameBundleId = options.gameBundleId;
         this.userdataPath = normalize(options.userdataPath);
         this.savePath = join(this.userdataPath, SAVE_DIRECTORY_NAME);
         this.settleDelayMs = options.settleDelayMs ?? DEFAULT_SETTLE_DELAY_MS;
         this.onSettled = options.onSettled;
+        this.onActivityChanged = options.onActivityChanged;
     }
 
     isStable(): boolean {
@@ -95,10 +92,7 @@ export class GameSaveMonitor {
     }
 
     private emitSaveActivityChanged(stable: boolean): void {
-        const update: GameSaveActivityUpdate = { gameBundleId: this.gameBundleId, stable };
-        for (const window of BrowserWindow.getAllWindows()) {
-            window.webContents.send(Bridge.Game.saveActivityChanged, update);
-        }
+        this.onActivityChanged(stable);
     }
 
     private async rebuildWatchers(): Promise<void> {

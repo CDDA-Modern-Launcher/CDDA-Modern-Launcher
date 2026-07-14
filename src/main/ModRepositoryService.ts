@@ -2,43 +2,52 @@ import * as fs from "node:fs";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
-import { BrowserWindow, shell } from "electron";
+import { BrowserWindow, ipcMain, shell } from "electron";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 
-import { getChannelModRepositoryPath, getChannelModsPath, getChannelModTempPath, getModPath } from "./modRepositoryPaths";
-import { WorkspaceStatus } from "../../shared/workspace/WorkspaceStatus";
-import { ModInfo } from "../../shared/mods/ModInfo";
-import { ModRegistry } from "../../shared/mods/ModRegistry";
-import { ModInstanceInfo } from "../../shared/mods/ModInstanceInfo";
-import { ModRepositoryState } from "../../shared/mods/ModRepositoryState";
-import { EModInstallResult } from "../../shared/mods/EModInstallResult";
-import { EModsCheckResult } from "../../shared/mods/EModsCheckResult";
-import { UpdateModOptions } from "../../shared/mods/UpdateModOptions";
-import { EModUpdateResult } from "../../shared/mods/EModUpdateResult";
-import { EModDeleteResult } from "../../shared/mods/EModDeleteResult";
-import { EModOpenFolderResult } from "../../shared/mods/EModOpenFolderResult";
-import { ModRepositoryChangedEvent } from "../../shared/mods/ModRepositoryChangedEvent";
-import { ModRepositoryNoticeEvent } from "../../shared/mods/ModRepositoryNoticeEvent";
-import { isNodeError } from "../utils/isNodeError";
-import { Bridge } from "../../shared/bridge-api/Bridge";
-import { normalizeModDisplayName } from "./normalizeModDisplayName";
-import { readValidatedModInfo } from "./readValidatedModInfo";
-import { parseModSourceUrl } from "./parseModSourceUrl";
-import { translate } from "../LocalizationService";
-import { workspaceService } from "../WorkspaceService";
+import { getChannelModRepositoryPath, getChannelModsPath, getChannelModTempPath, getModPath } from "./mods/modRepositoryPaths";
+import { WorkspaceStatus } from "../shared/workspace/WorkspaceStatus";
+import { ModInfo } from "../shared/mods/ModInfo";
+import { ModRegistry } from "../shared/mods/ModRegistry";
+import { ModInstanceInfo } from "../shared/mods/ModInstanceInfo";
+import { ModRepositoryState } from "../shared/mods/ModRepositoryState";
+import { EModInstallResult } from "../shared/mods/EModInstallResult";
+import { EModsCheckResult } from "../shared/mods/EModsCheckResult";
+import { UpdateModOptions } from "../shared/mods/UpdateModOptions";
+import { EModUpdateResult } from "../shared/mods/EModUpdateResult";
+import { EModDeleteResult } from "../shared/mods/EModDeleteResult";
+import { EModOpenFolderResult } from "../shared/mods/EModOpenFolderResult";
+import { ModRepositoryChangedEvent } from "../shared/mods/ModRepositoryChangedEvent";
+import { ModRepositoryNoticeEvent } from "../shared/mods/ModRepositoryNoticeEvent";
+import { isNodeError } from "./utils/isNodeError";
+import { Bridge } from "../shared/bridge-api/Bridge";
+import { normalizeModDisplayName } from "./mods/normalizeModDisplayName";
+import { readValidatedModInfo } from "./mods/readValidatedModInfo";
+import { parseModSourceUrl } from "./mods/parseModSourceUrl";
+import { translate } from "./LocalizationService";
+import { workspaceService } from "./WorkspaceService";
 
-export class ModRepositoryService {
+class ModRepositoryService {
     private checking = false;
+
+    async initialize(): Promise<void> {
+        ipcMain.handle(Bridge.Mods.getState, () => this.getState());
+        ipcMain.handle(Bridge.Mods.installFromUrl, (_event, url: string) => this.installFromUrl(url));
+        ipcMain.handle(Bridge.Mods.checkUpdates, () => this.checkAll());
+        ipcMain.handle(Bridge.Mods.update, (_event, modId: string, options?: UpdateModOptions) => this.update(modId, options));
+        ipcMain.handle(Bridge.Mods.remove, (_event, modId: string) => this.remove(modId));
+        ipcMain.handle(Bridge.Mods.openFolder, (_event, modId?: string) => this.openFolder(modId));
+
+        setTimeout(() => {
+            this.checkAll().catch((error) => {
+                console.error("[mods] background check failed", error);
+            });
+        }, 500);
+    }
 
     async getState(): Promise<ModRepositoryState> {
         return this.buildState();
-    }
-
-    checkAllInBackground(): void {
-        this.checkAll().catch((error) => {
-            console.error("[mods] background check failed", error);
-        });
     }
 
     async installFromUrl(sourceUrl: string): Promise<EModInstallResult> {
@@ -594,3 +603,5 @@ async function exists(path: string): Promise<boolean> {
         throw error;
     }
 }
+
+export const modRepositoryService = new ModRepositoryService();

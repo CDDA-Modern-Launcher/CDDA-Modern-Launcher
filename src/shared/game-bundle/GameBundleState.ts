@@ -3,7 +3,6 @@ import { GameBundle } from "./GameBundle";
 import { GithubRelease } from "../GithubRelease";
 import { GameSaveSummary } from "../GameSaveSummary";
 import { BackupSummary } from "../backups/types/BackupSummary";
-import { GameRuntimeState } from "../GameRuntimeState";
 
 export type GameBundleState =
     | { status: "loading" }
@@ -20,6 +19,5 @@ export type GameBundleState =
           updateAvailable: boolean;
           saves: GameSaveSummary | null;
           backups: BackupSummary;
-          runtimeState: GameRuntimeState;
           savesStable: boolean;
       };

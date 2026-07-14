@@ -90,3 +90,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isFiniteNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
 }
+
+export function attachWindowStatePersistence(window: import("electron").BrowserWindow, initialState: WindowState, save: (state: WindowState) => void): void {
+    let normalBounds = resolveWindowBounds(initialState.bounds);
+    let maximized = initialState.maximized;
+
+    const saveNormalBounds = (): void => {
+        if (window.isDestroyed() || window.isMinimized() || window.isMaximized() || window.isFullScreen()) return;
+        normalBounds = window.getBounds();
+        maximized = false;
+        save({ bounds: normalBounds, maximized });
+    };
+
+    window.on("move", saveNormalBounds);
+    window.on("resize", saveNormalBounds);
+    window.on("maximize", () => {
+        maximized = true;
+        save({ bounds: normalBounds, maximized });
+    });
+    window.on("unmaximize", () => {
+        maximized = false;
+        normalBounds = window.getNormalBounds();
+        save({ bounds: normalBounds, maximized });
+    });
+    window.on("close", () => {
+        save({
+            bounds: window.isMinimized() || window.isMaximized() || window.isFullScreen() ? normalBounds : window.getBounds(),
+            maximized: window.isMinimized() || window.isFullScreen() ? maximized : window.isMaximized()
+        });
+    });
+}

@@ -10,25 +10,35 @@ import { EGameStopResult } from "../../shared/launch/EGameStopResult";
 import { GameLaunchOptions } from "../../shared/launch/GameLaunchOptions";
 import { findExecutable } from "../utils/findExecutable";
 import { pathExists } from "../utils/pathExists";
-import { GameEvents } from "./GameEvents";
+import { ipcMain } from "electron";
+import { Bridge } from "../../shared/bridge-api/Bridge";
+import { broadcastIPC } from "../utils/broadcastIPC";
+import { gameFileOperationGuard } from "./GameFileOperationGuard";
+import { gameSaveCoordinator } from "./GameSaveCoordinator";
+import { gameBundleService } from "../GameBundleService";
 
-export class GameRuntimeService {
-    private runtime: GameRuntimeState = { status: "idle" };
+class GameRuntimeService {
+    private state: GameRuntimeState = { status: "idle" };
     private process: ChildProcess | null = null;
-    private readonly preferredWorldByGameBundleId = new Map<string, string | null>();
 
-    constructor(private readonly events: GameEvents) {}
+    async initialize(): Promise<void> {
+        ipcMain.handle(Bridge.Game.getRuntimeState, () => this.getState());
+        ipcMain.handle(Bridge.Game.stop, () => this.stop());
+        ipcMain.handle(Bridge.Game.launchActiveGameBundle, (_event, options: GameLaunchOptions | undefined) => this.launchActiveGameBundle(options ?? {}));
+    }
 
     getState(): GameRuntimeState {
-        return this.runtime;
+        return this.state;
     }
 
-    getPreferredWorld(gameBundleId: string): string | null {
-        return this.preferredWorldByGameBundleId.get(gameBundleId) ?? null;
+    private async launchActiveGameBundle(options: GameLaunchOptions = {}): Promise<EGameLaunchResult> {
+        if (gameFileOperationGuard.isRunning()) return gameFileOperationGuard.busyResult<EGameLaunchResult>();
+        const gameBundle = await gameBundleService.getActiveGameBundle();
+        return await gameRuntimeService.launch(gameBundle, options, (bundle) => gameSaveCoordinator.updateActiveGameBundle(bundle));
     }
 
-    async launch(gameBundle: GameBundle | null, options: GameLaunchOptions = {}, onLaunched: (gameBundle: GameBundle) => Promise<void>): Promise<EGameLaunchResult> {
-        if (this.runtime.status === "running") return { status: "already-running" };
+    private async launch(gameBundle: GameBundle | null, options: GameLaunchOptions = {}, onLaunched: (gameBundle: GameBundle) => Promise<void>): Promise<EGameLaunchResult> {
+        if (this.state.status === "running") return { status: "already-running" };
         if (gameBundle === null) return { status: "unavailable", message: translate("game.error.no.game.bundle") };
 
         const executablePath = await this.resolveExecutablePath(gameBundle);
@@ -41,7 +51,7 @@ export class GameRuntimeService {
 
         const child = spawn(executablePath, args, { cwd: dirname(executablePath), stdio: "ignore" });
         this.process = child;
-        this.preferredWorldByGameBundleId.set(gameBundle.id, worldName ?? null);
+        gameBundleService.setPreferredWorld(gameBundle.id, worldName ?? null);
         await onLaunched(gameBundle);
         this.setState({ status: "running", pid: child.pid ?? 0, gameBundleId: gameBundle.id, worldName: worldName ?? null });
         child.once("exit", () => this.finishProcess(child));
@@ -49,8 +59,8 @@ export class GameRuntimeService {
         return { status: "launched" };
     }
 
-    stop(): EGameStopResult {
-        if (this.process === null || this.runtime.status !== "running") return { status: "not-running" };
+    private stop(): EGameStopResult {
+        if (this.process === null || this.state.status !== "running") return { status: "not-running" };
         try {
             this.process.kill();
             this.setState({ status: "idle" });
@@ -68,8 +78,8 @@ export class GameRuntimeService {
     }
 
     private setState(runtime: GameRuntimeState): GameRuntimeState {
-        this.runtime = runtime;
-        this.events.emitRuntime(runtime);
+        this.state = runtime;
+        broadcastIPC(Bridge.Game.runtimeChanged, runtime);
         return runtime;
     }
 
@@ -79,3 +89,5 @@ export class GameRuntimeService {
         return findExecutable(gameBundle.path);
     }
 }
+
+export const gameRuntimeService = new GameRuntimeService();

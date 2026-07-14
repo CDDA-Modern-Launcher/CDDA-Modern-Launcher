@@ -17,16 +17,14 @@ export class UpdaterService {
     private lastPublishedDownloadProgressKey: string | null = null;
     private lastPublishedDownloadProgressAt = 0;
 
-    constructor() {
+    async initialize(): Promise<void> {
         ipcMain.handle(Bridge.Updater.getState, () => this.getState());
         ipcMain.handle(Bridge.Updater.checkNow, () => this.checkNow());
         ipcMain.handle(Bridge.Updater.downloadNow, () => this.downloadNow());
         ipcMain.handle(Bridge.Updater.installNow, () => this.installNow());
         ipcMain.handle(Bridge.Updater.dismiss, () => this.dismiss());
         ipcMain.handle(Bridge.Updater.skipVersion, (_event, version: string) => this.skipVersion(version));
-    }
 
-    initialize(): void {
         if (is.dev || !app.isPackaged) {
             this.log("[updater] skipped in dev/unpackaged mode");
             return;
