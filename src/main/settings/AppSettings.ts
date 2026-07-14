@@ -5,6 +5,7 @@ import { app } from "electron";
 
 import { TAppThemeSource } from "../../shared/appearance/TAppThemeSource";
 import { isNodeError } from "../utils/isNodeError";
+import { getDefaultWindowState, parseWindowState, WindowState } from "./WindowState";
 
 const WRITE_DEBOUNCE_MS = 250;
 
@@ -14,12 +15,14 @@ interface Settings {
     repositoryPath?: string;
     locale?: string;
     theme?: TAppThemeSource;
+    windowState?: WindowState;
 }
 
 const DEFAULT_SETTINGS: Settings = {
     repositoryPath: "",
     locale: "",
-    theme: "system"
+    theme: "system",
+    windowState: getDefaultWindowState()
 };
 
 class AppSettings {
@@ -63,7 +66,8 @@ class AppSettings {
         const finalSettings: Settings = {
             repositoryPath: typeof parsed.repositoryPath === "string" && parsed.repositoryPath.trim().length > 0 ? parsed.repositoryPath : "",
             locale: typeof parsed.locale === "string" && parsed.locale.trim().length > 0 ? parsed.locale : "",
-            theme: this.isThemeSource(parsed.theme) ? parsed.theme : "system"
+            theme: this.isThemeSource(parsed.theme) ? parsed.theme : "system",
+            windowState: parseWindowState(parsed.windowState) ?? getDefaultWindowState()
         };
 
         this.settings = finalSettings;
@@ -84,6 +88,16 @@ class AppSettings {
         this.update(patch);
     }
 
+    async flush(): Promise<void> {
+        if (this.writeTimer !== null) {
+            clearTimeout(this.writeTimer);
+            this.writeTimer = null;
+            this.enqueueWrite();
+        }
+
+        await this.writeQueue;
+    }
+
     private update(patch: Settings): void {
         this.settings = { ...this.settings, ...patch };
 
@@ -93,9 +107,13 @@ class AppSettings {
 
         this.writeTimer = setTimeout(() => {
             this.writeTimer = null;
-            const snapshot = this.settings ?? {};
-            this.writeQueue = this.writeQueue.then(() => this.write(snapshot)).catch((error: unknown) => console.error("[settings] failed to write settings", error));
+            this.enqueueWrite();
         }, WRITE_DEBOUNCE_MS);
+    }
+
+    private enqueueWrite(): void {
+        const snapshot = this.settings ?? {};
+        this.writeQueue = this.writeQueue.then(() => this.write(snapshot)).catch((error: unknown) => console.error("[settings] failed to write settings", error));
     }
 
     private async write(settings: Settings): Promise<void> {

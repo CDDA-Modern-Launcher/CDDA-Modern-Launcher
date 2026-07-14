@@ -17,13 +17,17 @@ import { setupShellIpc } from "./ipc/setupShellIpc";
 import { UpdaterService } from "./UpdaterService";
 import { setupUpdaterIpc } from "./ipc/setupUpdaterIpc";
 import { l10n } from "./Localization";
+import { resolveWindowBounds, WindowState } from "./settings/WindowState";
 
 function createWindow(): void {
     const isDark = nativeTheme.shouldUseDarkColors;
+    const savedWindowState = appSettings.get("windowState");
+    const bounds = resolveWindowBounds(savedWindowState.bounds);
 
     const mainWindow = new BrowserWindow({
-        width: 980,
-        height: 700,
+        ...bounds,
+        minWidth: 640,
+        minHeight: 480,
         show: false,
         autoHideMenuBar: true,
         backgroundColor: isDark ? "#141517" : "#f8f9fa",
@@ -34,7 +38,40 @@ function createWindow(): void {
         }
     });
 
+    let normalBounds = bounds;
+    let maximized = savedWindowState.maximized;
+
+    const saveWindowState = (): void => {
+        if (mainWindow.isDestroyed() || mainWindow.isMinimized() || mainWindow.isMaximized() || mainWindow.isFullScreen()) return;
+
+        normalBounds = mainWindow.getBounds();
+        maximized = false;
+        appSettings.set({ windowState: { bounds: normalBounds, maximized } });
+    };
+
+    mainWindow.on("move", saveWindowState);
+    mainWindow.on("resize", saveWindowState);
+    mainWindow.on("maximize", () => {
+        maximized = true;
+        appSettings.set({ windowState: { bounds: normalBounds, maximized } });
+    });
+    mainWindow.on("unmaximize", () => {
+        maximized = false;
+        normalBounds = mainWindow.getNormalBounds();
+        appSettings.set({ windowState: { bounds: normalBounds, maximized } });
+    });
+    mainWindow.on("close", () => {
+        const state: WindowState = {
+            bounds: mainWindow.isMinimized() || mainWindow.isMaximized() || mainWindow.isFullScreen() ? normalBounds : mainWindow.getBounds(),
+            maximized: mainWindow.isMinimized() || mainWindow.isFullScreen() ? maximized : mainWindow.isMaximized()
+        };
+        appSettings.set({ windowState: state });
+    });
+
     mainWindow.on("ready-to-show", () => {
+        if (savedWindowState.maximized) {
+            mainWindow.maximize();
+        }
         mainWindow.show();
     });
 
@@ -67,6 +104,16 @@ app.whenReady()
         });
 
         await appSettings.initialize();
+
+        let settingsFlushed = false;
+        app.on("before-quit", (event) => {
+            if (settingsFlushed) return;
+
+            event.preventDefault();
+            settingsFlushed = true;
+            void appSettings.flush().finally(() => app.quit());
+        });
+
         l10n.initialize();
 
         const repositoryService = new WorkspaceService();
