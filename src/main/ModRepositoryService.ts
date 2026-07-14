@@ -25,6 +25,7 @@ import { readValidatedModInfo } from "./mods/readValidatedModInfo";
 import { parseModSourceUrl } from "./mods/parseModSourceUrl";
 import { translate } from "./LocalizationService";
 import { workspaceService } from "./WorkspaceService";
+import { broadcastIPC } from "./utils/broadcastIPC";
 
 class ModRepositoryService {
     private checking = false;
