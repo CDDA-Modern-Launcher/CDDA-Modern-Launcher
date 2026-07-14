@@ -1,14 +1,11 @@
-import type { LocalizationService } from "../LocalizationService";
+import { translate } from "../Localization";
 import { GameFileOperationKind, GameFileOperationState } from "../../shared/game-bundle/GameFileOperationState";
 import { GameEvents } from "./GameEvents";
 
 export class GameFileOperationGuard {
     private operation: GameFileOperationState = { status: "idle" };
 
-    constructor(
-        private readonly events: GameEvents,
-        private readonly localizationService: LocalizationService
-    ) {}
+    constructor(private readonly events: GameEvents) {}
 
     getState(): GameFileOperationState {
         return this.operation;
@@ -19,7 +16,7 @@ export class GameFileOperationGuard {
     }
 
     busyResult<T extends { status: string; message?: string }>(): T {
-        return { status: "blocked", message: this.localizationService.t("game.error.file.operation.busy") } as T;
+        return { status: "blocked", message: translate("game.error.file.operation.busy") } as T;
     }
 
     async run<T extends { status: string; message?: string }>(kind: GameFileOperationKind, action: () => Promise<T>): Promise<T> {

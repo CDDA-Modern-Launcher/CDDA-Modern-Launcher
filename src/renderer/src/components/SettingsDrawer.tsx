@@ -42,7 +42,7 @@ export function SettingsDrawer(): ReactNode {
 }
 
 function LocaleSelector(): React.JSX.Element | null {
-    const { selectedLocale, effectiveLocale, options } = useLocaleInfo();
+    const { locale, options } = useLocaleInfo();
     const t = useTranslate();
     const setLocale = useSetLocale();
 
@@ -52,15 +52,14 @@ function LocaleSelector(): React.JSX.Element | null {
         return null;
     }
 
-    const currentValue = options.some((option) => option.locale === selectedLocale) ? selectedLocale : effectiveLocale;
-    const currentOption = options.find((option) => option.locale === currentValue);
+    const currentOption = options.find((option) => option.locale === locale);
 
     return (
         <Select
             aria-label={t("locale.label")}
             label={t("locale.label")}
             data={data}
-            value={currentValue}
+            value={locale}
             onChange={(value) => {
                 if (value !== null) {
                     setLocale(value).catch((error) => console.error("Failed to set locale", error));
@@ -79,7 +78,9 @@ function LocaleOptionRow({ option }: { option: LocaleOption | undefined }): Reac
     return (
         <Group gap="xs" wrap="nowrap">
             <LocaleIcon option={option} />
-            <Text size="sm">{option.nativeName}</Text>
+            <Text size="sm" c={option.isSystem ? "blue" : undefined}>
+                {option.nativeName}
+            </Text>
         </Group>
     );
 }

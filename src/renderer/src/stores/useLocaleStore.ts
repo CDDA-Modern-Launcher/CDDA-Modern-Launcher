@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { create } from "zustand";
 import { IMountableState } from "@renderer/types/IMountableState";
 import { LocalizationBundle } from "../../../shared/localization/types/LocalizationBundle";
@@ -18,12 +19,8 @@ interface State extends IMountableState {
     setLocale: TSetLocaleFn;
 }
 
-const DEFAULT_LOCALE = "en";
-
 const INITIAL_BUNDLE: LocalizationBundle = {
-    selectedLocale: DEFAULT_LOCALE,
-    effectiveLocale: DEFAULT_LOCALE,
-    fallbackLocale: DEFAULT_LOCALE,
+    locale: "en",
     options: [],
     messages: {}
 };
@@ -64,17 +61,24 @@ export function useIsLocaleLoaded(): boolean {
     return useLocaleStore((state) => state.isLoaded);
 }
 
-export function useLocaleInfo(): Pick<LocalizationBundle, "selectedLocale" | "effectiveLocale" | "options"> {
+export function useLocaleInfo(): Pick<LocalizationBundle, "locale" | "options"> {
     const bundle = useLocaleStore((state) => state.bundle);
     return {
-        selectedLocale: bundle.selectedLocale,
-        effectiveLocale: bundle.effectiveLocale,
+        locale: bundle.locale,
         options: bundle.options
     };
 }
 
 export function useTranslate(): TLocalizeFn {
-    return useLocaleStore((state) => state.localize);
+    const messages = useLocaleStore((state) => state.bundle.messages);
+
+    return useCallback(
+        (key, variables = {}) => {
+            const message: string = messages[key] ?? key;
+            return formatMessage(message, variables);
+        },
+        [messages]
+    );
 }
 
 export function useTranslateHtml(): TLocalizeHtmlFn {

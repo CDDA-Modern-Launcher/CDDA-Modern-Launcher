@@ -1,9 +1,7 @@
 import { LocaleFile } from "../types/LocaleFile";
 
 export const EN_LOCALE = {
-    schemaVersion: 1,
     locale: "en",
-    name: "English",
     nativeName: "English",
     iconPng:
         "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAQCAIAAACDRijCAAAAuklEQVR4nK2TvQ0DIQyFDfIAYYUbIJTsdAMxUyhZgBXYAKewgtDZEApew5/98WTZhoiS86Fme90g1EpMzvNexrQSeZOcR45LzreaAUDFqWJK/wZDzXzmqzaxNjPSzaK97lZiqHnT2sNI+AUjL8z6a01SegzywmfV2ihppD8ZIlpX5JE8k/m83mvQpuwRyknQsRrhWHm1RxbQMRdHBIge6fdjvtprODOidvZiDHDRrKpmY4A7RiQLxBh8AfKapN4b90SIAAAAAElFTkSuQmCC",

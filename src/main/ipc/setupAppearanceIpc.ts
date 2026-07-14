@@ -1,22 +1,22 @@
 import { BrowserWindow, ipcMain, nativeTheme } from "electron";
 
-import { AppSettings } from "../settings/AppSettings";
 import { AppearanceBundle } from "../../shared/bridge-api/AppearanceApi";
 import { TAppThemeSource } from "../../shared/appearance/TAppThemeSource";
 import { TAppTheme } from "../../shared/appearance/TAppTheme";
 import { Bridge } from "../../shared/bridge-api/Bridge";
+import { appSettings } from "../settings/AppSettings";
 
-export function setupAppearanceIpc(settings: AppSettings): void {
-    nativeTheme.themeSource = settings.get("theme");
+export function setupAppearanceIpc(): void {
+    nativeTheme.themeSource = appSettings.get("theme");
 
     ipcMain.on(Bridge.Appearance.getInitialAppearance, (event) => {
         event.returnValue = getAppearanceBundle();
     });
 
     ipcMain.handle(Bridge.Appearance.getThemeSource, () => nativeTheme.themeSource);
-    ipcMain.handle(Bridge.Appearance.setThemeSource, (_event, themeSource: TAppThemeSource) => {
-        settings.set({ theme: themeSource });
-        nativeTheme.themeSource = themeSource;
+    ipcMain.handle(Bridge.Appearance.setThemeSource, (_event, theme: TAppThemeSource) => {
+        appSettings.set({ theme });
+        nativeTheme.themeSource = theme;
         return getAppearanceBundle();
     });
 

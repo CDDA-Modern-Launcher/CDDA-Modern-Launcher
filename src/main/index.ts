@@ -8,18 +8,18 @@ import icon from "../../resources/icon.png?asset";
 import { setupAppearanceIpc } from "./ipc/setupAppearanceIpc";
 import { GameBundleService } from "./GameBundleService";
 import { setupGameBundleIpc } from "./ipc/setupGameBundleIpc";
-import { LocalizationService } from "./LocalizationService";
 import { setupLocalizationIpc } from "./ipc/setupLocalizationIpc";
 import { ModRepositoryService } from "./mods/ModRepositoryService";
 import { setupModRepositoryIpc } from "./ipc/setupModRepositoryIpc";
 import { WorkspaceService } from "./repository/WorkspaceService";
 import { setupWorkspaceIpc } from "./ipc/setupWorkspaceIpc";
-import { AppSettings } from "./settings/AppSettings";
+import { appSettings } from "./settings/AppSettings";
 import { setupLauncherSettingsIpc } from "./ipc/setupLauncherSettingsIpc";
 import { Bridge } from "../shared/bridge-api/Bridge";
 import { setupShellIpc } from "./ipc/setupShellIpc";
 import { UpdateState } from "../shared/bridge-api/types/UpdateState";
 import { LocaleKeys } from "../shared/localization/types/LocaleFile";
+import { l10n, translate } from "./Localization";
 
 let updateState: UpdateState = { status: "idle" };
 let skippedVersion: string | null = null;
@@ -112,11 +112,11 @@ function getFriendlyUpdateErrorKey(error: unknown): LocaleKeys {
     return "updater.error.check.failed";
 }
 
-function getUpdateErrorState(messageKey: LocaleKeys, localizationService: LocalizationService): UpdateState {
-    return { status: "error", messageKey, message: localizationService.t(messageKey) };
+function getUpdateErrorState(messageKey: LocaleKeys): UpdateState {
+    return { status: "error", messageKey, message: translate(messageKey) };
 }
 
-function setupUpdaterIpc(localizationService: LocalizationService): void {
+function setupUpdaterIpc(): void {
     ipcMain.handle(Bridge.Updater.getState, () => updateState);
 
     ipcMain.handle(Bridge.Updater.checkNow, async () => {
@@ -124,7 +124,7 @@ function setupUpdaterIpc(localizationService: LocalizationService): void {
             setUpdateState({
                 status: "error",
                 messageKey: "updater.error.packaged.only",
-                message: localizationService.t("updater.error.packaged.only")
+                message: translate("updater.error.packaged.only")
             });
             return updateState;
         }
@@ -135,7 +135,7 @@ function setupUpdaterIpc(localizationService: LocalizationService): void {
 
     ipcMain.handle(Bridge.Updater.downloadNow, async () => {
         if (updateState.status !== "available") {
-            setUpdateState(getUpdateErrorState("updater.error.not.available", localizationService));
+            setUpdateState(getUpdateErrorState("updater.error.not.available"));
             return updateState;
         }
 
@@ -153,7 +153,7 @@ function setupUpdaterIpc(localizationService: LocalizationService): void {
 
     ipcMain.handle(Bridge.Updater.installNow, () => {
         if (updateState.status !== "downloaded") {
-            setUpdateState(getUpdateErrorState("updater.error.not.downloaded", localizationService));
+            setUpdateState(getUpdateErrorState("updater.error.not.downloaded"));
             return false;
         }
 
@@ -221,7 +221,7 @@ function simulateDownloadProgress(version: string): void {
     }, 700);
 }
 
-function setupAutoUpdater(localizationService: LocalizationService): void {
+function setupAutoUpdater(): void {
     if (is.dev || !app.isPackaged) {
         logUpdater("[updater] skipped in dev/unpackaged mode");
         return;
@@ -280,7 +280,7 @@ function setupAutoUpdater(localizationService: LocalizationService): void {
             message: error.message,
             stack: error.stack
         });
-        setUpdateState(getUpdateErrorState(getFriendlyUpdateErrorKey(error), localizationService));
+        setUpdateState(getUpdateErrorState(getFriendlyUpdateErrorKey(error)));
     });
 
     autoUpdater.checkForUpdates().catch((error) => {
@@ -289,7 +289,7 @@ function setupAutoUpdater(localizationService: LocalizationService): void {
             message: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined
         });
-        setUpdateState(getUpdateErrorState(getFriendlyUpdateErrorKey(error), localizationService));
+        setUpdateState(getUpdateErrorState(getFriendlyUpdateErrorKey(error)));
     });
 }
 
@@ -341,27 +341,24 @@ app.whenReady().then(async () => {
         optimizer.watchWindowShortcuts(window);
     });
 
-    const appSettings = new AppSettings();
     await appSettings.initialize();
-
-    const l10n = new LocalizationService(appSettings);
     l10n.initialize();
 
-    const repositoryService = new WorkspaceService(appSettings, l10n);
-    const gameBundleService = new GameBundleService(repositoryService, l10n);
-    const modRepositoryService = new ModRepositoryService(repositoryService, l10n);
+    const repositoryService = new WorkspaceService();
+    const gameBundleService = new GameBundleService(repositoryService);
+    const modRepositoryService = new ModRepositoryService(repositoryService);
 
-    setupAppearanceIpc(appSettings);
-    setupLocalizationIpc(l10n);
+    setupAppearanceIpc();
+    setupLocalizationIpc();
     setupLauncherSettingsIpc(repositoryService);
-    setupWorkspaceIpc(repositoryService, l10n);
-    setupGameBundleIpc(gameBundleService, l10n);
+    setupWorkspaceIpc(repositoryService);
+    setupGameBundleIpc(gameBundleService);
     setupModRepositoryIpc(modRepositoryService);
-    setupUpdaterIpc(l10n);
+    setupUpdaterIpc();
     setupShellIpc();
     createWindow();
     modRepositoryService.checkAllInBackground();
-    setupAutoUpdater(l10n);
+    setupAutoUpdater();
 
     app.on("activate", function () {
         // On macOS it's common to re-create a window in the app when the

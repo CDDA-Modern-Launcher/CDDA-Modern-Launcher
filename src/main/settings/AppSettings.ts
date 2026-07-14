@@ -22,7 +22,7 @@ const DEFAULT_SETTINGS: Settings = {
     theme: "system"
 };
 
-export class AppSettings {
+class AppSettings {
     private readonly filePath = join(app.getPath("userData"), "cdda.launcher.settings.json");
     private settings: Settings | null = null;
     private writeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -111,3 +111,5 @@ export class AppSettings {
         return value === "system" || value === "light" || value === "dark";
     }
 }
+
+export const appSettings = new AppSettings();

@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import type { LocalizationService } from "../LocalizationService";
+import { translate } from "../Localization";
 import { GameRuntimeState } from "../../shared/GameRuntimeState";
 import { GameBundle } from "../../shared/game-bundle/GameBundle";
 import { EGameLaunchResult } from "../../shared/launch/EGameLaunchResult";
@@ -17,10 +17,7 @@ export class GameRuntimeService {
     private process: ChildProcess | null = null;
     private readonly preferredWorldByGameBundleId = new Map<string, string | null>();
 
-    constructor(
-        private readonly events: GameEvents,
-        private readonly localizationService: LocalizationService
-    ) {}
+    constructor(private readonly events: GameEvents) {}
 
     getState(): GameRuntimeState {
         return this.runtime;
@@ -32,10 +29,10 @@ export class GameRuntimeService {
 
     async launch(gameBundle: GameBundle | null, options: GameLaunchOptions = {}, onLaunched: (gameBundle: GameBundle) => Promise<void>): Promise<EGameLaunchResult> {
         if (this.runtime.status === "running") return { status: "already-running" };
-        if (gameBundle === null) return { status: "unavailable", message: this.localizationService.t("game.error.no.game.bundle") };
+        if (gameBundle === null) return { status: "unavailable", message: translate("game.error.no.game.bundle") };
 
         const executablePath = await this.resolveExecutablePath(gameBundle);
-        if (executablePath === null) return { status: "unavailable", message: this.localizationService.t("game.error.executable.missing") };
+        if (executablePath === null) return { status: "unavailable", message: translate("game.error.executable.missing") };
 
         await mkdir(gameBundle.userdataPath, { recursive: true });
         const args = ["--userdir", gameBundle.userdataPath];

@@ -1,9 +1,7 @@
 import { LocaleFileImpl } from "../types/LocaleFile";
 
 export const RU_LOCALE = {
-    schemaVersion: 1,
     locale: "ru",
-    name: "Russian",
     nativeName: "Русский",
     iconPng: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAQCAIAAACDRijCAAAAL0lEQVR4nGP8//8/AzUAE1VMGd4GMTJYLqOKQYPPa4PPIMar2nJUMWjweW0YGwQAhwMFGJWGc7AAAAAASUVORK5CYII=",
     messages: {

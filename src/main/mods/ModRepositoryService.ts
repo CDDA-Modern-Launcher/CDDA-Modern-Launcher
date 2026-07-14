@@ -6,7 +6,6 @@ import { BrowserWindow, shell } from "electron";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 
-import type { LocalizationService } from "../LocalizationService";
 import { WorkspaceService } from "../repository/WorkspaceService";
 import { getChannelModRepositoryPath, getChannelModsPath, getChannelModTempPath, getModPath } from "./modRepositoryPaths";
 import { WorkspaceStatus } from "../../shared/workspace/WorkspaceStatus";
@@ -27,14 +26,12 @@ import { Bridge } from "../../shared/bridge-api/Bridge";
 import { normalizeModDisplayName } from "./normalizeModDisplayName";
 import { readValidatedModInfo } from "./readValidatedModInfo";
 import { parseModSourceUrl } from "./parseModSourceUrl";
+import { translate } from "../Localization";
 
 export class ModRepositoryService {
     private checking = false;
 
-    constructor(
-        private readonly repositoryService: WorkspaceService,
-        private readonly localizationService: LocalizationService
-    ) {}
+    constructor(private readonly repositoryService: WorkspaceService) {}
 
     async getState(): Promise<ModRepositoryState> {
         return this.buildState();
@@ -306,7 +303,7 @@ export class ModRepositoryService {
         return { status: "opened" };
     }
 
-    private readonly t = (key: string, variables?: Record<string, string | number>): string => this.localizationService.t(key, variables);
+    private readonly t = (key: string, variables?: Record<string, string | number>): string => translate(key, variables);
 
     private async checkOne(repositoryPath: string, channelId: string, mod: ModInfo): Promise<ModInfo> {
         const modDir = this.getModDir(repositoryPath, channelId, mod);
@@ -496,7 +493,7 @@ export class ModRepositoryService {
         const repository = await this.repositoryService.getWorkspaceStatus();
 
         if (repository.status !== "ready") {
-            return { status: "unavailable", kind: repository.status === "unconfigured" ? "unconfigured" : "error", message: getRepositoryUnavailableMessage(repository, this.localizationService) };
+            return { status: "unavailable", kind: repository.status === "unconfigured" ? "unconfigured" : "error", message: getRepositoryUnavailableMessage(repository) };
         }
 
         return { status: "ready", repositoryPath: repository.path, channelId: repository.config.selectedChannelId };
@@ -583,12 +580,12 @@ function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
-function getRepositoryUnavailableMessage(repository: WorkspaceStatus, localizationService: LocalizationService): string {
+function getRepositoryUnavailableMessage(repository: WorkspaceStatus): string {
     if (repository.status === "invalid") {
         return repository.message;
     }
 
-    return localizationService.t("mods.error.repository.unavailable");
+    return translate("mods.error.repository.unavailable");
 }
 
 async function exists(path: string): Promise<boolean> {
