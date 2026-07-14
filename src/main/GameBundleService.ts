@@ -24,6 +24,7 @@ import { isNodeError } from "./utils/isNodeError";
 import { isGameBundleManifest } from "./utils/isGameBundleManifest";
 import { resolveUserdataPath } from "./utils/resolveUserdataPath";
 import { broadcastInstallIPC } from "./utils/broadcastInstallIPC";
+import { modDeploymentService } from "./mods/ModDeploymentService";
 
 class GameBundleService {
     private readonly preferredWorldByGameBundleId = new Map<string, string | null>();
@@ -94,6 +95,7 @@ class GameBundleService {
             const gameBundlesBefore = await this.read(ws.path, ws.config, channel.id);
             const existingGameBundle = gameBundlesBefore.find((gameBundle) => gameBundle.id === release.id);
             if (existingGameBundle !== undefined) {
+                await modDeploymentService.synchronize(ws.path, channel.id, [existingGameBundle.userdataPath]);
                 if (options.makeActive) await this.setActiveGameBundleUnlocked(existingGameBundle.id);
                 this.completeInstall(release.name);
                 await gameSaveCoordinator.updateActiveGameBundle(await this.getActiveGameBundle());
@@ -102,6 +104,7 @@ class GameBundleService {
             }
 
             const gameBundle = await gameReleaseService.install(ws.path, ws.config, channel, release, options, gameBundlesBefore);
+            await modDeploymentService.synchronize(ws.path, channel.id, [gameBundle.userdataPath]);
             const config = options.makeActive ? await this.activateBundle(ws.config, channel.id, gameBundle.id) : ws.config;
             if (options.removeOlderGameBundles) {
                 await this.removeOlder(ws.path, config, channel.id, gameBundle.id, true);
@@ -184,6 +187,8 @@ class GameBundleService {
         const channel = ws.selectedGameChannel;
         const gameBundles = await this.read(ws.path, ws.config, channel.id);
         if (!gameBundles.some((gameBundle) => gameBundle.id === gameBundleId)) return { status: "error", message: translate("game.error.game.bundle.missing") };
+        const gameBundle = gameBundles.find((candidate) => candidate.id === gameBundleId);
+        if (gameBundle !== undefined) await modDeploymentService.synchronize(ws.path, channel.id, [gameBundle.userdataPath]);
         await this.activateBundle(ws.config, channel.id, gameBundleId);
         await gameSaveCoordinator.updateActiveGameBundle(await this.getActiveGameBundle());
         await publishGameState(await this.safeFindLatest(channel));

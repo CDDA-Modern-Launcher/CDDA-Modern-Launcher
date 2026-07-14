@@ -1,30 +1,29 @@
-import * as fs from "node:fs";
-import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { mkdir, rm } from "node:fs/promises";
+import { join, relative } from "node:path";
 
 import { ipcMain, shell } from "electron";
-import git from "isomorphic-git";
-import http from "isomorphic-git/http/node";
 
-import { getChannelModRepositoryPath, getChannelModsPath, getChannelModTempPath, getModPath } from "./mods/modRepositoryPaths";
-import { WorkspaceStatus } from "../shared/workspace/WorkspaceStatus";
+import { Bridge } from "../shared/bridge-api/Bridge";
+import { EModDeleteResult } from "../shared/mods/EModDeleteResult";
+import { EModInstallResult } from "../shared/mods/EModInstallResult";
+import { EModOpenFolderResult } from "../shared/mods/EModOpenFolderResult";
+import { EModsCheckResult } from "../shared/mods/EModsCheckResult";
+import { EModUpdateResult } from "../shared/mods/EModUpdateResult";
 import { ModInfo } from "../shared/mods/ModInfo";
-import { ModRegistry } from "../shared/mods/ModRegistry";
 import { ModInstanceInfo } from "../shared/mods/ModInstanceInfo";
 import { ModRepositoryState } from "../shared/mods/ModRepositoryState";
-import { EModInstallResult } from "../shared/mods/EModInstallResult";
-import { EModsCheckResult } from "../shared/mods/EModsCheckResult";
 import { UpdateModOptions } from "../shared/mods/UpdateModOptions";
-import { EModUpdateResult } from "../shared/mods/EModUpdateResult";
-import { EModDeleteResult } from "../shared/mods/EModDeleteResult";
-import { EModOpenFolderResult } from "../shared/mods/EModOpenFolderResult";
-import { isNodeError } from "./utils/isNodeError";
-import { Bridge } from "../shared/bridge-api/Bridge";
-import { normalizeModDisplayName } from "./mods/normalizeModDisplayName";
-import { readValidatedModInfo } from "./mods/readValidatedModInfo";
-import { parseModSourceUrl } from "./mods/parseModSourceUrl";
+import { WorkspaceStatus } from "../shared/workspace/WorkspaceStatus";
+import { gameBundleService } from "./GameBundleService";
 import { translate } from "./LocalizationService";
 import { workspaceService } from "./WorkspaceService";
+import { modDeploymentService } from "./mods/ModDeploymentService";
+import { fileExists } from "./mods/fileExists";
+import { modGitService } from "./mods/ModGitService";
+import { getChannelModRepositoryPath, getChannelModsPath, getChannelModTempPath, getModPath } from "./mods/modRepositoryPaths";
+import { modRegistryStore } from "./mods/ModRegistryStore";
+import { parseModSourceUrl } from "./mods/parseModSourceUrl";
+import { readValidatedModInfo } from "./mods/readValidatedModInfo";
 import { broadcastIPC } from "./utils/broadcastIPC";
 
 class ModRepositoryService {
@@ -39,9 +38,7 @@ class ModRepositoryService {
         ipcMain.handle(Bridge.Mods.openFolder, (_event, modId?: string) => this.openFolder(modId));
 
         setTimeout(() => {
-            this.checkAll().catch((error) => {
-                console.error("[mods] background check failed", error);
-            });
+            this.checkAll().catch((error) => console.error("[mods] background check failed", error));
         }, 500);
     }
 
@@ -50,301 +47,214 @@ class ModRepositoryService {
     }
 
     async installFromUrl(sourceUrl: string): Promise<EModInstallResult> {
-        const context = await this.getReadyContext();
-
-        if (context.status !== "ready") {
-            const state = await this.buildState();
-            return { status: "error", message: context.message, state };
-        }
+        const context = this.getReadyContext();
+        if (context.status !== "ready") return { status: "error", message: context.message, state: await this.buildState() };
 
         let parsedSource: string;
-
         try {
-            parsedSource = parseModSourceUrl(sourceUrl, this.t);
+            parsedSource = parseModSourceUrl(sourceUrl, translate);
         } catch (error) {
-            const state = await this.buildState();
-            return { status: "error", message: getErrorMessage(error), state };
+            return { status: "error", message: getErrorMessage(error), state: await this.buildState() };
         }
 
-        const tempDir = join(getChannelModTempPath(context.repositoryPath, context.channelId), `install-${Date.now()}`);
+        const tempPath = join(getChannelModTempPath(context.repositoryPath, context.channelId), `install-${Date.now()}`);
 
         try {
-            await this.prepareChannelDirectories(context.repositoryPath, context.channelId);
-            await rm(tempDir, { recursive: true, force: true });
-            await mkdir(tempDir, { recursive: true });
+            await this.prepareDirectories(context.repositoryPath, context.channelId);
+            const clone = await modGitService.clone(parsedSource, tempPath);
+            const validated = await readValidatedModInfo(tempPath, translate);
+            const targetPath = getModPath(context.repositoryPath, context.channelId, getSafeModDirectoryName(validated.id));
+            const registry = await modRegistryStore.read(context.repositoryPath, context.channelId);
 
-            await git.clone({
-                fs,
-                http,
-                dir: tempDir,
-                url: parsedSource,
-                singleBranch: true,
-                depth: 1
-            });
-
-            const modInfo = await readValidatedModInfo(tempDir, this.t);
-            const safeModId = getSafeModDirectoryName(modInfo.id);
-            const targetDir = getModPath(context.repositoryPath, context.channelId, safeModId);
-            const registry = await this.readRegistry(context.repositoryPath, context.channelId);
-
-            if (registry.mods[modInfo.id] !== undefined || (await exists(targetDir))) {
-                throw new Error(this.t("mods.error.already.installed", { id: modInfo.id }));
+            if (registry.mods[validated.id] !== undefined || (await fileExists(targetPath))) {
+                throw new Error(translate("mods.error.already.installed", { id: validated.id }));
             }
 
-            const branch = (await git.currentBranch({ fs, dir: tempDir, fullname: false })) ?? "master";
-            const installedCommit = await git.resolveRef({ fs, dir: tempDir, ref: "HEAD" });
-            await mkdir(dirname(targetDir), { recursive: true });
-            await fs.promises.rename(tempDir, targetDir);
-
+            await modGitService.replaceDirectory(tempPath, targetPath);
             const now = new Date().toISOString();
-            const installedMod: ModInfo = {
+            const mod: ModInfo = {
                 schemaVersion: 1,
-                id: modInfo.id,
-                displayName: modInfo.name,
+                id: validated.id,
+                displayName: validated.name,
                 sourceUrl: parsedSource,
-                defaultBranch: branch,
-                trackingRef: `refs/remotes/origin/${branch}`,
-                installedCommit,
-                lastKnownRemoteCommit: installedCommit,
+                defaultBranch: clone.branch,
+                trackingRef: `refs/remotes/origin/${clone.branch}`,
+                installedCommit: clone.commit,
+                lastKnownRemoteCommit: clone.commit,
                 hasLocalChanges: false,
                 updateAvailable: false,
-                relativePath: relative(getChannelModRepositoryPath(context.repositoryPath, context.channelId), targetDir),
+                relativePath: relative(getChannelModRepositoryPath(context.repositoryPath, context.channelId), targetPath),
                 installedAt: now,
                 checkedAt: now,
                 updatedAt: now,
                 enabled: true
             };
 
-            registry.mods[installedMod.id] = installedMod;
-            await this.writeRegistry(context.repositoryPath, context.channelId, registry);
+            registry.mods[mod.id] = mod;
+            await modRegistryStore.write(context.repositoryPath, context.channelId, registry);
+            await this.synchronizeAttachments(context.repositoryPath, context.channelId, [mod]);
 
-            const state = await this.buildState();
-            broadcastIPC(Bridge.Mods.onChanged, { state: state });
-            const mod = state.mods.find((item) => item.id === installedMod.id) ?? this.toItem(context.repositoryPath, context.channelId, installedMod, "installed");
-            return { status: "installed", state, mod };
+            const state = await this.publishState();
+            return { status: "installed", state, mod: this.findItem(state, mod, context) };
         } catch (error) {
-            await rm(tempDir, { recursive: true, force: true });
-            const state = await this.buildState();
-            return { status: "error", message: getErrorMessage(error), state };
+            await rm(tempPath, { recursive: true, force: true });
+            return { status: "error", message: getErrorMessage(error), state: await this.buildState() };
         }
     }
 
     async checkAll(): Promise<EModsCheckResult> {
-        if (this.checking) {
-            return { status: "checked", state: await this.buildState() };
-        }
+        if (this.checking) return { status: "checked", state: await this.buildState() };
 
         this.checking = true;
-        broadcastIPC(Bridge.Mods.onChanged, { state: await this.buildState() });
-
-        let outcome: { status: "checked" } | { status: "error"; message: string } = { status: "checked" };
+        await this.publishState();
+        let errorMessage: string | null = null;
         let notice: { updateCount: number; dirtyCount: number } | null = null;
 
         try {
-            const context = await this.getReadyContext();
-
+            const context = this.getReadyContext();
             if (context.status !== "ready") {
-                outcome = { status: "error", message: context.message };
+                errorMessage = context.message;
             } else {
-                await this.prepareChannelDirectories(context.repositoryPath, context.channelId);
+                await this.prepareDirectories(context.repositoryPath, context.channelId);
                 await this.cleanupTemp(context.repositoryPath, context.channelId);
-
-                const registry = await this.readRegistry(context.repositoryPath, context.channelId);
-                let updateCount = 0;
-                let dirtyCount = 0;
+                const registry = await modRegistryStore.read(context.repositoryPath, context.channelId);
 
                 for (const mod of Object.values(registry.mods)) {
-                    const checked = await this.checkOne(context.repositoryPath, context.channelId, mod);
-                    registry.mods[mod.id] = checked;
-
-                    if (checked.updateAvailable) {
-                        updateCount += 1;
-                    }
-
-                    if (checked.hasLocalChanges) {
-                        dirtyCount += 1;
-                    }
+                    registry.mods[mod.id] = await this.checkOne(context.repositoryPath, context.channelId, mod);
                 }
 
-                await this.writeRegistry(context.repositoryPath, context.channelId, registry);
+                await modRegistryStore.write(context.repositoryPath, context.channelId, registry);
+                await this.synchronizeAttachments(context.repositoryPath, context.channelId, Object.values(registry.mods));
 
-                if (updateCount > 0) {
-                    notice = { updateCount, dirtyCount };
-                }
+                const updateCount = Object.values(registry.mods).filter((mod) => mod.updateAvailable).length;
+                const dirtyCount = Object.values(registry.mods).filter((mod) => mod.hasLocalChanges).length;
+                if (updateCount > 0) notice = { updateCount, dirtyCount };
             }
         } catch (error) {
-            outcome = { status: "error", message: getErrorMessage(error) };
+            errorMessage = getErrorMessage(error);
+        } finally {
+            this.checking = false;
         }
 
-        this.checking = false;
-        const state = await this.buildState();
-        broadcastIPC(Bridge.Mods.onChanged, { state: state });
-
+        const state = await this.publishState();
         if (notice !== null) {
-            broadcastIPC(Bridge.Mods.onNotice, { type: "updates-available", updateCount: notice.updateCount, dirtyCount: notice.dirtyCount, state: state });
+            broadcastIPC(Bridge.Mods.onNotice, { type: "updates-available", ...notice, state });
         }
 
-        if (outcome.status === "error") {
-            return { status: "error", message: outcome.message, state };
-        }
-
-        return { status: "checked", state };
+        return errorMessage === null ? { status: "checked", state } : { status: "error", message: errorMessage, state };
     }
 
     async update(modId: string, options: UpdateModOptions = {}): Promise<EModUpdateResult> {
-        const context = await this.getReadyContext();
+        const context = this.getReadyContext();
+        if (context.status !== "ready") return { status: "error", message: context.message, state: await this.buildState() };
 
-        if (context.status !== "ready") {
-            const state = await this.buildState();
-            return { status: "error", message: context.message, state };
-        }
+        const tempPath = join(getChannelModTempPath(context.repositoryPath, context.channelId), `update-${getSafeModDirectoryName(modId)}-${Date.now()}`);
 
         try {
-            const registry = await this.readRegistry(context.repositoryPath, context.channelId);
+            const registry = await modRegistryStore.read(context.repositoryPath, context.channelId);
             const mod = registry.mods[modId];
+            if (mod === undefined) throw new Error(translate("mods.error.not.found.in.registry"));
 
-            if (mod === undefined) {
-                throw new Error(this.t("mods.error.not.found.in.registry"));
-            }
-
-            const modDir = this.getModDir(context.repositoryPath, context.channelId, mod);
-            const hasLocalChanges = (await exists(modDir)) ? await this.hasLocalChanges(modDir) : false;
-
+            const modPath = modRegistryStore.getModPath(context.repositoryPath, context.channelId, mod);
+            const hasLocalChanges = (await fileExists(modPath)) && (await modGitService.hasLocalChanges(modPath));
             if (hasLocalChanges && options.force !== true) {
-                const blocked = { ...mod, hasLocalChanges, updateAvailable: true };
+                const blocked = { ...mod, hasLocalChanges: true, updateAvailable: true };
                 registry.mods[mod.id] = blocked;
-                await this.writeRegistry(context.repositoryPath, context.channelId, registry);
-                const state = await this.buildState();
-                const item = state.mods.find((entry) => entry.id === mod.id) ?? this.toItem(context.repositoryPath, context.channelId, blocked, "blocked-by-local-changes");
-                return { status: "blocked-by-local-changes", state, mod: item };
+                await modRegistryStore.write(context.repositoryPath, context.channelId, registry);
+                const state = await this.publishState();
+                return { status: "blocked-by-local-changes", state, mod: this.findItem(state, blocked, context) };
             }
 
-            const tempDir = join(getChannelModTempPath(context.repositoryPath, context.channelId), `update-${getSafeModDirectoryName(mod.id)}-${Date.now()}`);
-            await rm(tempDir, { recursive: true, force: true });
-            await mkdir(tempDir, { recursive: true });
-            await git.clone({ fs, http, dir: tempDir, url: mod.sourceUrl, ref: mod.defaultBranch, singleBranch: true, depth: 1 });
-            const modInfo = await readValidatedModInfo(tempDir, this.t);
+            const clone = await modGitService.clone(mod.sourceUrl, tempPath, mod.defaultBranch);
+            const validated = await readValidatedModInfo(tempPath, translate);
+            if (validated.id !== mod.id) throw new Error(translate("mods.error.updated.id.mismatch", { actual: validated.id, expected: mod.id }));
 
-            if (modInfo.id !== mod.id) {
-                throw new Error(this.t("mods.error.updated.id.mismatch", { actual: modInfo.id, expected: mod.id }));
-            }
-
-            const nextCommit = await git.resolveRef({ fs, dir: tempDir, ref: "HEAD" });
-            await rm(modDir, { recursive: true, force: true });
-            await mkdir(dirname(modDir), { recursive: true });
-            await fs.promises.rename(tempDir, modDir);
-
+            await modGitService.replaceDirectory(tempPath, modPath);
             const now = new Date().toISOString();
-            const updatedMod: ModInfo = {
+            const updated: ModInfo = {
                 ...mod,
-                displayName: modInfo.name,
-                installedCommit: nextCommit,
-                lastKnownRemoteCommit: nextCommit,
+                displayName: validated.name,
+                installedCommit: clone.commit,
+                lastKnownRemoteCommit: clone.commit,
                 hasLocalChanges: false,
                 updateAvailable: false,
                 checkedAt: now,
                 updatedAt: now
             };
-            registry.mods[mod.id] = updatedMod;
-            await this.writeRegistry(context.repositoryPath, context.channelId, registry);
+            registry.mods[mod.id] = updated;
+            await modRegistryStore.write(context.repositoryPath, context.channelId, registry);
+            await this.synchronizeAttachments(context.repositoryPath, context.channelId, [updated]);
 
-            const state = await this.buildState();
-            broadcastIPC(Bridge.Mods.onChanged, { state: state });
-            const item = state.mods.find((entry) => entry.id === mod.id) ?? this.toItem(context.repositoryPath, context.channelId, updatedMod, "installed");
-            return { status: "updated", state, mod: item };
+            const state = await this.publishState();
+            return { status: "updated", state, mod: this.findItem(state, updated, context) };
         } catch (error) {
-            const state = await this.buildState();
-            return { status: "error", message: getErrorMessage(error), state };
+            await rm(tempPath, { recursive: true, force: true });
+            return { status: "error", message: getErrorMessage(error), state: await this.buildState() };
         }
     }
 
     async remove(modId: string): Promise<EModDeleteResult> {
-        const context = await this.getReadyContext();
-
-        if (context.status !== "ready") {
-            const state = await this.buildState();
-            return { status: "error", message: context.message, state };
-        }
+        const context = this.getReadyContext();
+        if (context.status !== "ready") return { status: "error", message: context.message, state: await this.buildState() };
 
         try {
-            const registry = await this.readRegistry(context.repositoryPath, context.channelId);
+            const registry = await modRegistryStore.read(context.repositoryPath, context.channelId);
             const mod = registry.mods[modId];
-
             if (mod !== undefined) {
-                await rm(this.getModDir(context.repositoryPath, context.channelId, mod), { recursive: true, force: true });
+                await modDeploymentService.detach(await this.getUserdataPaths(), mod);
+                await rm(modRegistryStore.getModPath(context.repositoryPath, context.channelId, mod), { recursive: true, force: true });
                 delete registry.mods[modId];
-                await this.writeRegistry(context.repositoryPath, context.channelId, registry);
+                await modRegistryStore.write(context.repositoryPath, context.channelId, registry);
             }
 
-            const state = await this.buildState();
-            broadcastIPC(Bridge.Mods.onChanged, { state: state });
-            return { status: "deleted", state };
+            return { status: "deleted", state: await this.publishState() };
         } catch (error) {
-            const state = await this.buildState();
-            return { status: "error", message: getErrorMessage(error), state };
+            return { status: "error", message: getErrorMessage(error), state: await this.buildState() };
         }
     }
 
     async openFolder(modId?: string): Promise<EModOpenFolderResult> {
-        const context = await this.getReadyContext();
+        const context = this.getReadyContext();
+        if (context.status !== "ready") return { status: "error", message: context.message };
 
-        if (context.status !== "ready") {
-            return { status: "error", message: context.message };
-        }
-
-        const registry = await this.readRegistry(context.repositoryPath, context.channelId);
+        const registry = await modRegistryStore.read(context.repositoryPath, context.channelId);
         const target =
             modId === undefined
                 ? getChannelModRepositoryPath(context.repositoryPath, context.channelId)
                 : registry.mods[modId] === undefined
                   ? null
-                  : this.getModDir(context.repositoryPath, context.channelId, registry.mods[modId]);
-
-        if (target === null) {
-            return { status: "error", message: this.t("mods.error.not.found.in.registry") };
-        }
+                  : modRegistryStore.getModPath(context.repositoryPath, context.channelId, registry.mods[modId]);
+        if (target === null) return { status: "error", message: translate("mods.error.not.found.in.registry") };
 
         await mkdir(target, { recursive: true });
-        await shell.openPath(target);
-        return { status: "opened" };
+        const error = await shell.openPath(target);
+        return error.length === 0 ? { status: "opened" } : { status: "error", message: error };
     }
 
-    private readonly t = (key: string, variables?: Record<string, string | number>): string => translate(key, variables);
-
     private async checkOne(repositoryPath: string, channelId: string, mod: ModInfo): Promise<ModInfo> {
-        const modDir = this.getModDir(repositoryPath, channelId, mod);
+        const modPath = modRegistryStore.getModPath(repositoryPath, channelId, mod);
         const now = new Date().toISOString();
-
-        if (!(await exists(modDir))) {
-            const restored = await this.restoreMissingMod(repositoryPath, channelId, mod);
-            return { ...restored, checkedAt: now };
-        }
+        if (!(await fileExists(modPath))) return { ...(await this.restoreMissingMod(repositoryPath, channelId, mod)), checkedAt: now };
 
         try {
-            const modInfo = await readValidatedModInfo(modDir, this.t);
-            const hasLocalChanges = await this.hasLocalChanges(modDir);
-
-            if (modInfo.id !== mod.id) {
-                return { ...mod, hasLocalChanges: true, checkedAt: now };
-            }
+            const validated = await readValidatedModInfo(modPath, translate);
+            const hasLocalChanges = await modGitService.hasLocalChanges(modPath);
+            if (validated.id !== mod.id) return { ...mod, hasLocalChanges: true, checkedAt: now };
 
             try {
-                await git.fetch({ fs, http, dir: modDir, remote: "origin", ref: mod.defaultBranch, singleBranch: true, depth: 1 });
-                const localCommit = await git.resolveRef({ fs, dir: modDir, ref: "HEAD" });
-                const remoteCommit = await git.resolveRef({ fs, dir: modDir, ref: mod.trackingRef });
-
+                const commits = await modGitService.fetchState(modPath, mod.defaultBranch, mod.trackingRef);
                 return {
                     ...mod,
-                    displayName: modInfo.name,
-                    installedCommit: localCommit,
-                    lastKnownRemoteCommit: remoteCommit,
+                    displayName: validated.name,
+                    installedCommit: commits.localCommit,
+                    lastKnownRemoteCommit: commits.remoteCommit,
                     hasLocalChanges,
-                    updateAvailable: localCommit !== remoteCommit,
+                    updateAvailable: commits.localCommit !== commits.remoteCommit,
                     checkedAt: now
                 };
             } catch (error) {
                 console.error("[mods] failed to fetch mod", mod.id, error);
-                return { ...mod, displayName: modInfo.name, hasLocalChanges, checkedAt: now };
+                return { ...mod, displayName: validated.name, hasLocalChanges, checkedAt: now };
             }
         } catch (error) {
             console.error("[mods] failed to check mod", mod.id, error);
@@ -353,63 +263,37 @@ class ModRepositoryService {
     }
 
     private async restoreMissingMod(repositoryPath: string, channelId: string, mod: ModInfo): Promise<ModInfo> {
-        const modDir = this.getModDir(repositoryPath, channelId, mod);
-        const tempDir = join(getChannelModTempPath(repositoryPath, channelId), `restore-${getSafeModDirectoryName(mod.id)}-${Date.now()}`);
+        const modPath = modRegistryStore.getModPath(repositoryPath, channelId, mod);
+        const tempPath = join(getChannelModTempPath(repositoryPath, channelId), `restore-${getSafeModDirectoryName(mod.id)}-${Date.now()}`);
 
         try {
-            await mkdir(tempDir, { recursive: true });
-            await git.clone({ fs, http, dir: tempDir, url: mod.sourceUrl, ref: mod.defaultBranch, singleBranch: true, depth: 1 });
-            const modInfo = await readValidatedModInfo(tempDir, this.t);
-
-            if (modInfo.id !== mod.id) {
-                throw new Error(this.t("mods.error.restored.id.mismatch", { actual: modInfo.id, expected: mod.id }));
-            }
-
-            const commit = await git.resolveRef({ fs, dir: tempDir, ref: "HEAD" });
-            await mkdir(dirname(modDir), { recursive: true });
-            await fs.promises.rename(tempDir, modDir);
+            const clone = await modGitService.clone(mod.sourceUrl, tempPath, mod.defaultBranch);
+            const validated = await readValidatedModInfo(tempPath, translate);
+            if (validated.id !== mod.id) throw new Error(translate("mods.error.restored.id.mismatch", { actual: validated.id, expected: mod.id }));
+            await modGitService.replaceDirectory(tempPath, modPath);
             const now = new Date().toISOString();
-
-            return {
-                ...mod,
-                displayName: modInfo.name,
-                installedCommit: commit,
-                lastKnownRemoteCommit: commit,
-                hasLocalChanges: false,
-                updateAvailable: false,
-                checkedAt: now,
-                updatedAt: now
-            };
+            return { ...mod, displayName: validated.name, installedCommit: clone.commit, lastKnownRemoteCommit: clone.commit, hasLocalChanges: false, updateAvailable: false, checkedAt: now, updatedAt: now };
         } catch (error) {
-            await rm(tempDir, { recursive: true, force: true });
+            await rm(tempPath, { recursive: true, force: true });
             console.error("[mods] failed to restore missing mod", mod.id, error);
             return { ...mod, hasLocalChanges: false, updateAvailable: false };
         }
     }
 
-    private async hasLocalChanges(modDir: string): Promise<boolean> {
-        const matrix = await git.statusMatrix({ fs, dir: modDir });
-        return matrix.some((row) => row[1] !== row[2] || row[1] !== row[3]);
-    }
-
     private async buildState(): Promise<ModRepositoryState> {
-        const context = await this.getReadyContext();
-
-        if (context.status !== "ready") {
-            return { status: context.kind, mods: [], checking: this.checking, message: context.message };
-        }
+        const context = this.getReadyContext();
+        if (context.status !== "ready") return { status: context.kind, mods: [], checking: this.checking, message: context.message };
 
         try {
-            await this.prepareChannelDirectories(context.repositoryPath, context.channelId);
-            const registry = await this.readRegistry(context.repositoryPath, context.channelId);
-            const items = await Promise.all(Object.values(registry.mods).map((mod) => this.buildItem(context.repositoryPath, context.channelId, mod)));
-
+            await this.prepareDirectories(context.repositoryPath, context.channelId);
+            const registry = await modRegistryStore.read(context.repositoryPath, context.channelId);
+            const mods = await Promise.all(Object.values(registry.mods).map((mod) => this.buildItem(context.repositoryPath, context.channelId, mod)));
             return {
                 status: "ready",
                 repositoryPath: context.repositoryPath,
                 channelId: context.channelId,
                 modRepositoryPath: getChannelModRepositoryPath(context.repositoryPath, context.channelId),
-                mods: items.sort((left, right) => left.displayName.localeCompare(right.displayName)),
+                mods: mods.sort((a, b) => a.displayName.localeCompare(b.displayName)),
                 checking: this.checking
             };
         } catch (error) {
@@ -418,43 +302,41 @@ class ModRepositoryService {
     }
 
     private async buildItem(repositoryPath: string, channelId: string, mod: ModInfo): Promise<ModInstanceInfo> {
-        const modDir = this.getModDir(repositoryPath, channelId, mod);
-
-        if (!(await exists(modDir))) {
-            return this.toItem(repositoryPath, channelId, mod, "missing-local-copy");
-        }
+        const absolutePath = modRegistryStore.getModPath(repositoryPath, channelId, mod);
+        const item = (status: ModInstanceInfo["status"], error?: string): ModInstanceInfo => ({ ...mod, status, absolutePath, error });
+        if (!(await fileExists(absolutePath))) return item("missing-local-copy");
 
         try {
-            const modInfo = await readValidatedModInfo(modDir, this.t);
-
-            if (modInfo.id !== mod.id) {
-                return this.toItem(repositoryPath, channelId, mod, "invalid-local-copy", this.t("mods.error.local.copy.id.mismatch", { actual: modInfo.id, expected: mod.id }));
-            }
+            const validated = await readValidatedModInfo(absolutePath, translate);
+            if (validated.id !== mod.id) return item("invalid-local-copy", translate("mods.error.local.copy.id.mismatch", { actual: validated.id, expected: mod.id }));
         } catch (error) {
-            return this.toItem(repositoryPath, channelId, mod, "invalid-local-copy", getErrorMessage(error));
+            return item("invalid-local-copy", getErrorMessage(error));
         }
 
-        if (mod.hasLocalChanges && mod.updateAvailable) {
-            return this.toItem(repositoryPath, channelId, mod, "blocked-by-local-changes");
-        }
-
-        if (mod.updateAvailable) {
-            return this.toItem(repositoryPath, channelId, mod, "update-available");
-        }
-
-        return this.toItem(repositoryPath, channelId, mod, "installed");
+        if (mod.hasLocalChanges && mod.updateAvailable) return item("blocked-by-local-changes");
+        if (mod.updateAvailable) return item("update-available");
+        return item("installed");
     }
 
-    private toItem(repositoryPath: string, channelId: string, mod: ModInfo, status: ModInstanceInfo["status"], error?: string): ModInstanceInfo {
-        return {
-            ...mod,
-            status,
-            absolutePath: this.getModDir(repositoryPath, channelId, mod),
-            error
-        };
+    private async synchronizeAttachments(repositoryPath: string, channelId: string, mods: ModInfo[]): Promise<void> {
+        await modDeploymentService.synchronizeMods(repositoryPath, channelId, await this.getUserdataPaths(), mods);
     }
 
-    private async prepareChannelDirectories(repositoryPath: string, channelId: string): Promise<void> {
+    private async getUserdataPaths(): Promise<string[]> {
+        return (await gameBundleService.getGameBundles()).map((bundle) => bundle.userdataPath);
+    }
+
+    private async publishState(): Promise<ModRepositoryState> {
+        const state = await this.buildState();
+        broadcastIPC(Bridge.Mods.onChanged, { state });
+        return state;
+    }
+
+    private findItem(state: ModRepositoryState, mod: ModInfo, context: ReadyContext): ModInstanceInfo {
+        return state.mods.find((item) => item.id === mod.id) ?? { ...mod, status: "installed", absolutePath: modRegistryStore.getModPath(context.repositoryPath, context.channelId, mod) };
+    }
+
+    private async prepareDirectories(repositoryPath: string, channelId: string): Promise<void> {
         await mkdir(getChannelModsPath(repositoryPath, channelId), { recursive: true });
         await mkdir(getChannelModTempPath(repositoryPath, channelId), { recursive: true });
     }
@@ -464,101 +346,15 @@ class ModRepositoryService {
         await mkdir(getChannelModTempPath(repositoryPath, channelId), { recursive: true });
     }
 
-    private async readRegistry(repositoryPath: string, channelId: string): Promise<ModRegistry> {
-        const registryPath = this.getRegistryPath(repositoryPath, channelId);
-
-        try {
-            const parsed: unknown = JSON.parse(await readFile(registryPath, "utf8"));
-            return normalizeRegistry(parsed);
-        } catch (error) {
-            if (isNodeError(error) && error.code === "ENOENT") {
-                const empty = createEmptyRegistry();
-                await this.writeRegistry(repositoryPath, channelId, empty);
-                return empty;
-            }
-
-            throw new Error(this.t("mods.error.registry.invalid"));
-        }
-    }
-
-    private async writeRegistry(repositoryPath: string, channelId: string, registry: ModRegistry): Promise<void> {
-        const registryPath = this.getRegistryPath(repositoryPath, channelId);
-        await mkdir(dirname(registryPath), { recursive: true });
-        await writeFile(registryPath, `${JSON.stringify(registry, null, 4)}\n`, "utf8");
-    }
-
-    private getRegistryPath(repositoryPath: string, channelId: string): string {
-        return join(getChannelModRepositoryPath(repositoryPath, channelId), "mods.json");
-    }
-
-    private getModDir(repositoryPath: string, channelId: string, mod: ModInfo): string {
-        return join(getChannelModRepositoryPath(repositoryPath, channelId), mod.relativePath);
-    }
-
-    private async getReadyContext(): Promise<{ status: "ready"; repositoryPath: string; channelId: string } | { status: "unavailable"; kind: "unconfigured" | "error"; message: string }> {
-        const ws = workspaceService.getWorkspaceStatus();
-        if (ws.status !== "ready") return { status: "unavailable", kind: ws.status === "unconfigured" ? "unconfigured" : "error", message: getRepositoryUnavailableMessage(ws) };
-        return { status: "ready", repositoryPath: ws.path, channelId: ws.selectedGameChannel.id };
+    private getReadyContext(): ReadyContext | UnavailableContext {
+        const workspace = workspaceService.getWorkspaceStatus();
+        if (workspace.status !== "ready") return { status: "unavailable", kind: workspace.status === "unconfigured" ? "unconfigured" : "error", message: getRepositoryUnavailableMessage(workspace) };
+        return { status: "ready", repositoryPath: workspace.path, channelId: workspace.selectedGameChannel.id };
     }
 }
 
-function createEmptyRegistry(): ModRegistry {
-    return { schemaVersion: 1, mods: {} };
-}
-
-function normalizeRegistry(value: unknown): ModRegistry {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-        return createEmptyRegistry();
-    }
-
-    const candidate = value as Partial<ModRegistry>;
-    const mods: Record<string, ModInfo> = {};
-
-    if (typeof candidate.mods === "object" && candidate.mods !== null && !Array.isArray(candidate.mods)) {
-        for (const value of Object.values(candidate.mods)) {
-            const mod = normalizeInstalledMod(value);
-
-            if (mod !== null) {
-                mods[mod.id] = mod;
-            }
-        }
-    }
-
-    return { schemaVersion: 1, mods };
-}
-
-function normalizeInstalledMod(value: unknown): ModInfo | null {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-        return null;
-    }
-
-    const candidate = value as Partial<ModInfo>;
-
-    if (typeof candidate.id !== "string" || candidate.id.length === 0 || typeof candidate.sourceUrl !== "string" || typeof candidate.relativePath !== "string") {
-        return null;
-    }
-
-    const now = new Date().toISOString();
-    const defaultBranch = typeof candidate.defaultBranch === "string" && candidate.defaultBranch.length > 0 ? candidate.defaultBranch : "master";
-
-    return {
-        schemaVersion: 1,
-        id: candidate.id,
-        displayName: normalizeModDisplayName(candidate.displayName, candidate.id),
-        sourceUrl: candidate.sourceUrl,
-        defaultBranch,
-        trackingRef: typeof candidate.trackingRef === "string" && candidate.trackingRef.length > 0 ? candidate.trackingRef : `refs/remotes/origin/${defaultBranch}`,
-        installedCommit: typeof candidate.installedCommit === "string" ? candidate.installedCommit : "",
-        lastKnownRemoteCommit: typeof candidate.lastKnownRemoteCommit === "string" ? candidate.lastKnownRemoteCommit : typeof candidate.installedCommit === "string" ? candidate.installedCommit : "",
-        hasLocalChanges: candidate.hasLocalChanges === true,
-        updateAvailable: candidate.updateAvailable === true,
-        relativePath: candidate.relativePath,
-        installedAt: typeof candidate.installedAt === "string" ? candidate.installedAt : now,
-        checkedAt: typeof candidate.checkedAt === "string" ? candidate.checkedAt : undefined,
-        updatedAt: typeof candidate.updatedAt === "string" ? candidate.updatedAt : now,
-        enabled: candidate.enabled !== false
-    };
-}
+type ReadyContext = { status: "ready"; repositoryPath: string; channelId: string };
+type UnavailableContext = { status: "unavailable"; kind: "unconfigured" | "error"; message: string };
 
 function getSafeModDirectoryName(modId: string): string {
     return modId.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -568,25 +364,8 @@ function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
-function getRepositoryUnavailableMessage(repository: WorkspaceStatus): string {
-    if (repository.status === "invalid") {
-        return repository.message;
-    }
-
-    return translate("mods.error.repository.unavailable");
-}
-
-async function exists(path: string): Promise<boolean> {
-    try {
-        await access(path);
-        return true;
-    } catch (error) {
-        if (isNodeError(error) && error.code === "ENOENT") {
-            return false;
-        }
-
-        throw error;
-    }
+function getRepositoryUnavailableMessage(workspace: WorkspaceStatus): string {
+    return workspace.status === "invalid" ? workspace.message : translate("mods.error.repository.unavailable");
 }
 
 export const modRepositoryService = new ModRepositoryService();
