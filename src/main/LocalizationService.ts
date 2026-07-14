@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, ipcMain } from "electron";
 
 import { appSettings } from "./settings/AppSettings";
 import { LocaleOption } from "../shared/localization/types/LocaleOption";
@@ -11,6 +11,7 @@ import { EN_LOCALE } from "../shared/localization/locales/en";
 import { RU_LOCALE } from "../shared/localization/locales/ru";
 import { LocaleFile } from "../shared/localization/types/LocaleFile";
 import { LocaleMessages } from "../shared/localization/types/LocaleMessages";
+import { broadcastIPC } from "./utils/broadcastIPC";
 
 const FALLBACK_LOCALE = EN_LOCALE.locale;
 const BUILT_IN_LOCALES: LocaleFile[] = [EN_LOCALE, RU_LOCALE];
@@ -78,9 +79,7 @@ class LocalizationService {
         appSettings.set({ locale: this.locale });
 
         const bundle = this.getBundle();
-        for (const window of BrowserWindow.getAllWindows()) {
-            window.webContents.send(Bridge.Localization.onChanged, bundle);
-        }
+        broadcastIPC(Bridge.Localization.onChanged, bundle);
         return bundle;
     }
 

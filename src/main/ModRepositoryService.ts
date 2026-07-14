@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
-import { BrowserWindow, ipcMain, shell } from "electron";
+import { ipcMain, shell } from "electron";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 
@@ -18,8 +18,6 @@ import { UpdateModOptions } from "../shared/mods/UpdateModOptions";
 import { EModUpdateResult } from "../shared/mods/EModUpdateResult";
 import { EModDeleteResult } from "../shared/mods/EModDeleteResult";
 import { EModOpenFolderResult } from "../shared/mods/EModOpenFolderResult";
-import { ModRepositoryChangedEvent } from "../shared/mods/ModRepositoryChangedEvent";
-import { ModRepositoryNoticeEvent } from "../shared/mods/ModRepositoryNoticeEvent";
 import { isNodeError } from "./utils/isNodeError";
 import { Bridge } from "../shared/bridge-api/Bridge";
 import { normalizeModDisplayName } from "./mods/normalizeModDisplayName";
@@ -120,7 +118,7 @@ class ModRepositoryService {
             await this.writeRegistry(context.repositoryPath, context.channelId, registry);
 
             const state = await this.buildState();
-            this.emitChanged(state);
+            broadcastIPC(Bridge.Mods.onChanged, { state: state });
             const mod = state.mods.find((item) => item.id === installedMod.id) ?? this.toItem(context.repositoryPath, context.channelId, installedMod, "installed");
             return { status: "installed", state, mod };
         } catch (error) {
@@ -136,7 +134,7 @@ class ModRepositoryService {
         }
 
         this.checking = true;
-        this.emitChanged(await this.buildState());
+        broadcastIPC(Bridge.Mods.onChanged, { state: await this.buildState() });
 
         let outcome: { status: "checked" } | { status: "error"; message: string } = { status: "checked" };
         let notice: { updateCount: number; dirtyCount: number } | null = null;
@@ -179,10 +177,10 @@ class ModRepositoryService {
 
         this.checking = false;
         const state = await this.buildState();
-        this.emitChanged(state);
+        broadcastIPC(Bridge.Mods.onChanged, { state: state });
 
         if (notice !== null) {
-            this.emitNotice({ type: "updates-available", updateCount: notice.updateCount, dirtyCount: notice.dirtyCount, state: state });
+            broadcastIPC(Bridge.Mods.onNotice, { type: "updates-available", updateCount: notice.updateCount, dirtyCount: notice.dirtyCount, state: state });
         }
 
         if (outcome.status === "error") {
@@ -250,7 +248,7 @@ class ModRepositoryService {
             await this.writeRegistry(context.repositoryPath, context.channelId, registry);
 
             const state = await this.buildState();
-            this.emitChanged(state);
+            broadcastIPC(Bridge.Mods.onChanged, { state: state });
             const item = state.mods.find((entry) => entry.id === mod.id) ?? this.toItem(context.repositoryPath, context.channelId, updatedMod, "installed");
             return { status: "updated", state, mod: item };
         } catch (error) {
@@ -278,7 +276,7 @@ class ModRepositoryService {
             }
 
             const state = await this.buildState();
-            this.emitChanged(state);
+            broadcastIPC(Bridge.Mods.onChanged, { state: state });
             return { status: "deleted", state };
         } catch (error) {
             const state = await this.buildState();
@@ -500,20 +498,6 @@ class ModRepositoryService {
         const ws = workspaceService.getWorkspaceStatus();
         if (ws.status !== "ready") return { status: "unavailable", kind: ws.status === "unconfigured" ? "unconfigured" : "error", message: getRepositoryUnavailableMessage(ws) };
         return { status: "ready", repositoryPath: ws.path, channelId: ws.selectedGameChannel.id };
-    }
-
-    private emitChanged(state: ModRepositoryState): void {
-        const event: ModRepositoryChangedEvent = { state: state };
-
-        for (const window of BrowserWindow.getAllWindows()) {
-            window.webContents.send(Bridge.Mods.onChanged, event);
-        }
-    }
-
-    private emitNotice(event: ModRepositoryNoticeEvent): void {
-        for (const window of BrowserWindow.getAllWindows()) {
-            window.webContents.send(Bridge.Mods.onNotice, event);
-        }
     }
 }
 

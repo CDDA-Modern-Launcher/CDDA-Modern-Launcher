@@ -23,6 +23,7 @@ import { TAutoBackupCooldown } from "../shared/backups/types/TAutoBackupCooldown
 import { TReleaseAssetVariant } from "../shared/release-asset/TReleaseAssetVariant";
 import { parse, ParseError, printParseErrorCode } from "jsonc-parser";
 import { publishGameState, synchronizeActiveBundle } from "./game/GameStateEvents";
+import { broadcastIPC } from "./utils/broadcastIPC";
 
 const DEFAULT_WORKSPACE_SETTINGS: SettingsIPC = {
     releaseAssetVariant: DEFAULT_RELEASE_ASSET_VARIANT,
@@ -194,9 +195,7 @@ class WorkspaceService {
         const status = this.createReadyWorkspace(path, config);
         this.workspaceStatus = status;
         const settings = configToWorkspaceSettings(config);
-        for (const window of BrowserWindow.getAllWindows()) {
-            window.webContents.send(Bridge.Settings.changed, settings);
-        }
+        broadcastIPC(Bridge.Settings.changed, settings);
         return status;
     }
 

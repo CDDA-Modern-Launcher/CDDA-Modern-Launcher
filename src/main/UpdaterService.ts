@@ -1,5 +1,5 @@
 import { is } from "@electron-toolkit/utils";
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, ipcMain } from "electron";
 import { autoUpdater, ProgressInfo, UpdateInfo } from "electron-updater";
 import { appendFileSync, mkdirSync } from "fs";
 import { join } from "path";
@@ -8,6 +8,7 @@ import { Bridge } from "../shared/bridge-api/Bridge";
 import { UpdateState } from "../shared/bridge-api/types/UpdateState";
 import { LocaleKeys } from "../shared/localization/types/LocaleFile";
 import { translate } from "./LocalizationService";
+import { broadcastIPC } from "./utils/broadcastIPC";
 
 const DOWNLOAD_PROGRESS_MIN_INTERVAL_MS = 250;
 
@@ -156,7 +157,7 @@ export class UpdaterService {
             this.lastPublishedDownloadProgressAt = 0;
         }
 
-        this.publishState(state);
+        broadcastIPC(Bridge.Updater.onStateChanged, state);
     }
 
     private setDownloadState(state: Extract<UpdateState, { status: "downloading" }>, immediate = false): void {
@@ -166,7 +167,7 @@ export class UpdaterService {
 
         this.lastPublishedDownloadProgressKey = this.getDownloadProgressKey(state);
         this.lastPublishedDownloadProgressAt = Date.now();
-        this.publishState(state);
+        broadcastIPC(Bridge.Updater.onStateChanged, state);
     }
 
     private shouldThrottleDownloadProgress(state: Extract<UpdateState, { status: "downloading" }>): boolean {
@@ -187,14 +188,6 @@ export class UpdaterService {
     private getKnownTotalBytes(value: number | undefined): number | undefined {
         const bytes = this.getKnownByteCount(value);
         return bytes === undefined || bytes === 0 ? undefined : bytes;
-    }
-
-    private publishState(state: UpdateState): void {
-        this.log("[updater] state changed", state);
-
-        for (const window of BrowserWindow.getAllWindows()) {
-            window.webContents.send(Bridge.Updater.onStateChanged, state);
-        }
     }
 
     private getUpdateVersion(info: UpdateInfo): string {
