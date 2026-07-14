@@ -8,7 +8,6 @@ import { LoadedLocale } from "../shared/localization/types/LoadedLocale";
 import { FormatArgs } from "../shared/FormatArgs";
 import { BUILT_IN_LOCALES } from "../shared/localization/BUILT_IN_LOCALES";
 import { mergeMessages } from "../shared/localization/mergeMessages";
-import { normalizeLocale } from "../shared/localization/normalizeLocale";
 import { formatMessage } from "../shared/formatMessage";
 import { Bridge } from "../shared/bridge-api/Bridge";
 
@@ -18,12 +17,12 @@ export class LocalizationService {
 
     constructor(private readonly settingsStore: AppSettings) {
         for (const locale of BUILT_IN_LOCALES) {
-            this.builtInLocales.set(normalizeLocale(locale.locale), locale);
+            this.builtInLocales.set(this.normalizeLocale(locale.locale), locale);
         }
     }
 
-    async initialize(): Promise<void> {
-        const savedLocale = await this.settingsStore.getLocale();
+    initialize(): void {
+        const savedLocale = this.settingsStore.get("locale");
         this.selectedLocale = this.resolveInitialLocale(savedLocale);
     }
 
@@ -41,9 +40,9 @@ export class LocalizationService {
         };
     }
 
-    async setLocale(locale: string): Promise<LocalizationBundle> {
-        this.selectedLocale = normalizeLocale(locale);
-        await this.settingsStore.setLocale(this.selectedLocale);
+    setLocale(locale: string): LocalizationBundle {
+        this.selectedLocale = this.normalizeLocale(locale);
+        this.settingsStore.set({ locale: this.selectedLocale });
         const bundle = this.getBundle();
         this.broadcast(bundle);
         return bundle;
@@ -60,14 +59,14 @@ export class LocalizationService {
         }
     }
 
-    private resolveInitialLocale(savedLocale: string | null): string {
-        const normalizedSavedLocale = savedLocale === null ? null : normalizeLocale(savedLocale);
+    private resolveInitialLocale(savedLocale: string | undefined): string {
+        const normalizedSavedLocale = !savedLocale ? undefined : this.normalizeLocale(savedLocale);
 
-        if (normalizedSavedLocale !== null && this.hasLocale(normalizedSavedLocale)) {
+        if (!!normalizedSavedLocale && this.hasLocale(normalizedSavedLocale)) {
             return normalizedSavedLocale;
         }
 
-        const systemLocale = normalizeLocale(app.getLocale());
+        const systemLocale = this.normalizeLocale(app.getLocale());
 
         if (this.hasLocale(systemLocale)) {
             return systemLocale;
@@ -83,7 +82,7 @@ export class LocalizationService {
     }
 
     private resolveEffectiveLocale(locale: string): string {
-        const normalized = normalizeLocale(locale);
+        const normalized = this.normalizeLocale(locale);
 
         if (this.hasLocale(normalized)) {
             return normalized;
@@ -126,5 +125,9 @@ export class LocalizationService {
 
     private hasLocale(locale: string): boolean {
         return this.builtInLocales.has(locale);
+    }
+
+    private normalizeLocale(locale: string): string {
+        return locale.trim().replace("_", "-").toLowerCase();
     }
 }

@@ -10,7 +10,6 @@ import { useLocaleInfo, useSetLocale, useTranslate } from "@renderer/stores/useL
 import { useCloseDrawer, useIsDrawerOpened } from "@renderer/stores/useDrawerStore";
 import { useAppearanceStore } from "@renderer/stores/useAppearanceStore";
 import { getThemeOptions } from "@renderer/utils/getThemeOptions";
-import { isAppTheme } from "../../../shared/appearance/isAppTheme";
 import { ThemeIcon } from "@renderer/components/ThemeIcon";
 import { LocaleOption } from "../../../shared/localization/types/LocaleOption";
 
@@ -105,7 +104,7 @@ function ThemeSelector(): ReactNode {
             value={themeSource}
             data={themeOptions.map((option) => ({ value: option.value, label: option.label }))}
             onChange={(value) => {
-                if (isAppTheme(value)) {
+                if (value) {
                     setThemeSource(value).catch((error) => console.error("Failed to set theme", error));
                 }
             }}

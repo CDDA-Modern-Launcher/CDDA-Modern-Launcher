@@ -341,27 +341,27 @@ app.whenReady().then(async () => {
         optimizer.watchWindowShortcuts(window);
     });
 
-    // IPC test
-    ipcMain.on("ping", () => console.log("pong"));
+    const appSettings = new AppSettings();
+    await appSettings.initialize();
 
-    const settingsStore = new AppSettings();
-    const localizationService = new LocalizationService(settingsStore);
-    await localizationService.initialize();
-    const repositoryService = new WorkspaceService(settingsStore, localizationService);
-    const gameBundleService = new GameBundleService(repositoryService, localizationService);
-    const modRepositoryService = new ModRepositoryService(repositoryService, localizationService);
+    const l10n = new LocalizationService(appSettings);
+    l10n.initialize();
 
-    await setupAppearanceIpc(settingsStore);
-    setupLocalizationIpc(localizationService);
+    const repositoryService = new WorkspaceService(appSettings, l10n);
+    const gameBundleService = new GameBundleService(repositoryService, l10n);
+    const modRepositoryService = new ModRepositoryService(repositoryService, l10n);
+
+    setupAppearanceIpc(appSettings);
+    setupLocalizationIpc(l10n);
     setupLauncherSettingsIpc(repositoryService);
-    setupWorkspaceIpc(repositoryService, localizationService);
-    setupGameBundleIpc(gameBundleService, localizationService);
+    setupWorkspaceIpc(repositoryService, l10n);
+    setupGameBundleIpc(gameBundleService, l10n);
     setupModRepositoryIpc(modRepositoryService);
-    setupUpdaterIpc(localizationService);
+    setupUpdaterIpc(l10n);
     setupShellIpc();
     createWindow();
     modRepositoryService.checkAllInBackground();
-    setupAutoUpdater(localizationService);
+    setupAutoUpdater(l10n);
 
     app.on("activate", function () {
         // On macOS it's common to re-create a window in the app when the

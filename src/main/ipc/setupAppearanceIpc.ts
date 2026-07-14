@@ -6,16 +6,16 @@ import { TAppThemeSource } from "../../shared/appearance/TAppThemeSource";
 import { TAppTheme } from "../../shared/appearance/TAppTheme";
 import { Bridge } from "../../shared/bridge-api/Bridge";
 
-export async function setupAppearanceIpc(settings: AppSettings): Promise<void> {
-    nativeTheme.themeSource = await settings.getThemeSource();
+export function setupAppearanceIpc(settings: AppSettings): void {
+    nativeTheme.themeSource = settings.get("theme");
 
     ipcMain.on(Bridge.Appearance.getInitialAppearance, (event) => {
         event.returnValue = getAppearanceBundle();
     });
 
     ipcMain.handle(Bridge.Appearance.getThemeSource, () => nativeTheme.themeSource);
-    ipcMain.handle(Bridge.Appearance.setThemeSource, async (_event, themeSource: TAppThemeSource) => {
-        await settings.setThemeSource(themeSource);
+    ipcMain.handle(Bridge.Appearance.setThemeSource, (_event, themeSource: TAppThemeSource) => {
+        settings.set({ theme: themeSource });
         nativeTheme.themeSource = themeSource;
         return getAppearanceBundle();
     });

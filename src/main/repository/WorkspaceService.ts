@@ -34,15 +34,15 @@ export class WorkspaceService {
     ) {}
 
     async getWorkspaceStatus(): Promise<WorkspaceStatus> {
-        const repositoryPath = await this.appSettings.getRepositoryPath();
-        if (repositoryPath === null) return { status: "unconfigured" };
+        const repositoryPath = this.appSettings.get("repositoryPath");
+        if (!repositoryPath) return { status: "unconfigured" };
         return this.validateWorkspace(repositoryPath);
     }
 
-    async useRepository(path: string): Promise<WorkspaceStatus> {
-        const status = await this.prepare(path);
+    async useRepository(repositoryPath: string): Promise<WorkspaceStatus> {
+        const status = await this.prepare(repositoryPath);
         if (status.status === "ready") {
-            await this.appSettings.setRepositoryPath(path);
+            this.appSettings.set({ repositoryPath });
             this.localizationService.broadcast();
         }
         return status;
