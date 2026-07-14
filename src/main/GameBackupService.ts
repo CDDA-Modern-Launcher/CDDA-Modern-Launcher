@@ -4,8 +4,7 @@ import { dirname, join } from "node:path";
 
 import extractZip from "extract-zip";
 
-import { translate } from "./Localization";
-import type { WorkspaceService } from "./repository/WorkspaceService";
+import { translate } from "./LocalizationService";
 import { BACKUP_ARCHIVE_FILE_NAME, BACKUP_INFO_FILE_NAME } from "../shared/Const";
 import { TBackupKind } from "../shared/backups/types/TBackupKind";
 import { BackupInfo } from "../shared/backups/types/BackupInfo";
@@ -23,6 +22,7 @@ import { GameSaveSummary } from "../shared/GameSaveSummary";
 import { GameEvents } from "./game/GameEvents";
 import { pathExists } from "./utils/pathExists";
 import { copyRestoredWorld, createZipFromDirectory, findBackup, getBackupsPath, safePathSegment, scanBackups, toBackupInfo } from "./game/GameBackupFiles";
+import { workspaceService } from "./WorkspaceService";
 
 export type GameBackupContext = {
     gameBundle: GameBundle;
@@ -38,10 +38,7 @@ export class GameBackupService {
     private watcherRefreshTimer: NodeJS.Timeout | null = null;
     private isBusy = false;
 
-    constructor(
-        private readonly repositoryService: WorkspaceService,
-        private readonly events: GameEvents
-    ) {}
+    constructor(private readonly events: GameEvents) {}
 
     async updateActiveGameBundle(gameBundle: GameBundle | null): Promise<void> {
         if (gameBundle === null) {
@@ -69,7 +66,7 @@ export class GameBackupService {
     async createAutoBackup(context: GameBackupContext): Promise<EBackupCreateResult> {
         if (!context.gameRunning) return { status: "unavailable", message: translate("backup.error.auto.requires.running") };
         if (this.isBusy) return { status: "blocked", message: translate("backup.error.busy") };
-        const settings = await this.repositoryService.getWorkspaceSettings();
+        const settings = workspaceService.getWorkspaceSettings();
         if (!settings.backupsEnabled || settings.autoBackupLimit === "disabled") return { status: "unavailable", message: translate("backup.error.auto.disabled") };
         return this.createBackup(context, "auto");
     }
@@ -132,7 +129,7 @@ export class GameBackupService {
     }
 
     private async createBackup(context: GameBackupContext, type: TBackupKind): Promise<EBackupCreateResult> {
-        const settings = await this.repositoryService.getWorkspaceSettings();
+        const settings = await workspaceService.getWorkspaceSettings();
         if (!settings.backupsEnabled) return { status: "unavailable", message: translate("backup.error.disabled") };
         if (!context.savesStable) return { status: "blocked", message: translate("backup.error.saves.changing") };
         if (this.isBusy) return { status: "blocked", message: translate("backup.error.busy") };
@@ -180,7 +177,7 @@ export class GameBackupService {
     }
 
     private async rotateBackups(gameBundle: GameBundle, type: TBackupKind): Promise<void> {
-        const settings = await this.repositoryService.getWorkspaceSettings();
+        const settings = workspaceService.getWorkspaceSettings();
         const limit = toRotationCount(type === "auto" ? settings.autoBackupLimit : settings.manualBackupRotationLimit);
         if (limit === null) return;
         const backups = (await scanBackups(gameBundle)).backups.filter((backup) => backup.type === type).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));

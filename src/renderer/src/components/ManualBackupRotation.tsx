@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo } from "react";
 import { ComboboxItem, ComboboxLikeRenderOptionInput, Select, Text, Tooltip } from "@mantine/core";
-import { isBackupRotationLimit } from "../../../shared/backups/isBackupRotationLimit";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { TBackupRotationLimit } from "../../../shared/backups/types/TBackupRotationLimit";
 
 export function ManualBackupRotation(): React.JSX.Element {
     const t = useTranslate();
@@ -13,7 +13,7 @@ export function ManualBackupRotation(): React.JSX.Element {
     const backupsEnabled = useConfigStore((state) => state.backupsEnabled);
 
     const manualBackupRotationOptions = useMemo(
-        () => [
+        (): { value: TBackupRotationLimit; label: string }[] => [
             { value: "disabled", label: t("settings.backups.rotation.all") },
             { value: "3", label: t("settings.backups.limit.max3") },
             { value: "5", label: t("settings.backups.limit.max5") },
@@ -23,8 +23,8 @@ export function ManualBackupRotation(): React.JSX.Element {
     );
 
     const handleChange = useCallback(
-        async (value: string | null) => {
-            if (isBackupRotationLimit(value)) {
+        async (value: TBackupRotationLimit | null) => {
+            if (value) {
                 await setManualBackupRotationLimit(value);
             }
         },

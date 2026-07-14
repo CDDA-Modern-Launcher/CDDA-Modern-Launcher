@@ -4,13 +4,13 @@ import { GameBundle } from "../../shared/game-bundle/GameBundle";
 import { GameBundleState } from "../../shared/game-bundle/GameBundleState";
 import { toAutoBackupCooldownMs } from "../../shared/backups/toAutoBackupCooldownMs";
 import { GameBackupContext, GameBackupService } from "../GameBackupService";
-import { WorkspaceService } from "../repository/WorkspaceService";
 import { GameSaveMonitor, GameSaveSettledActivity } from "../GameSaveMonitor";
 import { getAutoBackupTimerKey } from "../utils/saves/getAutoBackupTimerKey";
 import { getChangedWorldFolderNames } from "../utils/saves/getChangedWorldFolderNames";
 import { isAutoBackupInCooldown } from "../utils/saves/isAutoBackupInCooldown";
 import { readSaveSummary } from "../utils/saves/readSaveSummary";
 import { GameEvents } from "./GameEvents";
+import { workspaceService } from "../WorkspaceService";
 
 export class GameSaveCoordinator {
     private activeSaveMonitor: GameSaveMonitor | null = null;
@@ -18,7 +18,6 @@ export class GameSaveCoordinator {
     private readonly latestBackupAtByWorld = new Map<string, number>();
 
     constructor(
-        private readonly workspaceService: WorkspaceService,
         private readonly backups: GameBackupService,
         private readonly events: GameEvents,
         private readonly getGameState: () => Promise<GameBundleState>,
@@ -89,7 +88,7 @@ export class GameSaveCoordinator {
     }
 
     private async createAutoBackupAfterSave(update: GameSaveSummaryUpdate, worldFolderName: string): Promise<void> {
-        const settings = await this.workspaceService.getWorkspaceSettings();
+        const settings = workspaceService.getWorkspaceSettings();
         if (isAutoBackupInCooldown(this.latestBackupAtByWorld.get(getAutoBackupTimerKey(update.gameBundleId, worldFolderName)) ?? null, toAutoBackupCooldownMs(settings.autoBackupCooldown))) return;
         const context = await this.getBackupContext(worldFolderName);
         if (context === null || context.gameBundle.id !== update.gameBundleId) return;

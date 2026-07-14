@@ -18,20 +18,18 @@ import { GameLaunchOptions } from "../shared/launch/GameLaunchOptions";
 import { EGameLaunchResult } from "../shared/launch/EGameLaunchResult";
 import { EGameStopResult } from "../shared/launch/EGameStopResult";
 import { GameRuntimeState } from "../shared/GameRuntimeState";
-import { RepositoryConfig } from "../shared/RepositoryConfig";
+import { WorkspaceConfig } from "../shared/WorkspaceConfig";
 import { GameBackupService } from "./GameBackupService";
-import { translate } from "./Localization";
+import { translate } from "./LocalizationService";
 import { GameBundleRegistry } from "./game/GameBundleRegistry";
 import { GameEvents } from "./game/GameEvents";
 import { GameFileOperationGuard } from "./game/GameFileOperationGuard";
 import { GameReleaseService } from "./game/GameReleaseService";
 import { GameRuntimeService } from "./game/GameRuntimeService";
 import { GameSaveCoordinator } from "./game/GameSaveCoordinator";
-import { WorkspaceService } from "./repository/WorkspaceService";
+import { workspaceService } from "./WorkspaceService";
 import { readSaveSummary } from "./utils/saves/readSaveSummary";
 import { GameChannelDefinition } from "../shared/game-channel/GameChannelDefinition";
-import { BUILT_IN_GAME_CHANNELS } from "../shared/game-channel/BUILT_IN_GAME_CHANNELS";
-import { DEFAULT_GAME_CHANNEL_ID } from "../shared/Const";
 
 export class GameBundleService {
     private readonly events: GameEvents;
@@ -42,15 +40,14 @@ export class GameBundleService {
     private readonly backups: GameBackupService;
     private readonly saves: GameSaveCoordinator;
 
-    constructor(private readonly workspaceService: WorkspaceService) {
+    constructor() {
         this.events = new GameEvents();
-        this.registry = new GameBundleRegistry(workspaceService);
-        this.releases = new GameReleaseService(workspaceService, this.registry, this.events);
+        this.registry = new GameBundleRegistry();
+        this.releases = new GameReleaseService(this.registry, this.events);
         this.runtime = new GameRuntimeService(this.events);
         this.operations = new GameFileOperationGuard(this.events);
-        this.backups = new GameBackupService(workspaceService, this.events);
+        this.backups = new GameBackupService(this.events);
         this.saves = new GameSaveCoordinator(
-            workspaceService,
             this.backups,
             this.events,
             () => this.getState(false),
@@ -59,19 +56,18 @@ export class GameBundleService {
     }
 
     async getState(refreshLatest = false, forceRefresh = false): Promise<GameBundleState> {
-        const repository = await this.workspaceService.getWorkspaceStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: translate("game.error.repository.not.ready") };
+        const ws = workspaceService.getReadyWorkspace();
+        if (ws === null) return { status: "unavailable", message: translate("game.error.repository.not.ready") };
 
-        const channel = this.getSelectedChannel(repository.config);
-        const { gameBundles } = await this.registry.readAndRepair(repository.path, repository.config, channel.id);
+        const { gameBundles } = await this.registry.readAndRepair(ws.path, ws.config, ws.selectedGameChannel.id);
         const activeGameBundle = gameBundles.find((gameBundle) => gameBundle.isActive) ?? null;
-        const latest = await this.readLatestRelease(channel, refreshLatest, forceRefresh);
+        const latest = await this.readLatestRelease(ws.selectedGameChannel, refreshLatest, forceRefresh);
         await this.saves.updateActiveGameBundle(activeGameBundle);
 
         return {
             status: "ready",
-            repositoryPath: repository.path,
-            channel,
+            workspacePath: ws.path,
+            channel: ws.selectedGameChannel,
             gameBundle: activeGameBundle,
             gameBundles,
             latestRelease: latest.release,
@@ -91,8 +87,8 @@ export class GameBundleService {
     }
 
     async getReleases(forceRefresh = false): Promise<GithubRelease[]> {
-        const repository = await this.workspaceService.getWorkspaceStatus();
-        return repository.status === "ready" ? this.releases.fetch(this.getSelectedChannel(repository.config), forceRefresh) : [];
+        const ws = workspaceService.getReadyWorkspace();
+        return ws === null ? [] : this.releases.fetch(ws.selectedGameChannel, forceRefresh);
     }
 
     async installLatestGameBundle(options: GameBundleInstallOptions): Promise<EGameBundleInstallResult> {
@@ -176,34 +172,18 @@ export class GameBundleService {
         });
     }
 
-    getEffectiveGameChannels(customChannels: GameChannelDefinition[] = []): GameChannelDefinition[] {
-        const customIds = new Set(customChannels.map((channel) => channel.id));
-        return [...BUILT_IN_GAME_CHANNELS.filter((channel) => !customIds.has(channel.id)), ...customChannels];
-    }
-
-    private getSelectedChannel(config: RepositoryConfig): GameChannelDefinition {
-        const gameChannels = this.getEffectiveGameChannels(config.customGameChannels);
-        const selectedChannelId = config.selectedChannelId || DEFAULT_GAME_CHANNEL_ID;
-        return (
-            gameChannels.find((channel) => channel.id === selectedChannelId) ?? //
-            gameChannels.find((channel) => channel.id === DEFAULT_GAME_CHANNEL_ID) ??
-            gameChannels[0] ??
-            null
-        );
-    }
-
     private async installLatestGameBundleUnlocked(options: GameBundleInstallOptions): Promise<EGameBundleInstallResult> {
         this.events.emitInstallProgress({ status: "resolving-release" }, true);
-        const repository = await this.workspaceService.getWorkspaceStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: translate("game.error.repository.not.ready") };
+        const ws = workspaceService.getReadyWorkspace();
+        if (ws === null) return { status: "unavailable", message: translate("game.error.repository.not.ready") };
 
         try {
-            const channel = this.getSelectedChannel(repository.config);
+            const channel = ws.selectedGameChannel;
             const releases = await this.releases.fetch(channel, false);
             const release = options.releaseId === undefined ? releases[0] : releases.find((candidate) => candidate.id === options.releaseId);
             if (release === undefined) return this.installError(translate("game.error.no.compatible.release.asset"));
 
-            const gameBundlesBefore = await this.registry.read(repository.path, repository.config, channel.id);
+            const gameBundlesBefore = await this.registry.read(ws.path, ws.config, channel.id);
             const existingGameBundle = gameBundlesBefore.find((gameBundle) => gameBundle.id === release.id);
             if (existingGameBundle !== undefined) {
                 if (options.makeActive) await this.setActiveGameBundleUnlocked(existingGameBundle.id);
@@ -212,10 +192,10 @@ export class GameBundleService {
                 return { status: "installed", bundle: existingGameBundle };
             }
 
-            const gameBundle = await this.releases.install(repository.path, repository.config, channel, release, options, gameBundlesBefore);
-            const config = await this.activateInstalledBundleIfNeeded(repository.path, repository.config, channel.id, gameBundle.id, options.makeActive);
-            if (options.removeOlderGameBundles) await this.registry.removeOlder(repository.path, config, channel.id, gameBundle.id, true);
-            await this.releases.cleanupDownloads(repository.path, channel.id);
+            const gameBundle = await this.releases.install(ws.path, ws.config, channel, release, options, gameBundlesBefore);
+            const config = await this.activateInstalledBundleIfNeeded(ws.config, channel.id, gameBundle.id, options.makeActive);
+            if (options.removeOlderGameBundles) await this.registry.removeOlder(ws.path, config, channel.id, gameBundle.id, true);
+            await this.releases.cleanupDownloads(ws.path, channel.id);
             this.completeInstall(release.name);
             await this.emitStateWithLatestRelease(releases[0] ?? null);
             return { status: "installed", bundle: gameBundle };
@@ -228,21 +208,21 @@ export class GameBundleService {
     }
 
     private async setActiveGameBundleUnlocked(gameBundleId: string): Promise<EGameBundleSetActiveResult> {
-        const repository = await this.workspaceService.getWorkspaceStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: translate("game.error.repository.not.ready") };
-        const channel = this.getSelectedChannel(repository.config);
-        const gameBundles = await this.registry.read(repository.path, repository.config, channel.id);
+        const ws = workspaceService.getReadyWorkspace();
+        if (ws === null) return { status: "unavailable", message: translate("game.error.repository.not.ready") };
+        const channel = ws.selectedGameChannel;
+        const gameBundles = await this.registry.read(ws.path, ws.config, channel.id);
         if (!gameBundles.some((gameBundle) => gameBundle.id === gameBundleId)) return { status: "error", message: translate("game.error.game.bundle.missing") };
-        await this.activateBundle(repository.path, repository.config, channel.id, gameBundleId);
+        await this.activateBundle(ws.config, channel.id, gameBundleId);
         await this.emitStateWithLatestRelease(await this.safeFindLatest(channel));
         return { status: "updated" };
     }
 
     private async deleteGameBundleUnlocked(gameBundleId: string, options: GameBundleDeleteOptions): Promise<EGameBundleDeleteResult> {
-        const repository = await this.workspaceService.getWorkspaceStatus();
-        if (repository.status !== "ready") return { status: "unavailable", message: translate("game.error.repository.not.ready") };
-        const channel = this.getSelectedChannel(repository.config);
-        const gameBundle = (await this.registry.read(repository.path, repository.config, channel.id)).find((candidate) => candidate.id === gameBundleId);
+        const ws = workspaceService.getReadyWorkspace();
+        if (ws === null) return { status: "unavailable", message: translate("game.error.repository.not.ready") };
+        const channel = ws.selectedGameChannel;
+        const gameBundle = (await this.registry.read(ws.path, ws.config, channel.id)).find((candidate) => candidate.id === gameBundleId);
         if (gameBundle === undefined) return { status: "error", message: translate("game.error.game.bundle.missing") };
         if (gameBundle.isActive) return { status: "blocked", message: translate("game.error.active.game.bundle.delete.blocked") };
         await this.registry.delete(gameBundle, options.deleteUserdata);
@@ -287,13 +267,13 @@ export class GameBundleService {
         }
     }
 
-    private async activateInstalledBundleIfNeeded(repositoryPath: string, config: RepositoryConfig, channelId: string, gameBundleId: string, makeActive: boolean): Promise<RepositoryConfig> {
-        return makeActive ? this.activateBundle(repositoryPath, config, channelId, gameBundleId) : config;
+    private async activateInstalledBundleIfNeeded(config: WorkspaceConfig, channelId: string, gameBundleId: string, makeActive: boolean): Promise<WorkspaceConfig> {
+        return makeActive ? this.activateBundle(config, channelId, gameBundleId) : config;
     }
 
-    private async activateBundle(repositoryPath: string, config: RepositoryConfig, channelId: string, gameBundleId: string): Promise<RepositoryConfig> {
+    private async activateBundle(config: WorkspaceConfig, channelId: string, gameBundleId: string): Promise<WorkspaceConfig> {
         const nextConfig = { ...config, activeGameBundleByChannel: { ...config.activeGameBundleByChannel, [channelId]: gameBundleId } };
-        await this.workspaceService.saveConfig(repositoryPath, nextConfig);
+        await workspaceService.saveConfig(nextConfig);
         return nextConfig;
     }
 

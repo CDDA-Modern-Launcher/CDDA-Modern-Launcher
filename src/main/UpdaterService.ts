@@ -1,5 +1,5 @@
 import { is } from "@electron-toolkit/utils";
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { autoUpdater, ProgressInfo, UpdateInfo } from "electron-updater";
 import { appendFileSync, mkdirSync } from "fs";
 import { join } from "path";
@@ -7,7 +7,7 @@ import { join } from "path";
 import { Bridge } from "../shared/bridge-api/Bridge";
 import { UpdateState } from "../shared/bridge-api/types/UpdateState";
 import { LocaleKeys } from "../shared/localization/types/LocaleFile";
-import { translate } from "./Localization";
+import { translate } from "./LocalizationService";
 
 const DOWNLOAD_PROGRESS_MIN_INTERVAL_MS = 250;
 
@@ -16,6 +16,15 @@ export class UpdaterService {
     private skippedVersion: string | null = null;
     private lastPublishedDownloadProgressKey: string | null = null;
     private lastPublishedDownloadProgressAt = 0;
+
+    constructor() {
+        ipcMain.handle(Bridge.Updater.getState, () => this.getState());
+        ipcMain.handle(Bridge.Updater.checkNow, () => this.checkNow());
+        ipcMain.handle(Bridge.Updater.downloadNow, () => this.downloadNow());
+        ipcMain.handle(Bridge.Updater.installNow, () => this.installNow());
+        ipcMain.handle(Bridge.Updater.dismiss, () => this.dismiss());
+        ipcMain.handle(Bridge.Updater.skipVersion, (_event, version: string) => this.skipVersion(version));
+    }
 
     initialize(): void {
         if (is.dev || !app.isPackaged) {
@@ -227,3 +236,5 @@ export class UpdaterService {
         }
     }
 }
+
+export const updaterService = new UpdaterService();

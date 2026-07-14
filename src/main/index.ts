@@ -6,17 +6,13 @@ import icon from "../../resources/icon.png?asset";
 import { setupAppearanceIpc } from "./ipc/setupAppearanceIpc";
 import { GameBundleService } from "./GameBundleService";
 import { setupGameBundleIpc } from "./ipc/setupGameBundleIpc";
-import { setupLocalizationIpc } from "./ipc/setupLocalizationIpc";
 import { ModRepositoryService } from "./mods/ModRepositoryService";
 import { setupModRepositoryIpc } from "./ipc/setupModRepositoryIpc";
-import { WorkspaceService } from "./repository/WorkspaceService";
-import { setupWorkspaceIpc } from "./ipc/setupWorkspaceIpc";
+import { workspaceService } from "./WorkspaceService";
 import { appSettings } from "./settings/AppSettings";
-import { setupLauncherSettingsIpc } from "./ipc/setupLauncherSettingsIpc";
 import { setupShellIpc } from "./ipc/setupShellIpc";
-import { UpdaterService } from "./UpdaterService";
-import { setupUpdaterIpc } from "./ipc/setupUpdaterIpc";
-import { l10n } from "./Localization";
+import { updaterService } from "./UpdaterService";
+import { l10n } from "./LocalizationService";
 import { resolveWindowBounds, WindowState } from "./settings/WindowState";
 
 function createWindow(): void {
@@ -116,21 +112,18 @@ app.whenReady()
 
         l10n.initialize();
 
-        const repositoryService = new WorkspaceService();
-        const gameBundleService = new GameBundleService(repositoryService);
-        const modRepositoryService = new ModRepositoryService(repositoryService);
-        const updaterService = new UpdaterService();
+        await workspaceService.initialize();
+
+        const gameBundleService = new GameBundleService();
+        const modRepositoryService = new ModRepositoryService();
 
         setupAppearanceIpc();
-        setupLocalizationIpc();
-        setupLauncherSettingsIpc(repositoryService);
-        setupWorkspaceIpc(repositoryService);
         setupGameBundleIpc(gameBundleService);
         setupModRepositoryIpc(modRepositoryService);
-        setupUpdaterIpc(updaterService);
         setupShellIpc();
         createWindow();
         modRepositoryService.checkAllInBackground();
+
         updaterService.initialize();
 
         app.on("activate", function () {

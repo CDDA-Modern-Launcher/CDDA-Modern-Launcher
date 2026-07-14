@@ -1,4 +1,4 @@
-import { translate } from "../Localization";
+import { translate } from "../LocalizationService";
 import { GameFileOperationKind, GameFileOperationState } from "../../shared/game-bundle/GameFileOperationState";
 import { GameEvents } from "./GameEvents";
 

@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo } from "react";
 import { ComboboxItem, ComboboxLikeRenderOptionInput, Select, Text } from "@mantine/core";
-import { isAutoBackupCooldown } from "../../../shared/backups/isAutoBackupCooldown";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { TAutoBackupCooldown } from "../../../shared/backups/types/TAutoBackupCooldown";
 
 export function AutoBackupCooldown(): React.JSX.Element {
     const t = useTranslate();
@@ -14,7 +14,7 @@ export function AutoBackupCooldown(): React.JSX.Element {
     const setAutoBackupCooldown = useConfigStore((state) => state.setAutoBackupCooldown);
 
     const autoBackupCooldownOptions = useMemo(
-        () => [
+        (): { value: TAutoBackupCooldown; label: string }[] => [
             { value: "disabled", label: t("settings.backups.cooldown.no.pause") },
             { value: "5s", label: t("settings.backups.cooldown.5s") },
             { value: "15s", label: t("settings.backups.cooldown.15s") },
@@ -24,8 +24,8 @@ export function AutoBackupCooldown(): React.JSX.Element {
     );
 
     const handleChange = useCallback(
-        async (value: string | null) => {
-            if (isAutoBackupCooldown(value)) {
+        async (value: TAutoBackupCooldown | null) => {
+            if (value) {
                 await setAutoBackupCooldown(value);
             }
         },

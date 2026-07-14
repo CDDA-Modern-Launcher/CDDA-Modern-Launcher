@@ -8,13 +8,12 @@ import { finished } from "node:stream/promises";
 import extractZip from "extract-zip";
 
 import { GithubRelease } from "../../shared/GithubRelease";
-import { RepositoryConfig } from "../../shared/RepositoryConfig";
+import { WorkspaceConfig } from "../../shared/WorkspaceConfig";
 import { GameBundle } from "../../shared/game-bundle/GameBundle";
 import { GameBundleInstallOptions } from "../../shared/game-bundle/GameBundleInstallOptions";
 import { GameChannelDefinition } from "../../shared/game-channel/GameChannelDefinition";
 import { TReleaseAssetVariant } from "../../shared/release-asset/TReleaseAssetVariant";
 import { GitHubNetworkManager } from "../network/GitHubNetworkManager";
-import { WorkspaceService } from "../repository/WorkspaceService";
 import { getReusableArchive } from "../utils/getReusableArchive";
 import { isNodeError } from "../utils/isNodeError";
 import { getReleaseCacheKey } from "../utils/releases/getReleaseCacheKey";
@@ -25,6 +24,7 @@ import { withGitHubPageSize } from "../utils/releases/withGitHubPageSize";
 import { runCommand } from "../utils/runCommand";
 import { GameBundleRegistry } from "./GameBundleRegistry";
 import { GameEvents } from "./GameEvents";
+import { workspaceService } from "../WorkspaceService";
 
 const KEEP_DOWNLOADED_GAME_BUNDLES = 3;
 const DOWNLOAD_PROGRESS_MIN_INTERVAL_MS = 250;
@@ -34,7 +34,6 @@ export class GameReleaseService {
     private readonly gitHubNetwork = new GitHubNetworkManager();
 
     constructor(
-        private readonly workspaceService: WorkspaceService,
         private readonly registry: GameBundleRegistry,
         private readonly events: GameEvents
     ) {}
@@ -44,15 +43,15 @@ export class GameReleaseService {
     }
 
     async fetch(channel: GameChannelDefinition, forceRefresh: boolean): Promise<GithubRelease[]> {
-        const gameAssetVariant = (await this.workspaceService.getWorkspaceSettings()).releaseAssetVariant;
+        const gameAssetVariant = workspaceService.getWorkspaceSettings().releaseAssetVariant;
         return this.gitHubNetwork.getCached(getReleaseCacheKey(channel, gameAssetVariant), () => this.fetchFromGitHub(channel, forceRefresh, gameAssetVariant), { forceRefresh });
     }
 
-    async install(repositoryPath: string, config: RepositoryConfig, channel: GameChannelDefinition, release: GithubRelease, options: GameBundleInstallOptions, gameBundlesBefore: GameBundle[]): Promise<GameBundle> {
-        const gameBundlePath = this.registry.getBundlePath(repositoryPath, channel.id, release.id);
-        const userdataPath = this.registry.getUserdataPath(repositoryPath, channel.id, release.id);
+    async install(workspacePath: string, config: WorkspaceConfig, channel: GameChannelDefinition, release: GithubRelease, options: GameBundleInstallOptions, gameBundlesBefore: GameBundle[]): Promise<GameBundle> {
+        const gameBundlePath = this.registry.getBundlePath(workspacePath, channel.id, release.id);
+        const userdataPath = this.registry.getUserdataPath(workspacePath, channel.id, release.id);
         const tempPath = `${gameBundlePath}.tmp-${Date.now()}`;
-        const downloadPath = this.registry.getDownloadPath(repositoryPath, channel.id, basename(release.asset.name));
+        const downloadPath = this.registry.getDownloadPath(workspacePath, channel.id, basename(release.asset.name));
 
         await this.registry.prepareInstallTarget(gameBundlePath, userdataPath, tempPath);
         await this.downloadFile(release.asset.downloadUrl, downloadPath, release.name, release.asset.size);
@@ -63,8 +62,8 @@ export class GameReleaseService {
         return gameBundle;
     }
 
-    async cleanupDownloads(repositoryPath: string, channelId: string): Promise<void> {
-        const downloadsPath = this.registry.getDownloadDirectory(repositoryPath, channelId);
+    async cleanupDownloads(workspacePath: string, channelId: string): Promise<void> {
+        const downloadsPath = this.registry.getDownloadDirectory(workspacePath, channelId);
         let entries: string[];
         try {
             entries = await readdir(downloadsPath);

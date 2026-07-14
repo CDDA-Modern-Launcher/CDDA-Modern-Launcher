@@ -6,7 +6,6 @@ import { BrowserWindow, shell } from "electron";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 
-import { WorkspaceService } from "../repository/WorkspaceService";
 import { getChannelModRepositoryPath, getChannelModsPath, getChannelModTempPath, getModPath } from "./modRepositoryPaths";
 import { WorkspaceStatus } from "../../shared/workspace/WorkspaceStatus";
 import { ModInfo } from "../../shared/mods/ModInfo";
@@ -26,12 +25,11 @@ import { Bridge } from "../../shared/bridge-api/Bridge";
 import { normalizeModDisplayName } from "./normalizeModDisplayName";
 import { readValidatedModInfo } from "./readValidatedModInfo";
 import { parseModSourceUrl } from "./parseModSourceUrl";
-import { translate } from "../Localization";
+import { translate } from "../LocalizationService";
+import { workspaceService } from "../WorkspaceService";
 
 export class ModRepositoryService {
     private checking = false;
-
-    constructor(private readonly repositoryService: WorkspaceService) {}
 
     async getState(): Promise<ModRepositoryState> {
         return this.buildState();
@@ -490,13 +488,9 @@ export class ModRepositoryService {
     }
 
     private async getReadyContext(): Promise<{ status: "ready"; repositoryPath: string; channelId: string } | { status: "unavailable"; kind: "unconfigured" | "error"; message: string }> {
-        const repository = await this.repositoryService.getWorkspaceStatus();
-
-        if (repository.status !== "ready") {
-            return { status: "unavailable", kind: repository.status === "unconfigured" ? "unconfigured" : "error", message: getRepositoryUnavailableMessage(repository) };
-        }
-
-        return { status: "ready", repositoryPath: repository.path, channelId: repository.config.selectedChannelId };
+        const ws = workspaceService.getWorkspaceStatus();
+        if (ws.status !== "ready") return { status: "unavailable", kind: ws.status === "unconfigured" ? "unconfigured" : "error", message: getRepositoryUnavailableMessage(ws) };
+        return { status: "ready", repositoryPath: ws.path, channelId: ws.selectedGameChannel.id };
     }
 
     private emitChanged(state: ModRepositoryState): void {

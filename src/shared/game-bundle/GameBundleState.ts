@@ -11,7 +11,7 @@ export type GameBundleState =
     | { status: "error"; message?: string }
     | {
           status: "ready";
-          repositoryPath: string;
+          workspacePath: string;
           channel: GameChannelDefinition;
           gameBundle: GameBundle | null;
           gameBundles: GameBundle[];

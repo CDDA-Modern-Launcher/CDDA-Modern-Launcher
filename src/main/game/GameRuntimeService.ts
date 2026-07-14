@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { translate } from "../Localization";
+import { translate } from "../LocalizationService";
 import { GameRuntimeState } from "../../shared/GameRuntimeState";
 import { GameBundle } from "../../shared/game-bundle/GameBundle";
 import { EGameLaunchResult } from "../../shared/launch/EGameLaunchResult";

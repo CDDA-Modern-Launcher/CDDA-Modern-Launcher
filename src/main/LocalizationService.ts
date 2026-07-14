@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 
 import { appSettings } from "./settings/AppSettings";
 import { LocaleOption } from "../shared/localization/types/LocaleOption";
@@ -15,7 +15,7 @@ import { LocaleMessages } from "../shared/localization/types/LocaleMessages";
 const FALLBACK_LOCALE = EN_LOCALE.locale;
 const BUILT_IN_LOCALES: LocaleFile[] = [EN_LOCALE, RU_LOCALE];
 
-class Localization {
+class LocalizationService {
     private readonly locales = new Map<string, LocaleFile>();
     private readonly messages = new Map<string, LocaleMessages>();
     private options: LocaleOption[] = [];
@@ -32,6 +32,9 @@ class Localization {
         for (const [locale, file] of this.locales) {
             this.messages.set(locale, mergeMessages(fallbackMessages, file.messages));
         }
+
+        ipcMain.handle(Bridge.Localization.getBundle, (): LocalizationBundle => this.getBundle());
+        ipcMain.handle(Bridge.Localization.setLocale, (_event, locale: string): LocalizationBundle => this.setLocale(locale));
     }
 
     initialize(): void {
@@ -75,19 +78,15 @@ class Localization {
         appSettings.set({ locale: this.locale });
 
         const bundle = this.getBundle();
-        this.broadcast(bundle);
+        for (const window of BrowserWindow.getAllWindows()) {
+            window.webContents.send(Bridge.Localization.onChanged, bundle);
+        }
         return bundle;
     }
 
     translate(key: string, variables: FormatArgs = {}): string {
         const value = this.getMessages(this.locale)[key] ?? key;
         return formatMessage(value, variables);
-    }
-
-    broadcast(bundle = this.getBundle()): void {
-        for (const window of BrowserWindow.getAllWindows()) {
-            window.webContents.send(Bridge.Localization.onChanged, bundle);
-        }
     }
 
     private resolveSystemLocale(): string {
@@ -133,5 +132,5 @@ function getLocaleRank(locale: string, systemLocale: string): number {
     return 2;
 }
 
-export const l10n = new Localization();
+export const l10n = new LocalizationService();
 export const translate = l10n.translate.bind(l10n);

@@ -7,7 +7,7 @@ import { GameBundleInstallOptions } from "../../shared/game-bundle/GameBundleIns
 import { GameBundleDeleteOptions } from "../../shared/game-bundle/GameBundleDeleteOptions";
 import { EGameFolderOpenResult } from "../../shared/EGameFolderOpenResult";
 import { Bridge } from "../../shared/bridge-api/Bridge";
-import { translate } from "../Localization";
+import { translate } from "../LocalizationService";
 
 /** @deprecated todo remove this weird type of arguments. */
 type GameStateRequest = boolean | { refreshLatest?: boolean; forceRefresh?: boolean } | undefined;

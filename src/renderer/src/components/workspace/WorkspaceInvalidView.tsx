@@ -1,6 +1,6 @@
 import type React from "react";
 import { Alert, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
-import { REPOSITORY_CONFIG_FILE_NAME } from "../../../../shared/Const";
+import { WORKSPACE_CONFIG_FILE_NAME } from "../../../../shared/Const";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { LocalizedText } from "@renderer/components/LocalizedText";
@@ -29,7 +29,7 @@ export function WorkspaceInvalidView(): React.JSX.Element {
                 )}
                 <Stack gap="xs" className="repository-rules">
                     <LocalizedText size="sm" i18nKey="repository.setup.rule.empty.folder" />
-                    <LocalizedText size="sm" i18nKey="repository.setup.rule.non.empty.folder" variables={{ fileName: REPOSITORY_CONFIG_FILE_NAME }} />
+                    <LocalizedText size="sm" i18nKey="repository.setup.rule.non.empty.folder" variables={{ fileName: WORKSPACE_CONFIG_FILE_NAME }} />
                     <LocalizedText size="sm" i18nKey="repository.setup.rule.persisted.path" />
                 </Stack>
                 <Group justify="flex-end">

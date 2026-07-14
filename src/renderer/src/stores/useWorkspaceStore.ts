@@ -2,8 +2,6 @@ import { create } from "zustand";
 import { WorkspaceStatus } from "../../../shared/workspace/WorkspaceStatus";
 import { IMountableState } from "@renderer/types/IMountableState";
 import { GameChannelDefinition } from "../../../shared/game-channel/GameChannelDefinition";
-import { BUILT_IN_GAME_CHANNELS } from "../../../shared/game-channel/BUILT_IN_GAME_CHANNELS";
-import { DEFAULT_GAME_CHANNEL_ID } from "../../../shared/Const";
 
 interface State extends IMountableState {
     workspaceStatus: WorkspaceStatus;
@@ -31,16 +29,7 @@ export const useWorkspaceStore = create<State>((set, get) => ({
     onWorkspaceChanged: () => {
         const ws = get().workspaceStatus;
         if (ws.status == "ready") {
-            const customChannels = ws.config.customGameChannels;
-            const customIds = new Set(customChannels.map((channel) => channel.id));
-            const gameChannels = [...BUILT_IN_GAME_CHANNELS.filter((channel) => !customIds.has(channel.id)), ...customChannels];
-            const selectedGameChannel =
-                gameChannels.find((channel) => channel.id === ws.config.selectedChannelId) ?? //
-                gameChannels.find((channel) => channel.id === DEFAULT_GAME_CHANNEL_ID) ??
-                gameChannels[0] ??
-                null;
-
-            set({ gameChannels, selectedGameChannel });
+            set({ gameChannels: ws.gameChannels, selectedGameChannel: ws.selectedGameChannel });
         } else {
             set({ gameChannels: [], selectedGameChannel: null });
         }
@@ -51,7 +40,7 @@ export const useWorkspaceStore = create<State>((set, get) => ({
         try {
             const result = await window.api.workspace.selectNewFolder();
             if (result.status === "selected") {
-                set({ workspaceStatus: result.repository });
+                set({ workspaceStatus: result.workspace });
                 get().onWorkspaceChanged();
                 try {
                     // todo ensure workspace change causes mods re-check without calling mods IPC directly

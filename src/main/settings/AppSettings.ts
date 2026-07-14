@@ -9,17 +9,17 @@ import { getDefaultWindowState, parseWindowState, WindowState } from "./WindowSt
 
 const WRITE_DEBOUNCE_MS = 250;
 
-// Keep only application-level settings that are required before a repository is ready.
-// Repository-specific settings belong to cdda.launcher.config.jsonc inside the selected repository.
+// Keep only application-level settings that are required before a workspace is ready.
+// Workspace-specific settings belong to cdda.launcher.config.jsonc inside the selected workspace.
 interface Settings {
-    repositoryPath?: string;
+    workspacePath?: string;
     locale?: string;
     theme?: TAppThemeSource;
     windowState?: WindowState;
 }
 
 const DEFAULT_SETTINGS: Settings = {
-    repositoryPath: "",
+    workspacePath: "",
     locale: "",
     theme: "system",
     windowState: getDefaultWindowState()
@@ -64,7 +64,7 @@ class AppSettings {
         }
 
         const finalSettings: Settings = {
-            repositoryPath: typeof parsed.repositoryPath === "string" && parsed.repositoryPath.trim().length > 0 ? parsed.repositoryPath : "",
+            workspacePath: typeof parsed.workspacePath === "string" && parsed.workspacePath.trim().length > 0 ? parsed.workspacePath : "",
             locale: typeof parsed.locale === "string" && parsed.locale.trim().length > 0 ? parsed.locale : "",
             theme: this.isThemeSource(parsed.theme) ? parsed.theme : "system",
             windowState: parseWindowState(parsed.windowState) ?? getDefaultWindowState()

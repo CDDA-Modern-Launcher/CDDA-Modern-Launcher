@@ -2,11 +2,10 @@ import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/p
 import { dirname, join, relative } from "node:path";
 
 import { DOWNLOADS_DIRECTORY_NAME, GAME_BUNDLE_MANIFEST_FILE_NAME, GAME_BUNDLES_DIRECTORY_NAME, USERDATA_DIRECTORY_NAME } from "../../shared/Const";
-import { RepositoryConfig } from "../../shared/RepositoryConfig";
+import { WorkspaceConfig } from "../../shared/WorkspaceConfig";
 import { GameBundle } from "../../shared/game-bundle/GameBundle";
 import { GameBundleManifest } from "../../shared/game-bundle/GameBundleManifest";
 import { GameChannelDefinition } from "../../shared/game-channel/GameChannelDefinition";
-import { WorkspaceService } from "../repository/WorkspaceService";
 import { copyDirectoryContents } from "../utils/copyDirectoryContents";
 import { findExecutable } from "../utils/findExecutable";
 import { findUserdataSource } from "../utils/findUserdataSource";
@@ -17,12 +16,11 @@ import { resolveUserdataPath } from "../utils/resolveUserdataPath";
 import { safePathSegment } from "../utils/safePathSegment";
 import { GithubRelease } from "../../shared/GithubRelease";
 import { GameBundleInstallOptions } from "../../shared/game-bundle/GameBundleInstallOptions";
+import { workspaceService } from "../WorkspaceService";
 
 export class GameBundleRegistry {
-    constructor(private readonly workspaceService: WorkspaceService) {}
-
-    async readAndRepair(repositoryPath: string, config: RepositoryConfig, channelId: string): Promise<{ config: RepositoryConfig; gameBundles: GameBundle[] }> {
-        const gameBundles = await this.read(repositoryPath, config, channelId);
+    async readAndRepair(workspacePath: string, config: WorkspaceConfig, channelId: string): Promise<{ config: WorkspaceConfig; gameBundles: GameBundle[] }> {
+        const gameBundles = await this.read(workspacePath, config, channelId);
         const activeGameBundleId = config.activeGameBundleByChannel[channelId] ?? null;
         const activeGameBundleExists = activeGameBundleId !== null && gameBundles.some((gameBundle) => gameBundle.id === activeGameBundleId);
         if (activeGameBundleId === null || activeGameBundleExists) return { config, gameBundles };
@@ -30,12 +28,12 @@ export class GameBundleRegistry {
         const activeGameBundleByChannel = { ...config.activeGameBundleByChannel };
         delete activeGameBundleByChannel[channelId];
         const repairedConfig = { ...config, activeGameBundleByChannel };
-        await this.workspaceService.saveConfig(repositoryPath, repairedConfig);
+        await workspaceService.saveConfig(repairedConfig);
         return { config: repairedConfig, gameBundles: gameBundles.map((gameBundle) => ({ ...gameBundle, isActive: false })) };
     }
 
-    async read(repositoryPath: string, config: RepositoryConfig, channelId: string): Promise<GameBundle[]> {
-        const channelGameBundlesPath = join(repositoryPath, GAME_BUNDLES_DIRECTORY_NAME, channelId);
+    async read(workspacePath: string, config: WorkspaceConfig, channelId: string): Promise<GameBundle[]> {
+        const channelGameBundlesPath = join(workspacePath, GAME_BUNDLES_DIRECTORY_NAME, channelId);
         const activeGameBundleId = config.activeGameBundleByChannel[channelId] ?? null;
         let entries: string[];
         try {
@@ -52,7 +50,7 @@ export class GameBundleRegistry {
                 if (!(await stat(gameBundlePath)).isDirectory()) continue;
                 const manifest = JSON.parse(await readFile(join(gameBundlePath, GAME_BUNDLE_MANIFEST_FILE_NAME), "utf8")) as unknown;
                 if (!isGameBundleManifest(manifest) || manifest.channelId !== channelId) continue;
-                const userdataPath = resolveUserdataPath(repositoryPath, channelId, manifest);
+                const userdataPath = resolveUserdataPath(workspacePath, channelId, manifest);
                 const normalizedManifest = manifest.userdataPath === userdataPath ? manifest : { ...manifest, userdataPath };
                 gameBundles.push({
                     id: normalizedManifest.releaseId,
@@ -68,8 +66,8 @@ export class GameBundleRegistry {
         return gameBundles.sort((a, b) => b.manifest.publishedAt.localeCompare(a.manifest.publishedAt));
     }
 
-    async removeOlder(repositoryPath: string, config: RepositoryConfig, channelId: string, keepGameBundleId: string, deleteUserdata: boolean): Promise<void> {
-        const gameBundles = await this.read(repositoryPath, config, channelId);
+    async removeOlder(workspacePath: string, config: WorkspaceConfig, channelId: string, keepGameBundleId: string, deleteUserdata: boolean): Promise<void> {
+        const gameBundles = await this.read(workspacePath, config, channelId);
         await Promise.all(
             gameBundles
                 .filter((bundle) => bundle.id !== keepGameBundleId)
@@ -86,7 +84,7 @@ export class GameBundleRegistry {
     }
 
     async writeInstalledBundle(
-        config: RepositoryConfig,
+        config: WorkspaceConfig,
         channel: GameChannelDefinition,
         release: GithubRelease,
         options: GameBundleInstallOptions,
@@ -121,20 +119,20 @@ export class GameBundleRegistry {
         return { id: release.id, path: gameBundlePath, userdataPath, manifest, isActive: false };
     }
 
-    getBundlePath(repositoryPath: string, channelId: string, releaseId: string): string {
-        return join(repositoryPath, GAME_BUNDLES_DIRECTORY_NAME, channelId, safePathSegment(releaseId));
+    getBundlePath(workspacePath: string, channelId: string, releaseId: string): string {
+        return join(workspacePath, GAME_BUNDLES_DIRECTORY_NAME, channelId, safePathSegment(releaseId));
     }
 
-    getUserdataPath(repositoryPath: string, channelId: string, releaseId: string): string {
-        return join(repositoryPath, USERDATA_DIRECTORY_NAME, channelId, safePathSegment(releaseId));
+    getUserdataPath(workspacePath: string, channelId: string, releaseId: string): string {
+        return join(workspacePath, USERDATA_DIRECTORY_NAME, channelId, safePathSegment(releaseId));
     }
 
-    getDownloadDirectory(repositoryPath: string, channelId: string): string {
-        return join(repositoryPath, DOWNLOADS_DIRECTORY_NAME, channelId);
+    getDownloadDirectory(workspacePath: string, channelId: string): string {
+        return join(workspacePath, DOWNLOADS_DIRECTORY_NAME, channelId);
     }
 
-    getDownloadPath(repositoryPath: string, channelId: string, assetName: string): string {
-        return join(this.getDownloadDirectory(repositoryPath, channelId), assetName);
+    getDownloadPath(workspacePath: string, channelId: string, assetName: string): string {
+        return join(this.getDownloadDirectory(workspacePath, channelId), assetName);
     }
 
     async prepareInstallTarget(gameBundlePath: string, userdataPath: string, tempPath: string): Promise<void> {

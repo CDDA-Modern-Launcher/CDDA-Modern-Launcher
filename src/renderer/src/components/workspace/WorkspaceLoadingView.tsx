@@ -1,6 +1,6 @@
 import type React from "react";
 import { Card, Group, Loader, Stack, Text, Title } from "@mantine/core";
-import { REPOSITORY_CONFIG_FILE_NAME } from "../../../../shared/Const";
+import { WORKSPACE_CONFIG_FILE_NAME } from "../../../../shared/Const";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { LocalizedText } from "@renderer/components/LocalizedText";
 
@@ -12,7 +12,7 @@ export function WorkspaceLoadingView({ path }: { path: string }): React.JSX.Elem
                 <Loader />
                 <Stack gap={2}>
                     <Title order={2}>{t("repository.loading.title")}</Title>
-                    <LocalizedText c="dimmed" i18nKey="repository.loading.description" variables={{ fileName: REPOSITORY_CONFIG_FILE_NAME }} />
+                    <LocalizedText c="dimmed" i18nKey="repository.loading.description" variables={{ fileName: WORKSPACE_CONFIG_FILE_NAME }} />
                     <Text size="sm" className="path-text">
                         {path}
                     </Text>

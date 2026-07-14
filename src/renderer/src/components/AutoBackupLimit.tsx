@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo } from "react";
-import { isAutoBackupLimit } from "../../../shared/backups/isAutoBackupLimit";
 import { ComboboxItem, ComboboxLikeRenderOptionInput, Select, Text, Tooltip } from "@mantine/core";
 import { useConfigStore } from "@renderer/stores/useConfigStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
+import { TAutoBackupLimit } from "../../../shared/backups/types/TAutoBackupLimit";
 
 export function AutoBackupLimit(): React.JSX.Element {
     const t = useTranslate();
@@ -13,7 +13,7 @@ export function AutoBackupLimit(): React.JSX.Element {
     const setAutoBackupLimit = useConfigStore((state) => state.setAutoBackupLimit);
 
     const autoBackupLimitOptions = useMemo(
-        () => [
+        (): { value: TAutoBackupLimit; label: string }[] => [
             { value: "disabled", label: t("settings.backups.limit.disabled") },
             { value: "3", label: t("settings.backups.limit.max3") },
             { value: "5", label: t("settings.backups.limit.max5") },
@@ -23,8 +23,8 @@ export function AutoBackupLimit(): React.JSX.Element {
     );
 
     const handleChange = useCallback(
-        async (value: string | null) => {
-            if (isAutoBackupLimit(value)) {
+        async (value: TAutoBackupLimit | null) => {
+            if (value) {
                 await setAutoBackupLimit(value);
             }
         },
