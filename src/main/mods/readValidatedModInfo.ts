@@ -1,26 +1,26 @@
-import { ValidatedModInfo } from "./ValidatedModInfo";
-import { join } from "node:path";
 import { readFile } from "node:fs/promises";
-import { isNodeError } from "../utils/isNodeError";
+import { join } from "node:path";
+
 import { isModInfoEntry } from "./isModInfoEntry";
 import { normalizeModDisplayName } from "./normalizeModDisplayName";
+import { ValidatedModInfo } from "./ValidatedModInfo";
 
-export async function readValidatedModInfo(modDir: string, t: (key: string, variables?: Record<string, string | number>) => string): Promise<ValidatedModInfo> {
-    const modInfoPath = join(modDir, "modinfo.json");
+export async function readValidatedModInfo(modPath: string, translate: (key: string, variables?: Record<string, string | number>) => string): Promise<ValidatedModInfo> {
     let parsed: unknown;
-
     try {
-        parsed = JSON.parse(await readFile(modInfoPath, "utf8"));
-    } catch (error) {
-        if (isNodeError(error) && error.code === "ENOENT") throw new Error(t("mods.error.mod.info.missing"));
-        throw new Error(t("mods.error.mod.info.invalid.json"));
+        parsed = JSON.parse(await readFile(join(modPath, "modinfo.json"), "utf8"));
+    } catch {
+        throw new Error(translate("mods.error.modinfo.invalid"));
     }
 
     const entries = Array.isArray(parsed) ? parsed : [parsed];
-    const modInfo = entries.find(isModInfoEntry);
-    if (modInfo === undefined) throw new Error(t("mods.error.mod.info.missing.id"));
+    const entry = entries.find(isModInfoEntry);
+    if (entry === undefined) throw new Error(translate("mods.error.modinfo.invalid"));
 
-    const id = modInfo.id.trim();
+    const id = (entry.id ?? entry.ident)?.trim();
+    if (id === undefined || id.length === 0) throw new Error(translate("mods.error.modinfo.invalid"));
 
-    return { id, name: normalizeModDisplayName(modInfo.name, id) };
+    const name = normalizeModDisplayName(entry.name, id);
+    const description = typeof entry.description === "string" && entry.description.trim().length > 0 ? entry.description.trim() : undefined;
+    return { id, name, description };
 }

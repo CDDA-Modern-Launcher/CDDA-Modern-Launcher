@@ -1,15 +1,21 @@
+import { ModSourceType } from "./ModSourceType";
+
 export type ModInfo = {
-    schemaVersion: 1;
+    schemaVersion: 2;
     id: string;
     displayName: string;
-    sourceUrl: string;
-    defaultBranch: string;
-    trackingRef: string;
-    installedCommit: string;
-    lastKnownRemoteCommit: string;
+    description?: string;
+    sourceType: ModSourceType;
+    sourceId: string;
+    sourceUrl?: string;
+    sourcePath: string;
+    subdirectory: string;
+    defaultBranch?: string;
+    trackingRef?: string;
+    installedCommit?: string;
+    lastKnownRemoteCommit?: string;
     hasLocalChanges: boolean;
     updateAvailable: boolean;
-    relativePath: string;
     installedAt: string;
     checkedAt?: string;
     updatedAt: string;

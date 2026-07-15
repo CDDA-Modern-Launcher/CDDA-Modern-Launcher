@@ -6,24 +6,21 @@ import { ModRegistry } from "../../shared/mods/ModRegistry";
 import { translate } from "../LocalizationService";
 import { isNodeError } from "../utils/isNodeError";
 import { getChannelModRepositoryPath } from "./modRepositoryPaths";
-import { normalizeModDisplayName } from "./normalizeModDisplayName";
 
 export class ModRegistryStore {
     constructor(private readonly translate: (key: string, variables?: Record<string, string | number>) => string) {}
 
     async read(repositoryPath: string, channelId: string): Promise<ModRegistry> {
-        const registryPath = this.getPath(repositoryPath, channelId);
-
         try {
-            const parsed: unknown = JSON.parse(await readFile(registryPath, "utf8"));
-            return normalizeRegistry(parsed);
+            const parsed: unknown = JSON.parse(await readFile(this.getPath(repositoryPath, channelId), "utf8"));
+            if (!isRegistry(parsed)) throw new Error();
+            return parsed;
         } catch (error) {
             if (isNodeError(error) && error.code === "ENOENT") {
-                const registry = createEmptyRegistry();
+                const registry: ModRegistry = { schemaVersion: 2, mods: {} };
                 await this.write(repositoryPath, channelId, registry);
                 return registry;
             }
-
             throw new Error(this.translate("mods.error.registry.invalid"));
         }
     }
@@ -34,8 +31,12 @@ export class ModRegistryStore {
         await writeFile(registryPath, `${JSON.stringify(registry, null, 4)}\n`, "utf8");
     }
 
+    getSourcePath(repositoryPath: string, channelId: string, mod: ModInfo): string {
+        return mod.sourceType === "folder" ? mod.sourcePath : join(getChannelModRepositoryPath(repositoryPath, channelId), mod.sourcePath);
+    }
+
     getModPath(repositoryPath: string, channelId: string, mod: ModInfo): string {
-        return join(getChannelModRepositoryPath(repositoryPath, channelId), mod.relativePath);
+        return join(this.getSourcePath(repositoryPath, channelId, mod), mod.subdirectory);
     }
 
     private getPath(repositoryPath: string, channelId: string): string {
@@ -43,56 +44,10 @@ export class ModRegistryStore {
     }
 }
 
-function createEmptyRegistry(): ModRegistry {
-    return { schemaVersion: 1, mods: {} };
-}
-
-function normalizeRegistry(value: unknown): ModRegistry {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-        return createEmptyRegistry();
-    }
-
-    const candidate = value as Partial<ModRegistry>;
-    const mods: Record<string, ModInfo> = {};
-
-    if (typeof candidate.mods === "object" && candidate.mods !== null && !Array.isArray(candidate.mods)) {
-        for (const value of Object.values(candidate.mods)) {
-            const mod = normalizeInstalledMod(value);
-            if (mod !== null) mods[mod.id] = mod;
-        }
-    }
-
-    return { schemaVersion: 1, mods };
-}
-
-function normalizeInstalledMod(value: unknown): ModInfo | null {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
-
-    const candidate = value as Partial<ModInfo>;
-    if (typeof candidate.id !== "string" || candidate.id.length === 0 || typeof candidate.sourceUrl !== "string" || typeof candidate.relativePath !== "string") {
-        return null;
-    }
-
-    const now = new Date().toISOString();
-    const defaultBranch = typeof candidate.defaultBranch === "string" && candidate.defaultBranch.length > 0 ? candidate.defaultBranch : "master";
-
-    return {
-        schemaVersion: 1,
-        id: candidate.id,
-        displayName: normalizeModDisplayName(candidate.displayName, candidate.id),
-        sourceUrl: candidate.sourceUrl,
-        defaultBranch,
-        trackingRef: typeof candidate.trackingRef === "string" && candidate.trackingRef.length > 0 ? candidate.trackingRef : `refs/remotes/origin/${defaultBranch}`,
-        installedCommit: typeof candidate.installedCommit === "string" ? candidate.installedCommit : "",
-        lastKnownRemoteCommit: typeof candidate.lastKnownRemoteCommit === "string" ? candidate.lastKnownRemoteCommit : typeof candidate.installedCommit === "string" ? candidate.installedCommit : "",
-        hasLocalChanges: candidate.hasLocalChanges === true,
-        updateAvailable: candidate.updateAvailable === true,
-        relativePath: candidate.relativePath,
-        installedAt: typeof candidate.installedAt === "string" ? candidate.installedAt : now,
-        checkedAt: typeof candidate.checkedAt === "string" ? candidate.checkedAt : undefined,
-        updatedAt: typeof candidate.updatedAt === "string" ? candidate.updatedAt : now,
-        enabled: candidate.enabled !== false
-    };
+function isRegistry(value: unknown): value is ModRegistry {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+    const registry = value as Partial<ModRegistry>;
+    return registry.schemaVersion === 2 && typeof registry.mods === "object" && registry.mods !== null && !Array.isArray(registry.mods);
 }
 
 export const modRegistryStore = new ModRegistryStore(translate);

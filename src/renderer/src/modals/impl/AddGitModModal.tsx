@@ -1,49 +1,37 @@
-import React, { useCallback, useEffect, useState } from "react";
+import type { JSX } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, Button, Group, Stack, TextInput } from "@mantine/core";
 import { useModsStore } from "@renderer/stores/useModsStore";
-import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { LocalizedText } from "@renderer/components/LocalizedText";
 import { ContextModalProps, modals } from "@mantine/modals";
+import { openModal } from "@renderer/modals/contextModals";
 
-export function AddGitModModalNew({ id, context }: ContextModalProps): React.JSX.Element {
+export function AddGitModModal({ id, context }: ContextModalProps): JSX.Element {
     const t = useTranslate();
     const [gitUrl, setGitUrl] = useState("");
-
-    const repository = useWorkspaceStore((state) => state.workspaceStatus);
-
     const error = useModsStore((state) => state.error);
     const setError = useModsStore((state) => state.setError);
     const busyAction = useModsStore((state) => state.busyAction);
-    const repoStatus = useModsStore((state) => state.state.status);
-    const installModFromGit = useModsStore((state) => state.installModFromGit);
-
-    const isRepositoryReady = repository.status === "ready" && repoStatus === "ready";
-
-    const handleClose = useCallback(() => context.closeModal(id), [context, id]);
+    const discoverFromGit = useModsStore((state) => state.discoverFromGit);
 
     const handleConfirm = useCallback(async () => {
-        try {
-            await installModFromGit(gitUrl);
+        const result = await discoverFromGit(gitUrl);
+        if (result.status === "installed") {
             modals.closeAll();
-        } catch (e) {
-            console.error("Can't install mod", e);
+        } else if (result.status === "selection-required") {
+            modals.closeAll();
+            openModal("selectMods", t("content.sheet.mods.selection.title"), { sessionId: result.sessionId, mods: result.mods }, { size: result.mods.length > 3 ? "xl" : "md" });
         }
-    }, [installModFromGit, gitUrl]);
+    }, [discoverFromGit, gitUrl, t]);
 
     useEffect(() => {
-        context.updateModal({
-            modalId: id,
-            closeOnClickOutside: !busyAction,
-            closeOnEscape: !busyAction,
-            withCloseButton: !busyAction
-        });
+        context.updateModal({ modalId: id, closeOnClickOutside: !busyAction, closeOnEscape: !busyAction, withCloseButton: !busyAction });
     }, [context, id, busyAction]);
 
     return (
         <Stack gap="md">
             <LocalizedText size="sm" c="dimmed" i18nKey="content.sheet.mods.git.modal.description" />
-
             <TextInput
                 label={t("content.sheet.mods.url.label")}
                 description={<LocalizedText size="xs" i18nKey="content.sheet.mods.url.description" />}
@@ -53,21 +41,19 @@ export function AddGitModModalNew({ id, context }: ContextModalProps): React.JSX
                     setGitUrl(event.currentTarget.value);
                     setError(null);
                 }}
-                disabled={!isRepositoryReady || !!busyAction}
+                disabled={!!busyAction}
                 autoFocus
             />
-
-            {!!error && (
-                <Alert variant="light" color="red" title={t("content.sheet.mods.install.error.title")}>
+            {error && (
+                <Alert color="red" title={t("content.sheet.mods.install.error.title")}>
                     {error}
                 </Alert>
             )}
-
             <Group justify="flex-end">
-                <Button variant="subtle" onClick={handleClose} disabled={!!busyAction}>
+                <Button variant="subtle" onClick={() => context.closeModal(id)} disabled={!!busyAction}>
                     {t("common.cancel")}
                 </Button>
-                <Button onClick={handleConfirm} disabled={!isRepositoryReady || gitUrl.trim().length === 0} loading={!!busyAction}>
+                <Button onClick={() => void handleConfirm()} disabled={!gitUrl.trim()} loading={!!busyAction}>
                     {t("content.sheet.mods.install.button")}
                 </Button>
             </Group>

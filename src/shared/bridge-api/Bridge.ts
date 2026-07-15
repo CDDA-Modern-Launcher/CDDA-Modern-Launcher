@@ -64,7 +64,10 @@ export const Bridge = {
     },
     Mods: {
         getState: "mods:get-state",
-        installFromUrl: "mods:install-from-url",
+        discoverFromGit: "mods:discover-from-git",
+        discoverFromArchive: "mods:discover-from-archive",
+        installFromFolder: "mods:install-from-folder",
+        installSelection: "mods:install-selection",
         checkUpdates: "mods:check-updates",
         update: "mods:update",
         remove: "mods:remove",

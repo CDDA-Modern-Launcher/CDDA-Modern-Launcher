@@ -8,7 +8,9 @@ import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstance
 import { RenameBackupModal } from "@renderer/modals/impl/RenameBackupModal";
 import { InstallReleaseModal } from "@renderer/modals/impl/InstallReleaseModal";
 import { GithubRelease } from "../../../shared/GithubRelease";
-import { AddGitModModalNew } from "@renderer/modals/impl/AddGitModModal";
+import { AddGitModModal } from "@renderer/modals/impl/AddGitModModal";
+import { SelectModsModal, SelectModsModalPayload } from "@renderer/modals/impl/SelectModsModal";
+import { ModsHelpModal } from "@renderer/modals/impl/ModsHelpModal";
 
 export type ModalPayloads = {
     deleteBackup: { gameBundle: GameBundle };
@@ -16,6 +18,8 @@ export type ModalPayloads = {
     renameBackup: { backup: BackupInstanceInfo };
     installRelease: { release: GithubRelease; hasInstalledVersions: boolean };
     addModFromGit: { _?: void };
+    selectMods: SelectModsModalPayload;
+    modsHelp: { _?: void };
 };
 
 type AppContextModals = {
@@ -33,7 +37,9 @@ export const contextModals: AppContextModals = {
     showReleaseNotes: ReleaseNotesModal,
     renameBackup: RenameBackupModal,
     installRelease: InstallReleaseModal,
-    addModFromGit: AddGitModModalNew
+    addModFromGit: AddGitModModal,
+    selectMods: SelectModsModal,
+    modsHelp: ModsHelpModal
 };
 
 const contextModalDefaults: AppContextModalDefaults = {

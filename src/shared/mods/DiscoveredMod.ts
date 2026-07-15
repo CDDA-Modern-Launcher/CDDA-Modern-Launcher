@@ -1,5 +1,6 @@
-export type ValidatedModInfo = {
+export type DiscoveredMod = {
     id: string;
     name: string;
     description?: string;
+    subdirectory: string;
 };

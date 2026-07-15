@@ -3,127 +3,129 @@ import { ModRepositoryState } from "../../../shared/mods/ModRepositoryState";
 import { IMountableState } from "@renderer/types/IMountableState";
 import { ModInstanceInfo } from "../../../shared/mods/ModInstanceInfo";
 import { translate } from "@renderer/stores/useLocaleStore";
+import { EModDiscoveryResult } from "../../../shared/mods/EModDiscoveryResult";
 
 export type TModsBusyAction = null | "install" | "check-updates" | "update" | "remove";
 
 interface State extends IMountableState {
     error: string | null;
     setError: (error: string | null) => void;
-
     busyAction: TModsBusyAction;
-    setBusyAction: (busyAction: TModsBusyAction) => void;
-
     busyModId: string | null;
-
     state: ModRepositoryState;
-    setState: (state: ModRepositoryState) => void;
-
     checkUpdates: () => Promise<void>;
-
     update: (mod: ModInstanceInfo, force?: boolean) => Promise<void>;
     remove: (mod: ModInstanceInfo) => Promise<void>;
-    installModFromGit: (gitUrl: string) => Promise<boolean>;
+    discoverFromGit: (gitUrl: string) => Promise<EModDiscoveryResult>;
+    discoverFromArchive: () => Promise<EModDiscoveryResult>;
+    installFromFolder: () => Promise<boolean>;
+    installSelection: (sessionId: string, modIds: string[]) => Promise<boolean>;
     openFolder: (mod: ModInstanceInfo) => Promise<void>;
 }
 
 export const useModsStore = create<State>((set) => ({
     error: null,
-    setError: (error: string | null) => {
-        set({ error });
-    },
-
+    setError: (error) => set({ error }),
     busyAction: null,
-    setBusyAction: (busyAction: TModsBusyAction) => set({ busyAction }),
-
     busyModId: null,
-
     state: { status: "unconfigured", mods: [], checking: false },
-    setState: (state: ModRepositoryState) => set({ state }),
 
     checkUpdates: async () => {
         set({ busyAction: "check-updates", error: null });
         try {
             const result = await window.api.mods.checkUpdates();
-            set({ state: result.state });
-            if (result.status !== "checked") {
-                set({ error: result.message });
-            }
+            set({ state: result.state, error: result.status === "error" ? result.message : null });
         } finally {
             set({ busyAction: null });
         }
     },
 
-    update: async (mod: ModInstanceInfo, force?: boolean) => {
+    update: async (mod, force) => {
         set({ busyAction: "update", busyModId: mod.id, error: null });
         try {
             const result = await window.api.mods.update(mod.id, { force });
             set({ state: result.state });
-
-            switch (result.status) {
-                case "updated":
-                    break;
-                case "blocked-by-local-changes":
-                    set({ error: translate("content.sheet.mods.update.blocked.description", { name: result.mod.displayName }) });
-                    break;
-                default:
-                    set({ error: result.message });
-                    break;
-            }
+            if (result.status === "blocked-by-local-changes") set({ error: translate("content.sheet.mods.update.blocked.description", { name: result.mod.displayName }) });
+            else if (result.status === "error") set({ error: result.message });
         } finally {
             set({ busyAction: null, busyModId: null });
         }
     },
 
-    remove: async (mod: ModInstanceInfo) => {
+    remove: async (mod) => {
         set({ busyAction: "remove", busyModId: mod.id, error: null });
         try {
             const result = await window.api.mods.remove(mod.id);
-            set({ state: result.state });
-
-            switch (result.status) {
-                case "deleted":
-                    break;
-                default:
-                    set({ error: result.message });
-                    break;
-            }
+            set({ state: result.state, error: result.status === "error" ? result.message : null });
         } finally {
             set({ busyAction: null, busyModId: null });
         }
     },
 
-    openFolder: async (mod: ModInstanceInfo) => {
-        const result = await window.api.mods.openFolder(mod.id);
-        if (result.status === "error") {
-            set({ error: result.message });
-        }
-    },
-
-    installModFromGit: async (gitUrl: string) => {
+    discoverFromGit: async (gitUrl) => {
         set({ busyAction: "install", error: null });
         try {
-            const result = await window.api.mods.installFromUrl(gitUrl);
+            const result = await window.api.mods.discoverFromGit(gitUrl);
             set({ state: result.state });
-
-            switch (result.status) {
-                case "installed":
-                    return true;
-                case "error":
-                    set({ error: result.message });
-                    return false;
-            }
+            if (result.status === "error") set({ error: result.message });
+            return result;
         } finally {
             set({ busyAction: null });
         }
     },
 
-    mount: () => {
-        void window.api.mods.getState().then((state) => set({ state: state }));
+    discoverFromArchive: async () => {
+        set({ busyAction: "install", error: null });
+        try {
+            const result = await window.api.mods.discoverFromArchive();
+            set({ state: result.state });
+            if (result.status === "error") set({ error: result.message });
+            return result;
+        } finally {
+            set({ busyAction: null });
+        }
+    },
 
+    installFromFolder: async () => {
+        set({ busyAction: "install", error: null });
+        try {
+            const result = await window.api.mods.installFromFolder();
+            set({ state: result.state });
+            if (result.status === "error") {
+                set({ error: result.message });
+                return false;
+            }
+            return result.status === "installed";
+        } finally {
+            set({ busyAction: null });
+        }
+    },
+
+    installSelection: async (sessionId, modIds) => {
+        set({ busyAction: "install", error: null });
+        try {
+            const result = await window.api.mods.installSelection({ sessionId, modIds });
+            set({ state: result.state });
+            if (result.status === "error") {
+                set({ error: result.message });
+                return false;
+            }
+            return true;
+        } finally {
+            set({ busyAction: null });
+        }
+    },
+
+    openFolder: async (mod) => {
+        const result = await window.api.mods.openFolder(mod.id);
+        if (result.status === "error") set({ error: result.message });
+    },
+
+    mount: () => {
+        void window.api.mods.getState().then((state) => set({ state }));
         const unsubscribeChanged = window.api.mods.onChanged((event) => set({ state: event.state }));
         const unsubscribeNotice = window.api.mods.onNotice((event) => set({ state: event.state }));
-
-        return function cleanup() {
+        return () => {
             unsubscribeChanged();
             unsubscribeNotice();
         };

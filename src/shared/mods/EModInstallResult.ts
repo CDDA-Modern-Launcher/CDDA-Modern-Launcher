@@ -1,4 +1,3 @@
 import { ModRepositoryState } from "./ModRepositoryState";
-import { ModInstanceInfo } from "./ModInstanceInfo";
 
-export type EModInstallResult = { status: "installed"; state: ModRepositoryState; mod: ModInstanceInfo } | { status: "error"; message: string; state: ModRepositoryState };
+export type EModInstallResult = { status: "installed"; state: ModRepositoryState } | { status: "cancelled"; state: ModRepositoryState } | { status: "error"; message: string; state: ModRepositoryState };
