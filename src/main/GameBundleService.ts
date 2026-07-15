@@ -83,6 +83,7 @@ class GameBundleService {
         const ws = workspaceService.getReadyWorkspace();
         if (ws === null) return { status: "unavailable", message: translate("game.error.repository.not.ready") };
 
+        let createdGameBundle: GameBundle | null = null;
         try {
             const channel = ws.selectedGameChannel;
             const releases = await gameReleaseService.fetch(channel, false);
@@ -104,6 +105,7 @@ class GameBundleService {
             }
 
             const gameBundle = await gameReleaseService.install(ws.path, ws.config, channel, release, options, gameBundlesBefore);
+            createdGameBundle = gameBundle;
             await modDeploymentService.synchronize(ws.path, channel.id, [gameBundle.userdataPath]);
             const config = options.makeActive ? await this.activateBundle(ws.config, channel.id, gameBundle.id) : ws.config;
             if (options.removeOlderGameBundles) {
@@ -115,9 +117,19 @@ class GameBundleService {
             await publishGameState(releases[0] ?? null);
             return { status: "installed", bundle: gameBundle };
         } catch (error) {
+            if (createdGameBundle !== null) {
+                await rm(createdGameBundle.path, { recursive: true, force: true }).catch((cleanupError) => {
+                    console.error("[game-bundle] failed to remove incomplete game bundle", cleanupError);
+                });
+                await rm(createdGameBundle.userdataPath, { recursive: true, force: true }).catch((cleanupError) => {
+                    console.error("[game-bundle] failed to remove incomplete userdata", cleanupError);
+                });
+            }
+
             const message = error instanceof Error ? error.message : String(error);
             console.error("[game-bundle] failed to install game bundle release", error);
             broadcastInstallIPC({ status: "error", message }, true);
+            await publishGameState(await this.safeFindLatest(ws.selectedGameChannel));
             return { status: "error", message };
         }
     }
@@ -206,7 +218,7 @@ class GameBundleService {
         await rm(gameBundle.path, { recursive: true, force: true });
         if (options.deleteUserdata) await rm(gameBundle.userdataPath, { recursive: true, force: true });
 
-        await publishGameState();
+        await publishGameState(await this.safeFindLatest(channel));
         return { status: "deleted" };
     }
 

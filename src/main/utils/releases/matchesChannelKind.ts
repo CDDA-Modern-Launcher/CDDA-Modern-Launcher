@@ -3,6 +3,6 @@ import { GameChannelDefinition } from "../../../shared/game-channel/GameChannelD
 
 export function matchesChannelKind(release: GithubRelease, channel: GameChannelDefinition): boolean {
     const value = `${release.id} ${release.name}`.toLowerCase();
-    const isExperimentalRelease = value.includes("experimental");
+    const isExperimentalRelease = release.prerelease || value.includes("experimental") || value.includes("nightly");
     return channel.kind === "experimental" ? isExperimentalRelease : !isExperimentalRelease;
 }

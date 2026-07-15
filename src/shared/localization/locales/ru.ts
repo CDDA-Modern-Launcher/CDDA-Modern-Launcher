@@ -167,6 +167,7 @@ export const RU_LOCALE = {
         "home.save.status.no.game.bundle": "Игра ещё не установлена.",
         "home.save.status.no.worlds": "Миры не найдены.",
         "home.save.status.single.world": "Мир: {world} · персонаж: {character}",
+        "home.status.checking": "Проверяем…",
         "home.status.installed": "Установлено",
         "home.status.no.game.bundle": "Не установлено",
         "home.status.update.available": "Есть обновление",

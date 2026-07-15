@@ -17,6 +17,7 @@ export function toGameRelease(value: unknown, channel: GameChannelDefinition, ga
         publishedAt: release.published_at,
         htmlUrl: release.html_url ?? `https://github.com/${channel.githubOwner}/${channel.githubRepo}/releases/tag/${encodeURIComponent(release.tag_name)}`,
         body: release.body ?? "",
+        prerelease: release.prerelease === true,
         asset: {
             name: asset.name,
             size: typeof asset.size === "number" ? asset.size : 0,

@@ -5,6 +5,7 @@ export type GithubRelease = {
     publishedAt: string;
     htmlUrl: string;
     body: string;
+    prerelease: boolean;
     asset: {
         name: string;
         size: number;

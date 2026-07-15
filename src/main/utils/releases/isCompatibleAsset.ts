@@ -8,5 +8,6 @@ export function isCompatibleAsset(asset: GitHubAsset, channel: GameChannelDefini
     const requiredNameParts = toAssetNameParts(channel.assetNameIncludes[platformKey]);
     const assetName = asset.name.toLowerCase();
     const isSupportedArchive = assetName.endsWith(".zip") || assetName.endsWith(".tar.gz") || assetName.endsWith(".tgz");
-    return isSupportedArchive && requiredNameParts.some((part) => part.length > 0 && assetName.includes(part.toLowerCase()));
+    const isDebugSymbols = assetName.endsWith("-pdb.zip") || assetName.includes("debug-symbol");
+    return isSupportedArchive && !isDebugSymbols && requiredNameParts.some((part) => part.length > 0 && assetName.includes(part.toLowerCase()));
 }

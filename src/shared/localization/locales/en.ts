@@ -169,6 +169,7 @@ export const EN_LOCALE = {
         "home.save.status.no.game.bundle": "The game is not installed yet.",
         "home.save.status.no.worlds": "No worlds found.",
         "home.save.status.single.world": "World: {world} · character: {character}",
+        "home.status.checking": "Checking…",
         "home.status.installed": "Installed",
         "home.status.no.game.bundle": "Not installed",
         "home.status.update.available": "Update available",

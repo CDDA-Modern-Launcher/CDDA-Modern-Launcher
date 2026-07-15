@@ -35,6 +35,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
     const activeGameBundle = gameState.status === "ready" ? gameState.gameBundle : null;
     const activeGameBundleId = activeGameBundle?.id ?? null;
     const updateAvailable = gameState.status === "ready" && gameState.updateAvailable;
+    const isInitialReleaseCheck = activeGameBundle === null && (gameState.status === "loading" || isCheckingLatest);
 
     if (!selectedChannel) {
         return <WorkspaceInvalidView />;
@@ -67,14 +68,20 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
                         </Group>
                     </Stack>
 
-                    <Badge color={activeGameBundle === null ? "gray" : updateAvailable ? "blue" : "green"} variant="light" size="lg">
-                        {activeGameBundle === null ? t("home.status.no.game.bundle") : updateAvailable ? t("home.status.update.available") : t("home.status.installed")}
+                    <Badge color={isInitialReleaseCheck ? "blue" : activeGameBundle === null ? "gray" : updateAvailable ? "blue" : "green"} variant="light" size="lg">
+                        {isInitialReleaseCheck
+                            ? t("home.status.checking")
+                            : activeGameBundle === null
+                              ? t("home.status.no.game.bundle")
+                              : updateAvailable
+                                ? t("home.status.update.available")
+                                : t("home.status.installed")}
                     </Badge>
                 </Group>
 
-                <SaveStatusLine />
+                {!isInitialReleaseCheck && <SaveStatusLine />}
 
-                {gameState.status === "loading" && (
+                {isInitialReleaseCheck && (
                     <Alert variant="light" color="blue" title={t("home.game.state.loading.title")}>
                         <Group gap="sm">
                             <Loader size="sm" />

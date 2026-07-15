@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { ModInfo } from "../../shared/mods/ModInfo";
@@ -8,27 +8,49 @@ import { isNodeError } from "../utils/isNodeError";
 import { getChannelModRepositoryPath } from "./modRepositoryPaths";
 
 export class ModRegistryStore {
+    private readonly operations = new Map<string, Promise<void>>();
+
     constructor(private readonly translate: (key: string, variables?: Record<string, string | number>) => string) {}
 
     async read(repositoryPath: string, channelId: string): Promise<ModRegistry> {
-        try {
-            const parsed: unknown = JSON.parse(await readFile(this.getPath(repositoryPath, channelId), "utf8"));
-            if (!isRegistry(parsed)) throw new Error();
-            return parsed;
-        } catch (error) {
-            if (isNodeError(error) && error.code === "ENOENT") {
-                const registry: ModRegistry = { schemaVersion: 2, mods: {} };
-                await this.write(repositoryPath, channelId, registry);
-                return registry;
+        const registryPath = this.getPath(repositoryPath, channelId);
+        return this.runExclusive(registryPath, async () => {
+            try {
+                const content = (await readFile(registryPath, "utf8")).replace(/^\uFEFF/, "").trim();
+                if (content.length === 0) return createEmptyRegistry();
+
+                const parsed: unknown = JSON.parse(content);
+                if (!isRegistry(parsed)) throw new Error();
+                return parsed;
+            } catch (error) {
+                if (isNodeError(error) && error.code === "ENOENT") return createEmptyRegistry();
+
+                const backupPath = `${registryPath}.invalid-${Date.now()}`;
+                try {
+                    await rename(registryPath, backupPath);
+                    console.error(`[mods] invalid registry moved aside path=${registryPath} backupPath=${backupPath}`, error);
+                    return createEmptyRegistry();
+                } catch (backupError) {
+                    console.error(`[mods] failed to preserve invalid registry path=${registryPath}`, backupError);
+                    throw new Error(this.translate("mods.error.registry.invalid"));
+                }
             }
-            throw new Error(this.translate("mods.error.registry.invalid"));
-        }
+        });
     }
 
     async write(repositoryPath: string, channelId: string, registry: ModRegistry): Promise<void> {
         const registryPath = this.getPath(repositoryPath, channelId);
-        await mkdir(dirname(registryPath), { recursive: true });
-        await writeFile(registryPath, `${JSON.stringify(registry, null, 4)}\n`, "utf8");
+        await this.runExclusive(registryPath, async () => {
+            await mkdir(dirname(registryPath), { recursive: true });
+            const temporaryPath = `${registryPath}.tmp-${process.pid}-${Date.now()}`;
+            try {
+                await writeFile(temporaryPath, `${JSON.stringify(registry, null, 4)}\n`, "utf8");
+                await rm(registryPath, { force: true });
+                await rename(temporaryPath, registryPath);
+            } finally {
+                await rm(temporaryPath, { force: true });
+            }
+        });
     }
 
     getSourcePath(repositoryPath: string, channelId: string, mod: ModInfo): string {
@@ -42,6 +64,28 @@ export class ModRegistryStore {
     private getPath(repositoryPath: string, channelId: string): string {
         return join(getChannelModRepositoryPath(repositoryPath, channelId), "mods.json");
     }
+
+    private async runExclusive<T>(path: string, operation: () => Promise<T>): Promise<T> {
+        const previous = this.operations.get(path) ?? Promise.resolve();
+        let release!: () => void;
+        const current = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        const tail = previous.then(() => current);
+        this.operations.set(path, tail);
+
+        await previous;
+        try {
+            return await operation();
+        } finally {
+            release();
+            if (this.operations.get(path) === tail) this.operations.delete(path);
+        }
+    }
+}
+
+function createEmptyRegistry(): ModRegistry {
+    return { schemaVersion: 2, mods: {} };
 }
 
 function isRegistry(value: unknown): value is ModRegistry {

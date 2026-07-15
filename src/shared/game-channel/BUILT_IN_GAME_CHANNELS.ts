@@ -43,7 +43,7 @@ export const BUILT_IN_GAME_CHANNELS: GameChannelDefinition[] = [
         channelId: "experimental",
         gameName: "Cataclysm: Bright Nights",
         shortName: "Bright Nights",
-        channelName: "Experimental",
+        channelName: "Nightly",
         githubOwner: "cataclysmbn",
         githubRepo: "Cataclysm-BN",
         githubBranch: "main",

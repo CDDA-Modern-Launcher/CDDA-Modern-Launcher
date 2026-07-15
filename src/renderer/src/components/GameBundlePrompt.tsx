@@ -13,6 +13,7 @@ export function GameBundlePrompt(): ReactNode {
     const openGameBundlesDrawer = useOpenDrawer("game-bundles");
 
     const gameState = useGameStateStore((state) => state.state);
+    const isCheckingLatest = useGameStateStore((state) => state.isCheckingLatest);
     const isInstallingGameBundle = useGameBundleInstallStore((state) => state.isInstalling);
     const fileOperationRunning = useGameFileOperationStore((state) => state.isRunning);
     const installRunning = useGameBundleInstallStore(selectIsGameBundleInstallRunning);
@@ -31,7 +32,7 @@ export function GameBundlePrompt(): ReactNode {
         [hasInstalledVersions, t]
     );
 
-    if (activeGameBundle != null || gameState.status !== "ready" || installRunning) {
+    if (activeGameBundle != null || gameState.status !== "ready" || isCheckingLatest || installRunning) {
         return null;
     }
 

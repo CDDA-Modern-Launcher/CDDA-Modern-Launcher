@@ -13,7 +13,7 @@ export async function readFirstCharacter(worldPath: string): Promise<string | nu
 
     const saves = await Promise.all(
         entries
-            .filter((entry) => entry.isFile() && /^#.+\.sav\.zzip$/i.test(entry.name))
+            .filter((entry) => entry.isFile() && /^#.+\.sav(?:\.zzip)?$/i.test(entry.name))
             .map(async (entry) => {
                 return {
                     characterName: decodeCharacterName(entry.name)
