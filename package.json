@@ -19,8 +19,8 @@
         "build:win": "npm run build && electron-builder --win",
         "build:mac": "electron-vite build && electron-builder --mac",
         "build:linux": "electron-vite build && electron-builder --linux",
-        "publish": "npm version patch && git push --follow-tags",
-        "publish:minor": "npm version minor && git push --follow-tags",
+        "publish": "npm version patch -m \"Released v%s\" && git push --follow-tags",
+        "publish:minor": "npm version minor -m \"Released v%s\" && git push --follow-tags",
         "zip:source": "tsx scripts/zip-source.ts",
         "dev:debug-main": "electron-vite dev --inspect-brk=9229"
     },
