@@ -4,7 +4,7 @@ import { useModsStore } from "@renderer/stores/useModsStore";
 import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { LocalizedText } from "@renderer/components/LocalizedText";
-import { ContextModalProps } from "@mantine/modals";
+import { ContextModalProps, modals } from "@mantine/modals";
 
 export function AddGitModModalNew({ id, context }: ContextModalProps): React.JSX.Element {
     const t = useTranslate();
@@ -25,6 +25,7 @@ export function AddGitModModalNew({ id, context }: ContextModalProps): React.JSX
     const handleConfirm = useCallback(async () => {
         try {
             await installModFromGit(gitUrl);
+            modals.closeAll();
         } catch (e) {
             console.error("Can't install mod", e);
         }

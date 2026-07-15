@@ -313,7 +313,7 @@ class ModRepositoryService {
             return item("invalid-local-copy", getErrorMessage(error));
         }
 
-        if (mod.hasLocalChanges && mod.updateAvailable) return item("blocked-by-local-changes");
+        if (mod.hasLocalChanges) return item("blocked-by-local-changes");
         if (mod.updateAvailable) return item("update-available");
         return item("installed");
     }

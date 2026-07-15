@@ -4,14 +4,14 @@ import { IMountableState } from "@renderer/types/IMountableState";
 import { ModInstanceInfo } from "../../../shared/mods/ModInstanceInfo";
 import { translate } from "@renderer/stores/useLocaleStore";
 
-type TBusyAction = null | "install" | "check-updates" | "update" | "remove";
+export type TModsBusyAction = null | "install" | "check-updates" | "update" | "remove";
 
 interface State extends IMountableState {
     error: string | null;
     setError: (error: string | null) => void;
 
-    busyAction: TBusyAction;
-    setBusyAction: (busyAction: TBusyAction) => void;
+    busyAction: TModsBusyAction;
+    setBusyAction: (busyAction: TModsBusyAction) => void;
 
     busyModId: string | null;
 
@@ -33,7 +33,7 @@ export const useModsStore = create<State>((set) => ({
     },
 
     busyAction: null,
-    setBusyAction: (busyAction: TBusyAction) => set({ busyAction }),
+    setBusyAction: (busyAction: TModsBusyAction) => set({ busyAction }),
 
     busyModId: null,
 
