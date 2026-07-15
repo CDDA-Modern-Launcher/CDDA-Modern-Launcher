@@ -125,6 +125,7 @@ class ModRepositoryService {
                 sourcePath: folderPath,
                 subdirectory: "",
                 hasLocalChanges: false,
+                hasUnpushedCommits: false,
                 updateAvailable: false,
                 installedAt: now,
                 checkedAt: now,
@@ -174,6 +175,7 @@ class ModRepositoryService {
                         installedCommit: pending.commit,
                         lastKnownRemoteCommit: pending.commit,
                         hasLocalChanges: false,
+                        hasUnpushedCommits: false,
                         updateAvailable: false,
                         installedAt: now,
                         checkedAt: now,
@@ -197,6 +199,7 @@ class ModRepositoryService {
                         sourcePath,
                         subdirectory: "",
                         hasLocalChanges: false,
+                        hasUnpushedCommits: false,
                         updateAvailable: false,
                         installedAt: now,
                         checkedAt: now,
@@ -252,9 +255,11 @@ class ModRepositoryService {
         const related = Object.values(registry.mods).filter((item) => item.sourceId === mod.sourceId);
         const sourcePath = modRegistryStore.getSourcePath(context.repositoryPath, context.channelId, mod);
         try {
-            const dirty = (await fileExists(sourcePath)) && (await modGitService.hasLocalChanges(sourcePath));
-            if (dirty && options.force !== true) {
-                for (const item of related) registry.mods[item.id] = { ...item, hasLocalChanges: true };
+            const sourceExists = await fileExists(sourcePath);
+            const dirty = sourceExists && (await modGitService.hasLocalChanges(sourcePath));
+            const unpushed = sourceExists && (await modGitService.hasUnpushedCommits(sourcePath, mod.trackingRef));
+            if ((dirty || unpushed) && options.force !== true) {
+                for (const item of related) registry.mods[item.id] = { ...item, hasLocalChanges: dirty, hasUnpushedCommits: unpushed };
                 await modRegistryStore.write(context.repositoryPath, context.channelId, registry);
                 const state = await this.publishState();
                 return { status: "blocked-by-local-changes", state, mod: state.mods.find((item) => item.id === mod.id)! };
@@ -275,6 +280,7 @@ class ModRepositoryService {
                     installedCommit: clone.commit,
                     lastKnownRemoteCommit: clone.commit,
                     hasLocalChanges: false,
+                    hasUnpushedCommits: false,
                     updateAvailable: false,
                     checkedAt: now,
                     updatedAt: now
@@ -345,7 +351,7 @@ class ModRepositoryService {
         const now = new Date().toISOString();
         if (!(await fileExists(sourcePath)) || !first.defaultBranch || !first.trackingRef) return;
         const dirty = await modGitService.hasLocalChanges(sourcePath);
-        let commits: { localCommit: string; remoteCommit: string } | undefined;
+        let commits: { localCommit: string; remoteCommit: string; hasUnpushedCommits: boolean; updateAvailable: boolean } | undefined;
         try {
             commits = await modGitService.fetchState(sourcePath, first.defaultBranch, first.trackingRef);
         } catch (error) {
@@ -358,7 +364,8 @@ class ModRepositoryService {
                 installedCommit: commits?.localCommit ?? mod.installedCommit,
                 lastKnownRemoteCommit: commits?.remoteCommit ?? mod.lastKnownRemoteCommit,
                 hasLocalChanges: dirty,
-                updateAvailable: commits ? commits.localCommit !== commits.remoteCommit : mod.updateAvailable,
+                hasUnpushedCommits: commits?.hasUnpushedCommits ?? mod.hasUnpushedCommits,
+                updateAvailable: commits?.updateAvailable ?? mod.updateAvailable,
                 checkedAt: now
             };
         }
@@ -411,7 +418,7 @@ class ModRepositoryService {
         } catch (error) {
             return item("invalid-local-copy", getErrorMessage(error));
         }
-        if (mod.hasLocalChanges) return item("blocked-by-local-changes");
+        if (mod.hasLocalChanges || mod.hasUnpushedCommits) return item("blocked-by-local-changes");
         if (mod.updateAvailable) return item("update-available");
         return item("installed");
     }

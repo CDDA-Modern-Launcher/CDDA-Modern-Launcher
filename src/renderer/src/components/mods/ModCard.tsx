@@ -19,6 +19,7 @@ export const ModCard = React.memo(function ModCard({ mod }: Props) {
                     </Text>
                 )}
                 {mod.hasLocalChanges && <LocalizedText size="sm" c="orange" i18nKey="content.sheet.mods.local.changes" />}
+                {mod.hasUnpushedCommits && <LocalizedText size="sm" c="orange" i18nKey="content.sheet.mods.local.commits.unpushed" />}
                 {mod.updateAvailable && <LocalizedText size="sm" c="blue" i18nKey="content.sheet.mods.update.available" />}
             </Stack>
         </Card>

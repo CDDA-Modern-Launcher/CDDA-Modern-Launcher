@@ -15,6 +15,7 @@ export type ModInfo = {
     installedCommit?: string;
     lastKnownRemoteCommit?: string;
     hasLocalChanges: boolean;
+    hasUnpushedCommits: boolean;
     updateAvailable: boolean;
     installedAt: string;
     checkedAt?: string;

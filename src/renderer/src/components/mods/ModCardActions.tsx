@@ -31,7 +31,19 @@ export const ModCardActions = React.memo(function ModCardActions({ mod }: Props)
         () =>
             modals.openConfirmModal({
                 title: t("content.sheet.mods.update.force.confirm.title"),
-                children: <LocalizedText size="sm" i18nKey="content.sheet.mods.update.force.confirm" variables={{ name: mod.displayName }} />,
+                children: (
+                    <LocalizedText
+                        size="sm"
+                        i18nKey={
+                            mod.hasLocalChanges && mod.hasUnpushedCommits
+                                ? "content.sheet.mods.update.force.confirm.local.and.unpushed"
+                                : mod.hasUnpushedCommits
+                                  ? "content.sheet.mods.update.force.confirm.unpushed"
+                                  : "content.sheet.mods.update.force.confirm"
+                        }
+                        variables={{ name: mod.displayName }}
+                    />
+                ),
                 labels: { confirm: t("common.update"), cancel: t("common.cancel") },
                 confirmProps: { color: "red" },
                 onConfirm: () => void update(mod, true)
@@ -64,7 +76,7 @@ export const ModCardActions = React.memo(function ModCardActions({ mod }: Props)
                 </Menu.Label>
 
                 {mod.sourceType === "git" &&
-                    (mod.hasLocalChanges ? (
+                    (mod.hasLocalChanges || mod.hasUnpushedCommits ? (
                         <Tooltip label={<LocalizedText i18nKey="content.sheet.mods.update.force.button.tooltip" />}>
                             <Menu.Item color="orange" leftSection={<IconRefreshAlert {...btnIconProps} />} onClick={forceUpdateMod}>
                                 <LocalizedText i18nKey="content.sheet.mods.update.force.button" />

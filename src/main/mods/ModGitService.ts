@@ -10,6 +10,13 @@ export type ClonedMod = {
     commit: string;
 };
 
+export type ModGitState = {
+    localCommit: string;
+    remoteCommit: string;
+    hasUnpushedCommits: boolean;
+    updateAvailable: boolean;
+};
+
 export class ModGitService {
     async clone(sourceUrl: string, targetPath: string, branch?: string): Promise<ClonedMod> {
         await rm(targetPath, { recursive: true, force: true });
@@ -33,12 +40,42 @@ export class ModGitService {
         return matrix.some((row) => row[1] !== row[2] || row[1] !== row[3]);
     }
 
-    async fetchState(modPath: string, branch: string, trackingRef: string): Promise<{ localCommit: string; remoteCommit: string }> {
-        await git.fetch({ fs, http, dir: modPath, remote: "origin", ref: branch, singleBranch: true, depth: 1 });
+    async hasUnpushedCommits(modPath: string, trackingRef?: string): Promise<boolean> {
+        if (!trackingRef) return false;
+        const localCommit = await git.resolveRef({ fs, dir: modPath, ref: "HEAD" });
+        const remoteCommit = await git.resolveRef({ fs, dir: modPath, ref: trackingRef });
+        return (await this.compareCommits(modPath, localCommit, remoteCommit)).hasUnpushedCommits;
+    }
+
+    async fetchState(modPath: string, branch: string, trackingRef: string): Promise<ModGitState> {
+        await git.fetch({ fs, http, dir: modPath, remote: "origin", ref: branch, singleBranch: true, depth: 100 });
+        const localCommit = await git.resolveRef({ fs, dir: modPath, ref: "HEAD" });
+        const remoteCommit = await git.resolveRef({ fs, dir: modPath, ref: trackingRef });
         return {
-            localCommit: await git.resolveRef({ fs, dir: modPath, ref: "HEAD" }),
-            remoteCommit: await git.resolveRef({ fs, dir: modPath, ref: trackingRef })
+            localCommit,
+            remoteCommit,
+            ...(await this.compareCommits(modPath, localCommit, remoteCommit))
         };
+    }
+
+    private async compareCommits(modPath: string, localCommit: string, remoteCommit: string): Promise<Pick<ModGitState, "hasUnpushedCommits" | "updateAvailable">> {
+        if (localCommit === remoteCommit) return { hasUnpushedCommits: false, updateAvailable: false };
+
+        const remoteContainsLocal = await this.isDescendent(modPath, remoteCommit, localCommit);
+        const localContainsRemote = await this.isDescendent(modPath, localCommit, remoteCommit);
+
+        return {
+            hasUnpushedCommits: !remoteContainsLocal,
+            updateAvailable: !localContainsRemote
+        };
+    }
+
+    private async isDescendent(modPath: string, commit: string, ancestor: string): Promise<boolean> {
+        try {
+            return await git.isDescendent({ fs, dir: modPath, oid: commit, ancestor, depth: -1 });
+        } catch {
+            return false;
+        }
     }
 }
 
