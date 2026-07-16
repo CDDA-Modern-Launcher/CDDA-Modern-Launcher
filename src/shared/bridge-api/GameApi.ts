@@ -29,6 +29,7 @@ export type GameApi = {
     onStateChanged: (callback: (state: GameBundleState) => void) => () => void;
     getReleases: (forceRefresh?: boolean) => Promise<GithubRelease[]>;
     installLatestGameBundle: (options: GameBundleInstallOptions) => Promise<EGameBundleInstallResult>;
+    cancelGameBundleDownload: () => Promise<boolean>;
     setActiveGameBundle: (gameBundleId: string) => Promise<EGameBundleSetActiveResult>;
     deleteGameBundle: (gameBundleId: string, options: GameBundleDeleteOptions) => Promise<EGameBundleDeleteResult>;
     getRuntimeState: () => Promise<GameRuntimeState>;

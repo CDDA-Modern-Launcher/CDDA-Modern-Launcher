@@ -189,6 +189,7 @@ export const EN_LOCALE = {
         "install.progress.completed.description": "The version is ready to launch.",
         "install.progress.downloading": "Downloading {version}",
         "install.progress.downloading.description": "Downloaded {size} of {total}.",
+        "install.progress.downloading.cancel": "Cancel download",
         "install.progress.error": "Install failed",
         "install.progress.extracting": "Extracting {version}",
         "install.progress.extracting.description": "Extraction can take a few minutes. Progress at this stage is estimated.",

@@ -3,7 +3,7 @@ import { mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { Readable } from "node:stream";
-import { finished } from "node:stream/promises";
+import { pipeline } from "node:stream/promises";
 
 import extractZip from "extract-zip";
 
@@ -30,6 +30,7 @@ import { GameBundleManifest } from "../../shared/game-bundle/GameBundleManifest"
 import { DOWNLOADS_DIRECTORY_NAME, GAME_BUNDLE_MANIFEST_FILE_NAME, GAME_BUNDLES_DIRECTORY_NAME, USERDATA_DIRECTORY_NAME } from "../../shared/Const";
 import { safePathSegment } from "../utils/safePathSegment";
 import { broadcastInstallIPC } from "../utils/broadcastInstallIPC";
+import { GameBundleInstallCancelledError } from "./GameBundleInstallCancelledError";
 
 const KEEP_DOWNLOADED_GAME_BUNDLES = 3;
 const DOWNLOAD_PROGRESS_MIN_INTERVAL_MS = 250;
@@ -37,6 +38,13 @@ const DOWNLOAD_PROGRESS_UNKNOWN_TOTAL_STEP_BYTES = 1024 * 1024;
 
 class GameReleaseService {
     private readonly gitHubNetwork = new GitHubNetworkManager();
+    private activeDownloadAbortController: AbortController | null = null;
+
+    cancelDownload(): boolean {
+        if (this.activeDownloadAbortController === null) return false;
+        this.activeDownloadAbortController.abort();
+        return true;
+    }
 
     async findLatest(channel: GameChannelDefinition, forceRefresh: boolean): Promise<GithubRelease | null> {
         return (await this.fetch(channel, forceRefresh))[0] ?? null;
@@ -140,52 +148,59 @@ class GameReleaseService {
         const startedAt = performance.now();
         const startedCpu = process.cpuUsage();
         const temporaryPath = `${targetPath}.tmp-${Date.now()}`;
-        const response = isGitHubUrl(url) ? await this.gitHubNetwork.fetch(url) : await fetch(url);
-        if (!response.ok || response.body === null) throw new Error(`Download failed: ${response.status} ${response.statusText}`);
-        const totalBytes = Number(response.headers.get("content-length"));
-        const knownTotalBytes = Number.isFinite(totalBytes) && totalBytes > 0 ? totalBytes : expectedBytes > 0 ? expectedBytes : null;
+        const abortController = new AbortController();
+        this.activeDownloadAbortController = abortController;
         let transferredBytes = 0;
         let chunkCount = 0;
         let ipcProgressEventCount = 0;
-        let lastProgressEmitAt = 0;
-        let lastProgressPercent: number | null = null;
-        let lastProgressTransferredStep = -1;
+        let completed = false;
 
-        const emitProgress = (force = false): void => {
-            const percent = knownTotalBytes === null ? null : Math.max(0, Math.min(100, Math.round((transferredBytes / knownTotalBytes) * 100)));
-            const transferredStep = Math.floor(transferredBytes / DOWNLOAD_PROGRESS_UNKNOWN_TOTAL_STEP_BYTES);
-            const now = Date.now();
-            const shouldEmit = force || percent !== lastProgressPercent || (knownTotalBytes === null && transferredStep !== lastProgressTransferredStep) || now - lastProgressEmitAt >= DOWNLOAD_PROGRESS_MIN_INTERVAL_MS;
+        try {
+            const response = isGitHubUrl(url) ? await this.gitHubNetwork.fetch(url, { signal: abortController.signal }) : await fetch(url, { signal: abortController.signal });
+            if (!response.ok || response.body === null) throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+            const totalBytes = Number(response.headers.get("content-length"));
+            const knownTotalBytes = Number.isFinite(totalBytes) && totalBytes > 0 ? totalBytes : expectedBytes > 0 ? expectedBytes : null;
+            let lastProgressEmitAt = 0;
+            let lastProgressPercent: number | null = null;
+            let lastProgressTransferredStep = -1;
 
-            if (!shouldEmit) return;
+            const emitProgress = (force = false): void => {
+                const percent = knownTotalBytes === null ? null : Math.max(0, Math.min(100, Math.round((transferredBytes / knownTotalBytes) * 100)));
+                const transferredStep = Math.floor(transferredBytes / DOWNLOAD_PROGRESS_UNKNOWN_TOTAL_STEP_BYTES);
+                const now = Date.now();
+                const shouldEmit =
+                    force || percent !== lastProgressPercent || (knownTotalBytes === null && transferredStep !== lastProgressTransferredStep) || now - lastProgressEmitAt >= DOWNLOAD_PROGRESS_MIN_INTERVAL_MS;
 
-            lastProgressEmitAt = now;
-            lastProgressPercent = percent;
-            lastProgressTransferredStep = transferredStep;
-            if (broadcastInstallIPC({ status: "downloading", releaseName, percent, transferredBytes, totalBytes: knownTotalBytes })) {
-                ipcProgressEventCount += 1;
-            }
-        };
+                if (!shouldEmit) return;
 
-        emitProgress(true);
-        await mkdir(dirname(targetPath), { recursive: true });
-        await rm(temporaryPath, { force: true });
-        const fileStream = createWriteStream(temporaryPath);
-        const source = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0]);
-        source.on("data", (chunk: Buffer | Uint8Array) => {
-            chunkCount += 1;
-            transferredBytes += chunk.byteLength;
-            emitProgress();
-        });
-        await finished(source.pipe(fileStream));
-        emitProgress(true);
-        await rename(temporaryPath, targetPath);
-        logFileOperationDiagnostics("download", startedAt, startedCpu, {
-            chunkCount,
-            ipcProgressEventCount,
-            size: transferredBytes,
-            targetPath
-        });
+                lastProgressEmitAt = now;
+                lastProgressPercent = percent;
+                lastProgressTransferredStep = transferredStep;
+                if (broadcastInstallIPC({ status: "downloading", releaseName, percent, transferredBytes, totalBytes: knownTotalBytes })) ipcProgressEventCount += 1;
+            };
+
+            emitProgress(true);
+            await mkdir(dirname(targetPath), { recursive: true });
+            await rm(temporaryPath, { force: true });
+            const fileStream = createWriteStream(temporaryPath);
+            const source = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0]);
+            source.on("data", (chunk: Buffer | Uint8Array) => {
+                chunkCount += 1;
+                transferredBytes += chunk.byteLength;
+                emitProgress();
+            });
+            await pipeline(source, fileStream, { signal: abortController.signal });
+            emitProgress(true);
+            await rename(temporaryPath, targetPath);
+            completed = true;
+            logFileOperationDiagnostics("download", startedAt, startedCpu, { chunkCount, ipcProgressEventCount, size: transferredBytes, targetPath });
+        } catch (error) {
+            if (abortController.signal.aborted) throw new GameBundleInstallCancelledError();
+            throw error;
+        } finally {
+            if (this.activeDownloadAbortController === abortController) this.activeDownloadAbortController = null;
+            if (!completed) await rm(temporaryPath, { force: true }).catch(() => undefined);
+        }
     }
 
     private async extractArchive(archivePath: string, targetPath: string, releaseName: string): Promise<void> {

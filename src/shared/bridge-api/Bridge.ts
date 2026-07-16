@@ -43,6 +43,7 @@ export const Bridge = {
         stateChanged: "game:state-changed",
         getReleases: "game:get-releases",
         installLatestGameBundle: "game:install-latest-bundle",
+        cancelGameBundleDownload: "game:cancel-bundle-download",
         setActiveGameBundle: "game:set-active-bundle",
         deleteGameBundle: "game:delete-bundle",
         getRuntimeState: "game:get-runtime-state",

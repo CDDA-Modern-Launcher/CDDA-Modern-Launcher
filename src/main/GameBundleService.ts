@@ -25,6 +25,7 @@ import { safePathSegment } from "./utils/safePathSegment";
 import { isGameBundleManifest } from "./utils/isGameBundleManifest";
 import { broadcastInstallIPC } from "./utils/broadcastInstallIPC";
 import { modDeploymentService } from "./mods/ModDeploymentService";
+import { GameBundleInstallCancelledError } from "./game/GameBundleInstallCancelledError";
 
 class GameBundleService {
     private readonly preferredWorldByGameBundleId = new Map<string, string | null>();
@@ -33,6 +34,8 @@ class GameBundleService {
         ipcMain.handle(Bridge.Game.installLatestGameBundle, (_, options: GameBundleInstallOptions) => {
             return gameFileOperationGuard.run("installing-bundle", () => this.installLatestGameBundleUnlocked(options));
         });
+
+        ipcMain.handle(Bridge.Game.cancelGameBundleDownload, () => gameReleaseService.cancelDownload());
 
         ipcMain.handle(Bridge.Game.setActiveGameBundle, (_, gameBundleId: string) => {
             return gameFileOperationGuard.run("activating-bundle", () => this.setActiveGameBundleUnlocked(gameBundleId));
@@ -117,6 +120,13 @@ class GameBundleService {
             await publishGameState(releases[0] ?? null);
             return { status: "installed", bundle: gameBundle };
         } catch (error) {
+            if (error instanceof GameBundleInstallCancelledError) {
+                console.info("[game-bundle] download cancelled");
+                broadcastInstallIPC({ status: "idle" }, true);
+                await publishGameState(await this.safeFindLatest(ws.selectedGameChannel));
+                return { status: "cancelled", message: error.message };
+            }
+
             if (createdGameBundle !== null) {
                 await rm(createdGameBundle.path, { recursive: true, force: true }).catch((cleanupError) => {
                     console.error("[game-bundle] failed to remove incomplete game bundle", cleanupError);

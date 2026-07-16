@@ -1,6 +1,6 @@
 import React, { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
-import { Alert, Button, Card, Checkbox, Group, Progress, Stack, Text } from "@mantine/core";
+import { Alert, Anchor, Button, Card, Checkbox, Group, Progress, Stack, Text } from "@mantine/core";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { ContextModalProps, modals } from "@mantine/modals";
 import { GithubRelease } from "../../../../shared/GithubRelease";
@@ -35,8 +35,8 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
 
     const handleConfirm = useCallback(async () => {
         try {
-            await installLatestGameBundle({ releaseId: release.id, makeActive: true, copyUserdata, removeOlderGameBundles });
-            handleClose();
+            const installed = await installLatestGameBundle({ releaseId: release.id, makeActive: true, copyUserdata, removeOlderGameBundles });
+            if (installed) handleClose();
         } catch (e) {
             console.error("Can't install", e);
             setError(getErrorMessage(e));
@@ -93,6 +93,7 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
 function InstallProgress({ isInstallingGameBundle }: { isInstallingGameBundle: boolean }): React.JSX.Element | null {
     const t = useTranslate();
     const progress = useGameBundleInstallStore((state) => state.progress);
+    const cancelDownload = useGameBundleInstallStore((state) => state.cancelDownload);
 
     if (!isInstallingGameBundle) return null;
 
@@ -108,9 +109,16 @@ function InstallProgress({ isInstallingGameBundle }: { isInstallingGameBundle: b
                     {percent !== null && <Text size="xs">{percent}%</Text>}
                 </Group>
                 <Progress value={percent ?? getIndeterminateProgressValue(progress)} animated={progress.status !== "completed" && progress.status !== "error"} />
-                <Text size="xs" c="dimmed">
-                    {getProgressDescription(progress, t)}
-                </Text>
+                <Group gap="xs" wrap="nowrap">
+                    <Text size="xs" c="dimmed">
+                        {getProgressDescription(progress, t)}
+                    </Text>
+                    {progress.status === "downloading" && (
+                        <Anchor component="button" type="button" size="xs" onClick={cancelDownload}>
+                            {t("install.progress.downloading.cancel")}
+                        </Anchor>
+                    )}
+                </Group>
             </Stack>
         </Card>
     );

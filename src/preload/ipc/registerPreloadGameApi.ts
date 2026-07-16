@@ -28,6 +28,7 @@ export function registerPreloadGameApi(): GameApi {
         },
         getReleases: (forceRefresh?: boolean) => ipcRenderer.invoke(Bridge.Game.getReleases, forceRefresh),
         installLatestGameBundle: (options: GameBundleInstallOptions) => ipcRenderer.invoke(Bridge.Game.installLatestGameBundle, options),
+        cancelGameBundleDownload: () => ipcRenderer.invoke(Bridge.Game.cancelGameBundleDownload),
         setActiveGameBundle: (gameBundleId: string) => ipcRenderer.invoke(Bridge.Game.setActiveGameBundle, gameBundleId),
         deleteGameBundle: (gameBundleId: string, options: GameBundleDeleteOptions) => ipcRenderer.invoke(Bridge.Game.deleteGameBundle, gameBundleId, options),
         getRuntimeState: () => ipcRenderer.invoke(Bridge.Game.getRuntimeState),

@@ -9,6 +9,7 @@ interface GameBundleInstallStoreState extends IMountableState {
     progress: GameBundleInstallProgress;
     isInstalling: boolean;
     installLatest: (options: GameBundleInstallOptions) => Promise<boolean>;
+    cancelDownload: () => Promise<boolean>;
     setActive: (gameBundleId: string) => Promise<boolean>;
     delete: (gameBundleId: string, options: GameBundleDeleteOptions) => Promise<boolean>;
 }
@@ -24,12 +25,14 @@ export const useGameBundleInstallStore = create<GameBundleInstallStoreState>()((
         try {
             const result = await window.api.game.installLatestGameBundle(options);
             if (result.status === "installed") return true;
-            console.error("Failed to install game bundle", result.message);
+            if (result.status !== "cancelled") console.error("Failed to install game bundle", result.message);
             return false;
         } finally {
             set({ isInstalling: false });
         }
     },
+
+    cancelDownload: () => window.api.game.cancelGameBundleDownload(),
 
     setActive: async (gameBundleId) => {
         const result = await window.api.game.setActiveGameBundle(gameBundleId);

@@ -187,6 +187,7 @@ export const RU_LOCALE = {
         "install.progress.completed.description": "Версия готова к запуску.",
         "install.progress.downloading": "Загрузка {version}",
         "install.progress.downloading.description": "Загружено {size} из {total}.",
+        "install.progress.downloading.cancel": "Отменить загрузку",
         "install.progress.error": "Ошибка установки",
         "install.progress.extracting": "Распаковка {version}",
         "install.progress.extracting.description": "Распаковка может занять несколько минут. Прогресс на этом этапе ориентировочный.",
