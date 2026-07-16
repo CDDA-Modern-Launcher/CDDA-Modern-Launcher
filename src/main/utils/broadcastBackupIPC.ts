@@ -4,11 +4,16 @@ import { Bridge } from "../../shared/bridge-api/Bridge";
 
 let lastBackupProgressKey = "";
 let lastBackupProgressAt = 0;
+let lastLoggedStatus = "";
 
 export function broadcastBackupIPC(progress: BackupProgress, immediate = false): void {
     if (!immediate && shouldThrottleBackupProgress(progress)) return;
     lastBackupProgressKey = getBackupProgressKey(progress);
     lastBackupProgressAt = Date.now();
+    if (progress.status !== lastLoggedStatus) {
+        lastLoggedStatus = progress.status;
+        console.info(`[backup-ipc] publish progress status=${progress.status}`);
+    }
     broadcastIPC(Bridge.Game.gameBackupProgress, progress);
 }
 

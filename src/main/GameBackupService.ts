@@ -1,4 +1,3 @@
-import { type FSWatcher, watch } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -37,61 +36,58 @@ import { gameSaveCoordinator } from "./game/GameSaveCoordinator";
 import { ipcMain } from "electron";
 
 class GameBackupService {
-    private watcher: FSWatcher | null = null;
-    private watchedGameBundleId: string | null = null;
-    private watchedBackupsPath: string | null = null;
-    private watcherRefreshTimer: NodeJS.Timeout | null = null;
     private isBusy = false;
 
     async initialize(): Promise<void> {
-        ipcMain.handle(Bridge.Game.createManualBackup, (_, options: CreateManualBackupOptions | undefined) => {
-            return gameFileOperationGuard.run("creating-backup", async () => {
+        ipcMain.handle(Bridge.Game.createManualBackup, async (_, options: CreateManualBackupOptions | undefined) => {
+            console.info(`[backup-ipc] create manual world=${options?.worldName ?? "current"}`);
+            const result = await gameFileOperationGuard.run("creating-backup", async () => {
                 const context = await gameSaveCoordinator.getBackupContext((options ?? {}).worldName);
-                if (context === null) return { status: "unavailable", message: translate("game.error.no.game.bundle") };
-                const result = await this.createManualBackup(context);
-                if (result.status === "created") gameSaveCoordinator.touchAutoBackupCooldown(context.gameBundle.id, result.backup.worldFolderName);
-                return result;
+                if (context === null) return { status: "unavailable", message: translate("game.error.no.game.bundle") } as EBackupCreateResult;
+                const createResult = await this.createManualBackup(context);
+                if (createResult.status === "created") gameSaveCoordinator.touchAutoBackupCooldown(context.gameBundle.id, createResult.backup.worldFolderName);
+                return createResult;
             });
+            console.info(`[backup-ipc] create manual result=${result.status}`);
+            return result;
         });
 
-        ipcMain.handle(Bridge.Game.restoreBackup, (_, backupId: string) => {
-            return gameFileOperationGuard.run("restoring-backup", async () => {
+        ipcMain.handle(Bridge.Game.restoreBackup, async (_, backupId: string) => {
+            console.info(`[backup-ipc] restore id=${backupId}`);
+            const result = await gameFileOperationGuard.run("restoring-backup", async () => {
                 const context = await gameSaveCoordinator.getBackupContext();
-                if (context === null) return { status: "unavailable", message: translate("game.error.no.game.bundle") };
-                const result = await this.restoreBackup(context, backupId);
-                if (result.status === "restored") await gameSaveCoordinator.refreshActiveSaveSummary();
-                return result;
+                if (context === null) return { status: "unavailable", message: translate("game.error.no.game.bundle") } as EBackupRestoreResult;
+                const restoreResult = await this.restoreBackup(context, backupId);
+                if (restoreResult.status === "restored") await gameSaveCoordinator.refreshActiveSaveSummary();
+                return restoreResult;
             });
+            console.info(`[backup-ipc] restore result=${result.status} id=${backupId}`);
+            return result;
         });
 
-        ipcMain.handle(Bridge.Game.deleteBackup, (_, backupId: string) => {
-            return gameFileOperationGuard.run("deleting-backup", async () => {
+        ipcMain.handle(Bridge.Game.deleteBackup, async (_, backupId: string) => {
+            console.info(`[backup-ipc] delete id=${backupId}`);
+            const result = await gameFileOperationGuard.run("deleting-backup", async () => {
                 const context = await gameSaveCoordinator.getBackupContext();
                 return this.deleteBackup(context?.gameBundle ?? null, backupId);
             });
+            console.info(`[backup-ipc] delete result=${result.status} id=${backupId}`);
+            return result;
         });
 
-        ipcMain.handle(Bridge.Game.renameBackup, (_, backupId: string, comment: string) => {
-            return gameFileOperationGuard.run("renaming-backup", async () => {
+        ipcMain.handle(Bridge.Game.renameBackup, async (_, backupId: string, comment: string) => {
+            console.info(`[backup-ipc] rename id=${backupId}`);
+            const result = await gameFileOperationGuard.run("renaming-backup", async () => {
                 const context = await gameSaveCoordinator.getBackupContext();
                 return this.renameBackup(context?.gameBundle ?? null, backupId, comment);
             });
+            console.info(`[backup-ipc] rename result=${result.status} id=${backupId}`);
+            return result;
         });
     }
 
     async updateActiveGameBundle(gameBundle: GameBundle | null): Promise<void> {
-        if (gameBundle === null) {
-            this.stopWatching();
-            return;
-        }
-
-        const backupsPath = getBackupsPath(gameBundle);
-        if (this.watchedGameBundleId === gameBundle.id && this.watchedBackupsPath === backupsPath) return;
-        this.stopWatching();
-        this.watchedGameBundleId = gameBundle.id;
-        this.watchedBackupsPath = backupsPath;
-        await mkdir(backupsPath, { recursive: true });
-        this.watcher = watch(backupsPath, { persistent: false }, () => this.scheduleSummaryRefresh(gameBundle));
+        if (gameBundle !== null) await mkdir(getBackupsPath(gameBundle), { recursive: true });
     }
 
     async getSummary(gameBundle: GameBundle | null): Promise<BackupSummary> {
@@ -219,30 +215,12 @@ class GameBackupService {
         await Promise.all(backups.slice(limit).map((backup) => rm(backup.path, { recursive: true, force: true })));
     }
 
-    private scheduleSummaryRefresh(gameBundle: GameBundle): void {
-        if (this.watcherRefreshTimer !== null) clearTimeout(this.watcherRefreshTimer);
-        this.watcherRefreshTimer = setTimeout(() => {
-            this.watcherRefreshTimer = null;
-            void this.emitSummary(gameBundle);
-        }, 250);
-    }
-
     private async emitSummary(gameBundle: GameBundle): Promise<BackupSummary> {
         const summary = await scanBackups(gameBundle);
         const update: BackupSummaryUpdate = { gameBundleId: gameBundle.id, summary };
+        console.info(`[backup-ipc] publish summary gameBundleId=${gameBundle.id} count=${summary.backups.length}`);
         broadcastIPC(Bridge.Game.backupSummaryChanged, update);
         return summary;
-    }
-
-    private stopWatching(): void {
-        if (this.watcherRefreshTimer !== null) {
-            clearTimeout(this.watcherRefreshTimer);
-            this.watcherRefreshTimer = null;
-        }
-        this.watcher?.close();
-        this.watcher = null;
-        this.watchedGameBundleId = null;
-        this.watchedBackupsPath = null;
     }
 
     private setProgress(progress: BackupProgress, immediate = false): void {

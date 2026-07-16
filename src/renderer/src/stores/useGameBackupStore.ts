@@ -3,6 +3,7 @@ import { IMountableState } from "@renderer/types/IMountableState";
 import { BackupProgress } from "../../../shared/backups/types/BackupProgress";
 import { BackupSummary } from "../../../shared/backups/types/BackupSummary";
 import { CreateManualBackupOptions } from "../../../shared/backups/types/CreateManualBackupOptions";
+import { useGameStateStore } from "./useGameStateStore";
 
 interface GameBackupStoreState extends IMountableState {
     summary: BackupSummary;
@@ -20,14 +21,14 @@ export const useGameBackupStore = create<GameBackupStoreState>()((set) => ({
     progress: { status: "idle" },
 
     mount: () => {
+        const syncSummary = (state: ReturnType<typeof useGameStateStore.getState>["state"]): void => set({ summary: state.status === "ready" ? state.backups : EMPTY_BACKUP_SUMMARY });
+        syncSummary(useGameStateStore.getState().state);
+        const unsubscribeGameState = useGameStateStore.subscribe((state) => syncSummary(state.state));
         const unsubscribeProgress = window.api.game.onBackupProgress((progress) => set({ progress }));
-        const unsubscribeSummary = window.api.game.onBackupSummaryChanged((update) => set({ summary: update.summary }));
-        const unsubscribeState = window.api.game.onStateChanged((state) => set({ summary: state.status === "ready" ? state.backups : EMPTY_BACKUP_SUMMARY }));
 
         return function cleanup() {
-            unsubscribeState();
-            unsubscribeSummary();
             unsubscribeProgress();
+            unsubscribeGameState();
         };
     },
 
