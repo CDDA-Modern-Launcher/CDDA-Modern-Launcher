@@ -19,10 +19,10 @@ import { EGameFolderOpenResult } from "../shared/EGameFolderOpenResult";
 import { ipcMain, shell } from "electron";
 import { Bridge } from "../shared/bridge-api/Bridge";
 import { join } from "node:path";
-import { GAME_BUNDLE_MANIFEST_FILE_NAME, GAME_BUNDLES_DIRECTORY_NAME } from "../shared/Const";
+import { GAME_BUNDLE_MANIFEST_FILE_NAME, GAME_BUNDLES_DIRECTORY_NAME, USERDATA_DIRECTORY_NAME } from "../shared/Const";
 import { isNodeError } from "./utils/isNodeError";
+import { safePathSegment } from "./utils/safePathSegment";
 import { isGameBundleManifest } from "./utils/isGameBundleManifest";
-import { resolveUserdataPath } from "./utils/resolveUserdataPath";
 import { broadcastInstallIPC } from "./utils/broadcastInstallIPC";
 import { modDeploymentService } from "./mods/ModDeploymentService";
 
@@ -152,14 +152,13 @@ class GameBundleService {
                 if (!(await stat(gameBundlePath)).isDirectory()) continue;
                 const manifest = JSON.parse(await readFile(join(gameBundlePath, GAME_BUNDLE_MANIFEST_FILE_NAME), "utf8")) as unknown;
                 if (!isGameBundleManifest(manifest) || manifest.channelId !== channelId) continue;
-                const userdataPath = resolveUserdataPath(workspacePath, channelId, manifest);
-                const normalizedManifest = manifest.userdataPath === userdataPath ? manifest : { ...manifest, userdataPath };
+                const userdataPath = join(workspacePath, USERDATA_DIRECTORY_NAME, channelId, safePathSegment(manifest.releaseId, "release"));
                 gameBundles.push({
-                    id: normalizedManifest.releaseId,
+                    id: manifest.releaseId,
                     path: gameBundlePath,
                     userdataPath,
-                    manifest: normalizedManifest,
-                    isActive: normalizedManifest.releaseId === activeGameBundleId
+                    manifest,
+                    isActive: manifest.releaseId === activeGameBundleId
                 });
             } catch (error) {
                 console.error(`[game-bundle] failed to read game bundle: ${gameBundlePath}`, error);

@@ -1,6 +1,6 @@
 import { createWriteStream } from "node:fs";
 import { mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { Readable } from "node:stream";
 import { finished } from "node:stream/promises";
@@ -23,7 +23,6 @@ import { toGameRelease } from "../utils/releases/toGameRelease";
 import { withGitHubPageSize } from "../utils/releases/withGitHubPageSize";
 import { runCommand } from "../utils/runCommand";
 import { workspaceService } from "../WorkspaceService";
-import { findExecutable } from "../utils/findExecutable";
 import { findUserdataSource } from "../utils/findUserdataSource";
 import { pathExists } from "../utils/pathExists";
 import { copyDirectoryContents } from "../utils/copyDirectoryContents";
@@ -63,26 +62,18 @@ class GameReleaseService {
         await this.extractArchive(downloadPath, tempPath, release.name);
         broadcastInstallIPC({ status: "preparing-saves", releaseName: release.name });
 
-        const executablePath = await findExecutable(tempPath);
         const sourceUserdata = options.copyUserdata ? findUserdataSource(gameBundlesBefore, config.activeGameBundleByChannel[channel.id]) : null;
         await mkdir(userdataPath, { recursive: true });
         if (sourceUserdata !== null && (await pathExists(sourceUserdata.userdataPath))) await copyDirectoryContents(sourceUserdata.userdataPath, userdataPath);
 
         const manifest: GameBundleManifest = {
-            schemaVersion: 1,
+            schemaVersion: 2,
             channelId: channel.id,
             releaseId: release.id,
             releaseName: release.name,
-            tagName: release.tagName,
             publishedAt: release.publishedAt,
             htmlUrl: release.htmlUrl,
-            releaseBody: release.body,
-            assetName: release.asset.name,
-            installedAt: new Date().toISOString(),
-            executablePath: executablePath === null ? null : join(gameBundlePath, relative(tempPath, executablePath)),
-            userdataPath,
-            copiedUserdataFromGameBundleId: sourceUserdata?.id ?? null,
-            source: { owner: channel.githubOwner, repo: channel.githubRepo, branch: channel.githubBranch }
+            installedAt: new Date().toISOString()
         };
         await writeFile(join(tempPath, GAME_BUNDLE_MANIFEST_FILE_NAME), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
         await rename(tempPath, gameBundlePath);

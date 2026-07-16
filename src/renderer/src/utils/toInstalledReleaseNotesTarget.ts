@@ -10,6 +10,6 @@ export function toInstalledReleaseNotesTarget(gameBundle: GameBundle, release: G
         title: getReleaseDisplayName(gameBundle),
         publishedAt: gameBundle.manifest.publishedAt,
         htmlUrl: gameBundle.manifest.htmlUrl,
-        body: gameBundle.manifest.releaseBody ?? ""
+        body: ""
     };
 }

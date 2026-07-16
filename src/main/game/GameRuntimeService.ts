@@ -9,7 +9,6 @@ import { EGameLaunchResult } from "../../shared/launch/EGameLaunchResult";
 import { EGameStopResult } from "../../shared/launch/EGameStopResult";
 import { GameLaunchOptions } from "../../shared/launch/GameLaunchOptions";
 import { findExecutable } from "../utils/findExecutable";
-import { pathExists } from "../utils/pathExists";
 import { ipcMain } from "electron";
 import { Bridge } from "../../shared/bridge-api/Bridge";
 import { broadcastIPC } from "../utils/broadcastIPC";
@@ -84,8 +83,6 @@ class GameRuntimeService {
     }
 
     private async resolveExecutablePath(gameBundle: GameBundle): Promise<string | null> {
-        const manifestExecutablePath = gameBundle.manifest.executablePath;
-        if (manifestExecutablePath !== null && (await pathExists(manifestExecutablePath))) return manifestExecutablePath;
         return findExecutable(gameBundle.path);
     }
 }
