@@ -1,4 +1,4 @@
-import { ActionIcon, Divider, Drawer, Group, Loader, Stack, Title, Tooltip } from "@mantine/core";
+import { ActionIcon, Divider, Drawer, Group, Loader, Stack, Text, Title, Tooltip } from "@mantine/core";
 import React, { useEffect, useMemo } from "react";
 import { GithubRelease } from "../../../shared/GithubRelease";
 import { localizeChannelName } from "@renderer/utils/localizeChannelName";
@@ -53,7 +53,9 @@ export function GameBundlesDrawer(): React.JSX.Element {
             size={560}
             title={
                 <Group gap="xs" wrap="nowrap">
-                    <Title order={3}>{t("versions.title")}</Title>
+                    <Text fw={700} size="lg">
+                        {t("versions.title")}
+                    </Text>
                     <Tooltip label={t("versions.action.refresh.tooltip")}>
                         <ActionIcon variant="subtle" aria-label={t("versions.action.refresh.tooltip")} loading={isLoadingReleases} disabled={fileOperationRunning} onClick={refreshVersions}>
                             ↻

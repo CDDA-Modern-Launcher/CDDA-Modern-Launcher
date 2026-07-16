@@ -42,6 +42,7 @@ class WorkspaceService {
         this.workspaceStatus = workspacePath ? await this.validateWorkspace(workspacePath) : { status: "unconfigured" };
 
         ipcMain.handle(Bridge.Workspace.getStatus, () => this.getWorkspaceStatus());
+        ipcMain.handle(Bridge.Workspace.clear, () => this.clearWorkspace());
         ipcMain.handle(Bridge.Workspace.setChannel, (_event, channelId: string) => this.setSelectedChannel(channelId));
         ipcMain.handle(Bridge.Workspace.selectNewFolder, async (event): Promise<EWorkspaceSelectResult> => {
             const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined;
@@ -74,6 +75,16 @@ class WorkspaceService {
         await synchronizeActiveBundle();
         await publishGameState();
         return status;
+    }
+
+    async clearWorkspace(): Promise<WorkspaceStatus> {
+        this.workspaceStatus = { status: "unconfigured" };
+        appSettings.set({ workspacePath: "" });
+        await appSettings.flush();
+        broadcastIPC(Bridge.Settings.changed, DEFAULT_WORKSPACE_SETTINGS);
+        await synchronizeActiveBundle();
+        await publishGameState();
+        return this.workspaceStatus;
     }
 
     async saveConfig(config: WorkspaceConfig): Promise<ReadyWorkspaceStatus> {

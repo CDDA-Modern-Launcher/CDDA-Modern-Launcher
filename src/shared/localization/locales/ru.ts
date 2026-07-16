@@ -270,6 +270,8 @@ export const RU_LOCALE = {
         "settings.theme.light": "Дневная",
         "settings.theme.system": "Системная",
         "settings.title": "Настройки",
+        "settings.workspace.change": "Сменить воркспейс",
+        "settings.workspace.title": "Воркспейс",
         "updater.action.close": "Закрыть",
         "updater.action.download": "Скачать обновление",
         "updater.action.restart.now": "Перезапустить и установить",

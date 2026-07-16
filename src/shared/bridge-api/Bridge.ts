@@ -26,6 +26,7 @@ export const Bridge = {
     },
     Workspace: {
         getStatus: "workspace:get-status",
+        clear: "workspace:clear",
         setChannel: "workspace:set-channel",
         selectNewFolder: "workspace:select-new-folder"
     },

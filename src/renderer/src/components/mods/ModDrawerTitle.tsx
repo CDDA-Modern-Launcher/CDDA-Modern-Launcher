@@ -3,7 +3,7 @@ import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { openModal } from "@renderer/modals/contextModals";
 import { useModsStore } from "@renderer/stores/useModsStore";
 import { useShallow } from "zustand/react/shallow";
-import { ActionIcon, Group, Menu, Title, Tooltip } from "@mantine/core";
+import { ActionIcon, Group, Menu, Text, Tooltip } from "@mantine/core";
 import { IconPlus, IconQuestionMark, IconRefresh } from "@tabler/icons-react";
 import { defaultIconProps } from "@renderer/utils/defaultIconProps";
 
@@ -38,7 +38,9 @@ export function ModDrawerTitle(): ReactNode {
     return (
         <Group gap="md" justify="space-between" wrap="nowrap">
             <Group gap="xs" wrap="nowrap">
-                <Title order={3}>{t("content.sheet.mods.title")}</Title>
+                <Text fw={700} size="lg">
+                    {t("content.sheet.mods.title")}
+                </Text>
 
                 <ActionIcon variant="gradient" color="red" size="sm" radius="xl" style={{ marginBottom: -4 }} aria-label="Hint" onClick={handleHelpClick}>
                     <IconQuestionMark size={14} stroke={2.5} />

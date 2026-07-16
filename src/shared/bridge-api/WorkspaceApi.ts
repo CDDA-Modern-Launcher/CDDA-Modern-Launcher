@@ -3,6 +3,7 @@ import { EWorkspaceSelectResult } from "../workspace/EWorkspaceSelectResult";
 
 export type WorkspaceApi = {
     getStatus: () => Promise<WorkspaceStatus>;
+    clear: () => Promise<WorkspaceStatus>;
     selectNewFolder: () => Promise<EWorkspaceSelectResult>;
     setChannel: (channelId: string) => Promise<WorkspaceStatus>;
 };

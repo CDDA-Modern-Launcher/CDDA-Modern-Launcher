@@ -7,6 +7,7 @@ import { EWorkspaceSelectResult } from "../../shared/workspace/EWorkspaceSelectR
 export function registerPreloadWorkspaceApi(): WorkspaceApi {
     return {
         getStatus: (): Promise<WorkspaceStatus> => ipcRenderer.invoke(Bridge.Workspace.getStatus),
+        clear: (): Promise<WorkspaceStatus> => ipcRenderer.invoke(Bridge.Workspace.clear),
         selectNewFolder: (): Promise<EWorkspaceSelectResult> => ipcRenderer.invoke(Bridge.Workspace.selectNewFolder),
         setChannel: (channelId: string): Promise<WorkspaceStatus> => ipcRenderer.invoke(Bridge.Workspace.setChannel, channelId)
     };

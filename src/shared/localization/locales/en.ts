@@ -272,6 +272,8 @@ export const EN_LOCALE = {
         "settings.theme.light": "Day",
         "settings.theme.system": "System",
         "settings.title": "Settings",
+        "settings.workspace.change": "Change workspace",
+        "settings.workspace.title": "Workspace",
         "updater.action.close": "Close",
         "updater.action.download": "Download update",
         "updater.action.restart.now": "Restart and install",

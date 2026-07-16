@@ -1,6 +1,6 @@
 import { BackupInstanceInfo } from "../../../shared/backups/types/BackupInstanceInfo";
 import React, { ReactNode } from "react";
-import { Alert, Badge, Card, Drawer, Group, Stack, Text, Title } from "@mantine/core";
+import { Alert, Badge, Card, Drawer, Group, Stack, Text } from "@mantine/core";
 import { formatBackupTimestamp } from "@renderer/utils/formatBackupTimestamp";
 import { LocalizedText } from "@renderer/components/LocalizedText";
 import { TLocalizeFn, useTranslate } from "@renderer/stores/useLocaleStore";
@@ -15,7 +15,17 @@ export function BackupsDrawer(): React.JSX.Element {
     const backupSummary = useGameBackupStore((state) => state.summary);
 
     return (
-        <Drawer opened={isOpened} onClose={close} position="right" size={520} title={<Title order={3}>{t("backups.title")}</Title>}>
+        <Drawer
+            opened={isOpened}
+            onClose={close}
+            position="right"
+            size={520}
+            title={
+                <Text fw={700} size="lg">
+                    {t("backups.title")}
+                </Text>
+            }
+        >
             <Stack gap="md">
                 <LocalizedText size="sm" c="dimmed" i18nKey="backups.description" />
                 {backupSummary.backups.length === 0 ? (

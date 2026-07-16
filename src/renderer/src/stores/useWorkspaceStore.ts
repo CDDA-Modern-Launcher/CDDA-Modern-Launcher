@@ -14,6 +14,7 @@ interface State extends IMountableState {
 
     isSelectingRepository: boolean;
     selectRepository: () => Promise<void>;
+    clearWorkspace: () => Promise<void>;
     setSelectedChannel: (channelId: string) => Promise<void>;
 }
 
@@ -52,6 +53,12 @@ export const useWorkspaceStore = create<State>((set, get) => ({
         } finally {
             set({ isSelectingRepository: false });
         }
+    },
+
+    clearWorkspace: async () => {
+        const workspaceStatus = await window.api.workspace.clear();
+        set({ workspaceStatus });
+        get().onWorkspaceChanged();
     },
 
     setSelectedChannel: async (channelId: string) => {

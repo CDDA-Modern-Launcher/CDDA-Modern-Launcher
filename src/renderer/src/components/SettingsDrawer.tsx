@@ -1,5 +1,5 @@
-import { Drawer, Group, Image, Select, Stack, Text, Title } from "@mantine/core";
-import React, { ReactNode, useMemo } from "react";
+import { Button, Drawer, Group, Image, Select, Stack, Text } from "@mantine/core";
+import React, { ReactNode, useMemo, useState } from "react";
 import { SheetSection } from "@renderer/components/SheetSection";
 import { AutoBackupLimit } from "@renderer/components/AutoBackupLimit";
 import { AutoBackupCooldown } from "@renderer/components/AutoBackupCooldown";
@@ -12,6 +12,8 @@ import { useAppearanceStore } from "@renderer/stores/useAppearanceStore";
 import { getThemeOptions } from "@renderer/utils/getThemeOptions";
 import { ThemeIcon } from "@renderer/components/ThemeIcon";
 import { LocaleOption } from "../../../shared/localization/types/LocaleOption";
+import { useWorkspaceStore } from "@renderer/stores/useWorkspaceStore";
+import { IconFolderSymlink } from "@tabler/icons-react";
 
 export function SettingsDrawer(): ReactNode {
     const t = useTranslate();
@@ -20,12 +22,24 @@ export function SettingsDrawer(): ReactNode {
     const isOpened = useIsDrawerOpened("settings");
 
     return (
-        <Drawer opened={isOpened} onClose={close} position="right" size={420} title={<Title order={3}>{t("settings.title")}</Title>}>
+        <Drawer
+            opened={isOpened}
+            onClose={close}
+            position="right"
+            size={420}
+            title={
+                <Text fw={700} size="lg">
+                    {t("settings.title")}
+                </Text>
+            }
+        >
             <Stack gap="xl">
                 <SheetSection title={t("settings.appearance.title")}>
                     <LocaleSelector />
                     <ThemeSelector />
                 </SheetSection>
+
+                <WorkspaceSettings />
 
                 <SheetSection title={t("settings.game.title")}>
                     <ReleaseAssertVariantView />
@@ -121,5 +135,37 @@ function ThemeSelector(): ReactNode {
                 );
             }}
         />
+    );
+}
+
+function WorkspaceSettings(): ReactNode {
+    const t = useTranslate();
+    const close = useCloseDrawer();
+    const workspaceStatus = useWorkspaceStore((state) => state.workspaceStatus);
+    const clearWorkspace = useWorkspaceStore((state) => state.clearWorkspace);
+    const [isChanging, setIsChanging] = useState(false);
+
+    if (workspaceStatus.status !== "ready") return null;
+
+    const changeWorkspace = async (): Promise<void> => {
+        setIsChanging(true);
+        try {
+            await clearWorkspace();
+            close();
+        } catch (error) {
+            console.error("Failed to clear workspace", error);
+            setIsChanging(false);
+        }
+    };
+
+    return (
+        <SheetSection title={t("settings.workspace.title")}>
+            <Text size="xs" c="dimmed" lineClamp={2} title={workspaceStatus.path}>
+                {workspaceStatus.path}
+            </Text>
+            <Button variant="light" leftSection={<IconFolderSymlink size={16} />} loading={isChanging} onClick={() => void changeWorkspace()}>
+                {t("settings.workspace.change")}
+            </Button>
+        </SheetSection>
     );
 }
