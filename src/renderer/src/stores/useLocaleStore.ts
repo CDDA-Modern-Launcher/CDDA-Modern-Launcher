@@ -14,7 +14,6 @@ type TSetLocaleFn = (locale: string) => Promise<void>;
 
 interface State extends IMountableState {
     bundle: LocalizationBundle;
-    isLoaded: boolean;
     localize: TLocalizeFn;
     setLocale: TSetLocaleFn;
 }
@@ -27,7 +26,6 @@ const INITIAL_BUNDLE: LocalizationBundle = {
 
 const useLocaleStore = create<State>()((set) => ({
     bundle: INITIAL_BUNDLE,
-    isLoaded: false,
 
     localize: (key, variables = {}) => {
         const bundle: LocalizationBundle = useLocaleStore.getState().bundle;
@@ -41,8 +39,8 @@ const useLocaleStore = create<State>()((set) => ({
     },
 
     mount: () => {
-        void window.api.localization.getBundle().then((bundle) => set({ bundle, isLoaded: true }));
-        const unsubscribe = window.api.localization.onChanged((bundle) => set({ bundle, isLoaded: true }));
+        void window.api.localization.getBundle().then((bundle) => set({ bundle }));
+        const unsubscribe = window.api.localization.onChanged((bundle) => set({ bundle }));
         return function cleanup() {
             unsubscribe();
         };
@@ -55,10 +53,6 @@ export function useLocaleStoreMount(): TMountFn {
 
 export function useSetLocale(): TSetLocaleFn {
     return useLocaleStore((state) => state.setLocale);
-}
-
-export function useIsLocaleLoaded(): boolean {
-    return useLocaleStore((state) => state.isLoaded);
 }
 
 export function useLocaleInfo(): Pick<LocalizationBundle, "locale" | "options"> {

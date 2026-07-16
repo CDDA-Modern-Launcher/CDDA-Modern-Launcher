@@ -5,7 +5,6 @@ import { GameChannelDefinition } from "../../../shared/game-channel/GameChannelD
 
 interface State extends IMountableState {
     workspaceStatus: WorkspaceStatus;
-    isLoaded: boolean;
 
     onWorkspaceChanged: () => void;
 
@@ -20,7 +19,6 @@ interface State extends IMountableState {
 
 export const useWorkspaceStore = create<State>((set, get) => ({
     workspaceStatus: { status: "loading", path: "" },
-    isLoaded: false,
     isSelectingWorkspace: false,
 
     // cached
@@ -74,7 +72,7 @@ export const useWorkspaceStore = create<State>((set, get) => ({
 
     mount: () => {
         void window.api.workspace.getStatus().then((status) => {
-            set({ workspaceStatus: status, isLoaded: true });
+            set({ workspaceStatus: status });
             get().onWorkspaceChanged();
         });
 
@@ -90,8 +88,4 @@ export function useGameChannels(): GameChannelDefinition[] {
 
 export function useSelectedGameChannel(): GameChannelDefinition | null {
     return useWorkspaceStore((state) => state.selectedGameChannel);
-}
-
-export function useIsWorkspaceLoaded(): boolean {
-    return useWorkspaceStore((state) => state.isLoaded);
 }
