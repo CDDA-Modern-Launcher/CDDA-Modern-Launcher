@@ -46,7 +46,7 @@ class WorkspaceService {
         ipcMain.handle(Bridge.Workspace.setChannel, (_event, channelId: string) => this.setSelectedChannel(channelId));
         ipcMain.handle(Bridge.Workspace.selectNewFolder, async (event): Promise<EWorkspaceSelectResult> => {
             const owner = BrowserWindow.fromWebContents(event.sender) ?? undefined;
-            const options = { title: translate("repository.dialog.select.folder.title"), properties: ["openDirectory", "createDirectory"] as Array<"openDirectory" | "createDirectory"> };
+            const options = { title: translate("workspace.dialog.select.folder.title"), properties: ["openDirectory", "createDirectory"] as Array<"openDirectory" | "createDirectory"> };
             const result = owner === undefined ? await dialog.showOpenDialog(options) : await dialog.showOpenDialog(owner, options);
             if (result.canceled || result.filePaths.length === 0) return { status: "cancelled" };
             return { status: "selected", workspace: await this.setWorkspacePath(result.filePaths[0]) };
@@ -117,8 +117,8 @@ class WorkspaceService {
 
     private async prepare(path: string): Promise<WorkspaceStatus> {
         const directoryState = await getDirectoryState(path);
-        if (directoryState.status === "missing") return { status: "invalid", path: path, message: translate("repository.error.selected.missing") };
-        if (directoryState.status === "not-directory") return { status: "invalid", path: path, message: translate("repository.error.selected.not.directory") };
+        if (directoryState.status === "missing") return { status: "invalid", path: path, message: translate("workspace.error.selected.missing") };
+        if (directoryState.status === "not-directory") return { status: "invalid", path: path, message: translate("workspace.error.selected.not.directory") };
 
         const configPath = join(path, WORKSPACE_CONFIG_FILE_NAME);
         const existingConfig = await this.readConfig(configPath);
@@ -135,8 +135,8 @@ class WorkspaceService {
                 path: path,
                 message:
                     existingConfig.status === "missing"
-                        ? translate("repository.error.non.empty.without.config", { fileName: WORKSPACE_CONFIG_FILE_NAME })
-                        : translate("repository.error.invalid.existing.config", { fileName: WORKSPACE_CONFIG_FILE_NAME })
+                        ? translate("workspace.error.non.empty.without.config", { fileName: WORKSPACE_CONFIG_FILE_NAME })
+                        : translate("workspace.error.invalid.existing.config", { fileName: WORKSPACE_CONFIG_FILE_NAME })
             };
         }
 
@@ -170,8 +170,8 @@ class WorkspaceService {
 
     private async validateWorkspace(path: string): Promise<WorkspaceStatus> {
         const directoryState = await getDirectoryState(path);
-        if (directoryState.status === "missing") return { status: "invalid", path: path, message: translate("repository.error.saved.missing") };
-        if (directoryState.status === "not-directory") return { status: "invalid", path: path, message: translate("repository.error.saved.not.directory") };
+        if (directoryState.status === "missing") return { status: "invalid", path: path, message: translate("workspace.error.saved.missing") };
+        if (directoryState.status === "not-directory") return { status: "invalid", path: path, message: translate("workspace.error.saved.not.directory") };
 
         const config = await this.readConfig(join(path, WORKSPACE_CONFIG_FILE_NAME));
         if (config.status === "ok") {
@@ -185,8 +185,8 @@ class WorkspaceService {
             path: path,
             message:
                 config.status === "missing"
-                    ? translate("repository.error.saved.without.config", { fileName: WORKSPACE_CONFIG_FILE_NAME })
-                    : translate("repository.error.saved.invalid.config", { fileName: WORKSPACE_CONFIG_FILE_NAME })
+                    ? translate("workspace.error.saved.without.config", { fileName: WORKSPACE_CONFIG_FILE_NAME })
+                    : translate("workspace.error.saved.invalid.config", { fileName: WORKSPACE_CONFIG_FILE_NAME })
         };
     }
 

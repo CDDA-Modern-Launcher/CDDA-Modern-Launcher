@@ -39,7 +39,7 @@ class GameStateService {
 
     async getState(refreshLatest = false, forceRefresh = false): Promise<GameBundleState> {
         const ws = workspaceService.getReadyWorkspace();
-        if (ws === null) return { status: "unavailable", message: translate("game.error.repository.not.ready") };
+        if (ws === null) return { status: "unavailable", message: translate("game.error.workspace.not.ready") };
 
         const gameBundles = await gameBundleService.getGameBundles();
         const activeGameBundle = gameBundles.find((bundle) => bundle.isActive) ?? null;

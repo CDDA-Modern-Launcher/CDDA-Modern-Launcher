@@ -16,7 +16,7 @@ import { openUrl } from "@renderer/utils/openUrl";
 import { useSelectedGameChannel } from "@renderer/stores/useWorkspaceStore";
 import { WorkspaceInvalidView } from "@renderer/components/workspace/WorkspaceInvalidView";
 
-export function WorkspaceReadyView({ repository }: { repository: Extract<WorkspaceStatus, { status: "ready" }> }): React.JSX.Element {
+export function WorkspaceReadyView({ workspace }: { workspace: Extract<WorkspaceStatus, { status: "ready" }> }): React.JSX.Element {
     const t = useTranslate();
     const selectedChannel = useSelectedGameChannel();
 
@@ -30,7 +30,7 @@ export function WorkspaceReadyView({ repository }: { repository: Extract<Workspa
     useEffect(() => {
         clearReleases();
         queueMicrotask(() => void loadGame());
-    }, [clearReleases, loadGame, repository.path, selectedChannel]);
+    }, [clearReleases, loadGame, workspace.path, selectedChannel]);
 
     const activeGameBundle = gameState.status === "ready" ? gameState.gameBundle : null;
     const activeGameBundleId = activeGameBundle?.id ?? null;

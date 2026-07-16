@@ -13,6 +13,6 @@ export function WorkspaceView(): React.JSX.Element {
         case "loading":
             return <WorkspaceLoadingView path={ws.path} />;
         case "ready":
-            return <WorkspaceReadyView repository={ws} />;
+            return <WorkspaceReadyView workspace={ws} />;
     }
 }

@@ -452,6 +452,6 @@ function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 function getRepositoryUnavailableMessage(workspace: WorkspaceStatus): string {
-    return workspace.status === "invalid" ? workspace.message : translate("mods.error.repository.unavailable");
+    return workspace.status === "invalid" ? workspace.message : translate("mods.error.workspace.unavailable");
 }
 export const modRepositoryService = new ModRepositoryService();

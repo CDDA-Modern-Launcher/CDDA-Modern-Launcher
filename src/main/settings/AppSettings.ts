@@ -10,7 +10,7 @@ import { getDefaultWindowState, parseWindowState, WindowState } from "./WindowSt
 const WRITE_DEBOUNCE_MS = 250;
 
 // Keep only application-level settings that are required before a workspace is ready.
-// Workspace-specific settings belong to cdda.launcher.config.jsonc inside the selected workspace.
+// Workspace-specific settings belong to launcher.config.jsonc inside the selected workspace.
 interface Settings {
     workspacePath?: string;
     locale?: string;
@@ -26,7 +26,7 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 class AppSettings {
-    private readonly filePath = join(app.getPath("userData"), "cdda.launcher.settings.json");
+    private readonly filePath = join(app.getPath("userData"), "settings.json");
     private settings: Settings | null = null;
     private writeTimer: ReturnType<typeof setTimeout> | null = null;
     private writeQueue: Promise<void> = Promise.resolve();

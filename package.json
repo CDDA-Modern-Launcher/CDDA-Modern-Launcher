@@ -1,7 +1,7 @@
 {
     "name": "cataclysm-modern-launcher",
     "version": "1.0.0",
-    "description": "A modern launcher for Cataclysm: DDA and its forks.",
+    "description": "A modern launcher for Cataclysm games and forks.",
     "main": "./out/main/index.js",
     "author": "Johnson1893",
     "homepage": "https://github.com/Cataclysm-Modern-Launcher/Cataclysm-Modern-Launcher",

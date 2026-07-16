@@ -1,6 +1,6 @@
-# CDDA Modern Launcher
+# Cataclysm Modern Launcher
 
-CDDA Modern Launcher is a desktop launcher for **Cataclysm: Dark Days Ahead**.
+Cataclysm Modern Launcher is a desktop launcher for **Cataclysm: Dark Days Ahead** and compatible forks.
 
 The goal of the project is to provide a clean, modern, and convenient way to install, update, launch, and manage Cataclysm: DDA builds without manually downloading archives, unpacking them, moving saves, or tracking release assets by hand.
 
@@ -20,13 +20,13 @@ The goal of the project is to provide a clean, modern, and convenient way to ins
 - Choose preferred release asset type when several archives are available
 - Launch the selected game version directly from the launcher
 - Localized user interface
-- Support custom locale files from the repository directory
+- Support custom locale files from the workspace directory
 - Light, dark, and system theme modes
 - Built-in auto-update support for the launcher itself
 
 ## Supported Games and Channels
 
-The launcher is designed primarily for Cataclysm: Dark Days Ahead, but it can also support compatible forks and release channels.
+The launcher is designed for Cataclysm: Dark Days Ahead and compatible forks and release channels.
 
 Built-in channels may include:
 
@@ -74,7 +74,7 @@ Built-in locales are provided for:
 - English
 - Russian
 
-When a repository directory is selected, built-in locale files can be copied into the repository-local `locales` directory. After that, the launcher can use those files as user-editable locale sources.
+When a workspace directory is selected, built-in locale files can be copied into the workspace-local `locales` directory. After that, the launcher can use those files as user-editable locale sources.
 
 This allows users to customize translations without modifying the application itself.
 
@@ -168,7 +168,7 @@ Most user-facing settings are stored persistently by the application.
 
 These include:
 
-- Selected repository directory
+- Selected workspace directory
 - Selected game channel
 - Selected game version
 - Preferred release asset type
@@ -176,7 +176,7 @@ These include:
 - Locale
 - Theme mode
 
-Some settings are stored in the application configuration, while repository-local resources such as custom locale files may be stored inside the selected repository directory.
+Some settings are stored in the application configuration, while workspace-local resources such as custom locale files may be stored inside the selected workspace directory.
 
 ## Status
 

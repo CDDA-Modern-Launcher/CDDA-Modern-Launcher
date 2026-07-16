@@ -11,8 +11,8 @@ export function WorkspaceLoadingView({ path }: { path: string }): React.JSX.Elem
             <Group gap="lg" wrap="nowrap">
                 <Loader />
                 <Stack gap={2}>
-                    <Title order={2}>{t("repository.loading.title")}</Title>
-                    <LocalizedText c="dimmed" i18nKey="repository.loading.description" variables={{ fileName: WORKSPACE_CONFIG_FILE_NAME }} />
+                    <Title order={2}>{t("workspace.loading.title")}</Title>
+                    <LocalizedText c="dimmed" i18nKey="workspace.loading.description" variables={{ fileName: WORKSPACE_CONFIG_FILE_NAME }} />
                     <Text size="sm" className="path-text">
                         {path}
                     </Text>

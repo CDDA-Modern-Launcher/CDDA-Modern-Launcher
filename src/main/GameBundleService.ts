@@ -81,7 +81,7 @@ class GameBundleService {
     private async installLatestGameBundleUnlocked(options: GameBundleInstallOptions): Promise<EGameBundleInstallResult> {
         broadcastInstallIPC({ status: "resolving-release" }, true);
         const ws = workspaceService.getReadyWorkspace();
-        if (ws === null) return { status: "unavailable", message: translate("game.error.repository.not.ready") };
+        if (ws === null) return { status: "unavailable", message: translate("game.error.workspace.not.ready") };
 
         let createdGameBundle: GameBundle | null = null;
         try {
@@ -195,7 +195,7 @@ class GameBundleService {
 
     private async setActiveGameBundleUnlocked(gameBundleId: string): Promise<EGameBundleSetActiveResult> {
         const ws = workspaceService.getReadyWorkspace();
-        if (ws === null) return { status: "unavailable", message: translate("game.error.repository.not.ready") };
+        if (ws === null) return { status: "unavailable", message: translate("game.error.workspace.not.ready") };
         const channel = ws.selectedGameChannel;
         const gameBundles = await this.read(ws.path, ws.config, channel.id);
         if (!gameBundles.some((gameBundle) => gameBundle.id === gameBundleId)) return { status: "error", message: translate("game.error.game.bundle.missing") };
@@ -209,7 +209,7 @@ class GameBundleService {
 
     private async deleteGameBundleUnlocked(gameBundleId: string, options: GameBundleDeleteOptions): Promise<EGameBundleDeleteResult> {
         const ws = workspaceService.getReadyWorkspace();
-        if (ws === null) return { status: "unavailable", message: translate("game.error.repository.not.ready") };
+        if (ws === null) return { status: "unavailable", message: translate("game.error.workspace.not.ready") };
         const channel = ws.selectedGameChannel;
         const gameBundle = (await this.read(ws.path, ws.config, channel.id)).find((candidate) => candidate.id === gameBundleId);
         if (gameBundle === undefined) return { status: "error", message: translate("game.error.game.bundle.missing") };

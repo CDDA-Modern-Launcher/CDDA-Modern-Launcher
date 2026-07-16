@@ -100,7 +100,7 @@ function withGitHubDefaults(init?: NetworkRequestInit): NetworkRequestInit {
         ...init,
         headers: {
             Accept: "application/vnd.github+json",
-            "User-Agent": "Electron-CDDA-Launcher",
+            "User-Agent": "Modern-Cataclysm-Launcher",
             ...toHeaderRecord(init?.headers)
         }
     };

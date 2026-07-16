@@ -16,7 +16,7 @@ export function Root(): React.JSX.Element {
     const mountAppearance = useAppearanceStore((state) => state.mount);
     useEffect(() => mountAppearance(), [mountAppearance]);
 
-    // Repository settings bridge
+    // Workspace settings bridge
     const mountConfig = useConfigStore((state) => state.mount);
     useEffect(() => mountConfig(), [mountConfig]);
 

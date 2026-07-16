@@ -12,8 +12,8 @@ interface State extends IMountableState {
     gameChannels: GameChannelDefinition[];
     selectedGameChannel: GameChannelDefinition | null;
 
-    isSelectingRepository: boolean;
-    selectRepository: () => Promise<void>;
+    isSelectingWorkspace: boolean;
+    selectWorkspace: () => Promise<void>;
     clearWorkspace: () => Promise<void>;
     setSelectedChannel: (channelId: string) => Promise<void>;
 }
@@ -21,7 +21,7 @@ interface State extends IMountableState {
 export const useWorkspaceStore = create<State>((set, get) => ({
     workspaceStatus: { status: "loading", path: "" },
     isLoaded: false,
-    isSelectingRepository: false,
+    isSelectingWorkspace: false,
 
     // cached
     gameChannels: [],
@@ -36,8 +36,8 @@ export const useWorkspaceStore = create<State>((set, get) => ({
         }
     },
 
-    selectRepository: async () => {
-        set({ isSelectingRepository: true });
+    selectWorkspace: async () => {
+        set({ isSelectingWorkspace: true });
         try {
             const result = await window.api.workspace.selectNewFolder();
             if (result.status === "selected") {
@@ -47,11 +47,11 @@ export const useWorkspaceStore = create<State>((set, get) => ({
                     // todo ensure workspace change causes mods re-check without calling mods IPC directly
                     await window.api.mods.checkUpdates();
                 } catch (error) {
-                    console.error("Failed to check mods after repository selection", error);
+                    console.error("Failed to check mods after workspace selection", error);
                 }
             }
         } finally {
-            set({ isSelectingRepository: false });
+            set({ isSelectingWorkspace: false });
         }
     },
 
