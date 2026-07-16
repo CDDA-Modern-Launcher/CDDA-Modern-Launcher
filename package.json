@@ -1,5 +1,5 @@
 {
-    "name": "cdda-modern-launcher",
+    "name": "cataclysm-modern-launcher",
     "version": "0.1.19",
     "description": "An Electron application with React and TypeScript",
     "main": "./out/main/index.js",
