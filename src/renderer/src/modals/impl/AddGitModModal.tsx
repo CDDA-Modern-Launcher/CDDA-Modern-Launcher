@@ -7,13 +7,15 @@ import { LocalizedText } from "@renderer/components/LocalizedText";
 import { ContextModalProps, modals } from "@mantine/modals";
 import { openModal } from "@renderer/modals/contextModals";
 
-export function AddGitModModal({ id, context }: ContextModalProps): JSX.Element {
+export function AddGitModModal({ id }: ContextModalProps): JSX.Element {
     const t = useTranslate();
     const [gitUrl, setGitUrl] = useState("");
     const error = useModsStore((state) => state.error);
     const setError = useModsStore((state) => state.setError);
     const busyAction = useModsStore((state) => state.busyAction);
     const discoverFromGit = useModsStore((state) => state.discoverFromGit);
+
+    const handleCLose = useCallback(() => modals.close(id), [id]);
 
     const handleConfirm = useCallback(async () => {
         const result = await discoverFromGit(gitUrl);
@@ -26,8 +28,13 @@ export function AddGitModModal({ id, context }: ContextModalProps): JSX.Element 
     }, [discoverFromGit, gitUrl, t]);
 
     useEffect(() => {
-        context.updateModal({ modalId: id, closeOnClickOutside: !busyAction, closeOnEscape: !busyAction, withCloseButton: !busyAction });
-    }, [context, id, busyAction]);
+        modals.updateModal({
+            modalId: id,
+            closeOnClickOutside: !busyAction,
+            closeOnEscape: !busyAction,
+            withCloseButton: !busyAction
+        });
+    }, [id, busyAction]);
 
     return (
         <Stack gap="md">
@@ -50,7 +57,7 @@ export function AddGitModModal({ id, context }: ContextModalProps): JSX.Element 
                 </Alert>
             )}
             <Group justify="flex-end">
-                <Button variant="subtle" onClick={() => context.closeModal(id)} disabled={!!busyAction}>
+                <Button variant="subtle" onClick={handleCLose} disabled={!!busyAction}>
                     {t("common.cancel")}
                 </Button>
                 <Button onClick={() => void handleConfirm()} disabled={!gitUrl.trim()} loading={!!busyAction}>

@@ -1,13 +1,13 @@
 import React, { ChangeEvent, useCallback, useEffect, useState } from "react";
 import { Alert, Button, Group, Stack, TextInput } from "@mantine/core";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
-import { ContextModalProps } from "@mantine/modals";
+import { ContextModalProps, modals } from "@mantine/modals";
 import { BackupInstanceInfo } from "../../../../shared/backups/types/BackupInstanceInfo";
 import { useGameBackupStore } from "@renderer/stores/useGameBackupStore";
 import { getErrorMessage } from "../../../../shared/getErrorMessage";
 import { LocalizedText } from "@renderer/components/LocalizedText";
 
-export function RenameBackupModal({ id, innerProps: { backup }, context }: ContextModalProps<{ backup: BackupInstanceInfo }>): React.JSX.Element {
+export function RenameBackupModal({ id, innerProps: { backup } }: ContextModalProps<{ backup: BackupInstanceInfo }>): React.JSX.Element {
     const t = useTranslate();
     const [value, setValue] = useState(backup?.comment ?? "");
     const [renaming, setRenaming] = useState(false);
@@ -15,9 +15,7 @@ export function RenameBackupModal({ id, innerProps: { backup }, context }: Conte
 
     const renameBackup = useGameBackupStore((state) => state.rename);
 
-    const handleClose = useCallback(() => {
-        context.closeModal(id);
-    }, [context, id]);
+    const handleClose = useCallback(() => modals.close(id), [id]);
 
     const handleConfirm = useCallback(async () => {
         try {
@@ -38,13 +36,13 @@ export function RenameBackupModal({ id, innerProps: { backup }, context }: Conte
     }, []);
 
     useEffect(() => {
-        context.updateModal({
+        modals.updateModal({
             modalId: id,
             closeOnClickOutside: !renaming,
             closeOnEscape: !renaming,
             withCloseButton: !renaming
         });
-    }, [context, id, renaming]);
+    }, [id, renaming]);
 
     return (
         <form onSubmit={handleConfirm}>

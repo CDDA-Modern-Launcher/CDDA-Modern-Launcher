@@ -2,7 +2,7 @@ import React, { ChangeEvent, useCallback, useEffect, useMemo, useState } from "r
 import { getReleaseNameDisplay } from "@renderer/utils/getReleaseNameDisplay";
 import { Alert, Button, Card, Checkbox, Group, Progress, Stack, Text } from "@mantine/core";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
-import { ContextModalProps } from "@mantine/modals";
+import { ContextModalProps, modals } from "@mantine/modals";
 import { GithubRelease } from "../../../../shared/GithubRelease";
 import { getErrorMessage } from "../../../../shared/getErrorMessage";
 import { useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
@@ -16,7 +16,7 @@ interface Props {
     hasInstalledVersions: boolean;
 }
 
-export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVersions }, context }: ContextModalProps<Props>): React.JSX.Element {
+export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVersions } }: ContextModalProps<Props>): React.JSX.Element {
     const t = useTranslate();
     const [copyUserdata, setCopyUserdata] = useState(true);
     const [removeOlderGameBundles, setRemoveOlderGameBundles] = useState(false);
@@ -31,7 +31,7 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
 
     const handleRemoveCheck = useCallback((event: ChangeEvent<HTMLInputElement>) => setRemoveOlderGameBundles(event.currentTarget.checked), []);
 
-    const handleClose = useCallback(() => context.closeModal(id), [context, id]);
+    const handleClose = useCallback(() => modals.close(id), [id]);
 
     const handleConfirm = useCallback(async () => {
         try {
@@ -44,13 +44,13 @@ export function InstallReleaseModal({ id, innerProps: { release, hasInstalledVer
     }, [copyUserdata, handleClose, installLatestGameBundle, release.id, removeOlderGameBundles]);
 
     useEffect(() => {
-        context.updateModal({
+        modals.updateModal({
             modalId: id,
             closeOnClickOutside: !isInstallingGameBundle,
             closeOnEscape: !isInstallingGameBundle,
             withCloseButton: !isInstallingGameBundle
         });
-    }, [context, id, isInstallingGameBundle]);
+    }, [id, isInstallingGameBundle]);
 
     return (
         <Stack gap="md">

@@ -4,11 +4,11 @@ import { getReleaseDisplayName } from "@renderer/utils/getReleaseDisplayName";
 import { useTranslate } from "@renderer/stores/useLocaleStore";
 import { useGameBundleInstallStore } from "@renderer/stores/useGameBundleInstallStore";
 import { getErrorMessage } from "../../../../shared/getErrorMessage";
-import { ContextModalProps } from "@mantine/modals";
+import { ContextModalProps, modals } from "@mantine/modals";
 import { GameBundle } from "../../../../shared/game-bundle/GameBundle";
 import { LocalizedText } from "@renderer/components/LocalizedText";
 
-export function DeleteGameBundleModal({ id, innerProps: { gameBundle }, context }: ContextModalProps<{ gameBundle: GameBundle }>): React.JSX.Element | null {
+export function DeleteGameBundleModal({ id, innerProps: { gameBundle } }: ContextModalProps<{ gameBundle: GameBundle }>): React.JSX.Element | null {
     const t = useTranslate();
 
     const deleteGameBundle = useGameBundleInstallStore((state) => state.delete);
@@ -17,7 +17,7 @@ export function DeleteGameBundleModal({ id, innerProps: { gameBundle }, context 
     const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleClose = useCallback(() => context.closeModal(id), [context, id]);
+    const handleClose = useCallback(() => modals.close(id), [id]);
 
     const handleCheck = useCallback((event: ChangeEvent<HTMLInputElement>) => setDeleteUserdata(event.currentTarget.checked), []);
 
@@ -37,13 +37,13 @@ export function DeleteGameBundleModal({ id, innerProps: { gameBundle }, context 
     }, [deleteGameBundle, deleteUserdata, gameBundle, handleClose]);
 
     useEffect(() => {
-        context.updateModal({
+        modals.updateModal({
             modalId: id,
             closeOnClickOutside: !deleting,
             closeOnEscape: !deleting,
             withCloseButton: !deleting
         });
-    }, [context, id, deleting]);
+    }, [id, deleting]);
 
     return (
         <Stack gap="md">
