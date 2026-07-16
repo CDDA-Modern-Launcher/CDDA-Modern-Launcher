@@ -1,8 +1,6 @@
 import { is } from "@electron-toolkit/utils";
 import { app, ipcMain } from "electron";
 import { autoUpdater, ProgressInfo, UpdateInfo } from "electron-updater";
-import { appendFileSync, mkdirSync } from "fs";
-import { join } from "path";
 
 import { Bridge } from "../shared/bridge-api/Bridge";
 import { UpdateState } from "../shared/bridge-api/types/UpdateState";
@@ -27,7 +25,7 @@ export class UpdaterService {
         ipcMain.handle(Bridge.Updater.skipVersion, (_event, version: string) => this.skipVersion(version));
 
         if (is.dev || !app.isPackaged) {
-            this.log("[updater] skipped in dev/unpackaged mode");
+            console.log("[updater] skipped in dev/unpackaged mode");
             return;
         }
 
@@ -42,7 +40,7 @@ export class UpdaterService {
             const version = this.getUpdateVersion(info);
 
             if (this.shouldIgnoreVersion(version)) {
-                this.log("[updater] update ignored by user", { version });
+                console.log("[updater] update ignored by user", { version });
                 this.setState({ status: "skipped", version });
                 return;
             }
@@ -78,7 +76,7 @@ export class UpdaterService {
         });
 
         autoUpdater.on("error", (error) => {
-            this.log("[updater] error", {
+            console.log("[updater] error", {
                 name: error.name,
                 message: error.message,
                 stack: error.stack
@@ -140,7 +138,7 @@ export class UpdaterService {
         try {
             await autoUpdater.checkForUpdates();
         } catch (error) {
-            this.log("[updater] check failed", {
+            console.log("[updater] check failed", {
                 name: error instanceof Error ? error.name : undefined,
                 message: error instanceof Error ? error.message : String(error),
                 stack: error instanceof Error ? error.stack : undefined
@@ -210,21 +208,6 @@ export class UpdaterService {
 
     private getErrorState(messageKey: LocaleKeys): UpdateState {
         return { status: "error", messageKey, message: translate(messageKey) };
-    }
-
-    private log(message: string, data?: unknown): void {
-        const text = data === undefined ? message : `${message} ${JSON.stringify(data)}`;
-        const line = `[${new Date().toISOString()}] ${text}\n`;
-
-        console.log(line.trimEnd());
-
-        try {
-            const logDir = join(app.getPath("userData"), "logs");
-            mkdirSync(logDir, { recursive: true });
-            appendFileSync(join(logDir, "updater.log"), line, "utf8");
-        } catch (error) {
-            console.error("[updater] failed to write log", error);
-        }
     }
 }
 

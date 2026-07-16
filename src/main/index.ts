@@ -1,7 +1,6 @@
 import { electronApp, is, optimizer } from "@electron-toolkit/utils";
 import { app, BrowserWindow, dialog, nativeTheme, shell } from "electron";
 import { join } from "path";
-
 import icon from "../../resources/icon.png?asset";
 import { setupAppearanceIpc } from "./ipc/setupAppearanceIpc";
 import { gameBundleService } from "./GameBundleService";
@@ -16,6 +15,7 @@ import { gameRuntimeService } from "./game/GameRuntimeService";
 import { gameFileOperationGuard } from "./game/GameFileOperationGuard";
 import { gameBackupService } from "./GameBackupService";
 import { gameStateService } from "./game/GameStateService";
+import { attachRendererLogging, initializeConsoleLogging } from "./logger";
 
 function createWindow(): void {
     const isDark = nativeTheme.shouldUseDarkColors;
@@ -37,6 +37,8 @@ function createWindow(): void {
     });
 
     attachWindowStatePersistence(mainWindow, savedWindowState, (state) => appSettings.set({ windowState: state }));
+
+    attachRendererLogging(mainWindow);
 
     mainWindow.on("ready-to-show", () => {
         if (savedWindowState.maximized) {
@@ -63,15 +65,15 @@ function createWindow(): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady()
     .then(async () => {
+        initializeConsoleLogging();
+
         // Set app user model id for windows
         electronApp.setAppUserModelId("io.github.CDDA-Modern-Launcher");
 
         // Default open or close DevTools by F12 in development
         // and ignore CommandOrControl + R in production.
         // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-        app.on("browser-window-created", (_, window) => {
-            optimizer.watchWindowShortcuts(window);
-        });
+        app.on("browser-window-created", (_, window) => optimizer.watchWindowShortcuts(window));
 
         await appSettings.initialize();
 
