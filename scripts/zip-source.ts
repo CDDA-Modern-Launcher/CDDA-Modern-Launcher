@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+// noinspection RedundantIfStatementJS
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -17,52 +18,28 @@ const excludedExtensions = new Set([".log", ".tmp", ".temp", ".zip"]);
 
 function shouldSkip(relativePath: string, dirent: fs.Dirent): boolean {
     const normalized = relativePath.split(path.sep).join("/");
-
     if (dirent.isDirectory()) {
-        if (excludedRootDirs.has(normalized)) {
-            return true;
-        }
-
+        if (excludedRootDirs.has(normalized)) return true;
         return excludedDirs.has(dirent.name);
     }
-
-    if (excludedFiles.has(dirent.name)) {
-        return true;
-    }
-
-    if (excludedExtensions.has(path.extname(dirent.name))) {
-        return true;
-    }
-
-    // noinspection RedundantIfStatementJS
-    if (normalized.endsWith(".zip")) {
-        return true;
-    }
-
+    if (excludedFiles.has(dirent.name)) return true;
+    if (excludedExtensions.has(path.extname(dirent.name))) return true;
+    if (normalized.endsWith(".zip")) return true;
     return false;
 }
 
 function collectFiles(dir: string, result: string[] = []): string[] {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
-
     for (const entry of entries) {
         const absolutePath = path.join(dir, entry.name);
         const relativePath = path.relative(projectRoot, absolutePath);
-
-        if (shouldSkip(relativePath, entry)) {
-            continue;
-        }
-
+        if (shouldSkip(relativePath, entry)) continue;
         if (entry.isDirectory()) {
             collectFiles(absolutePath, result);
             continue;
         }
-
-        if (entry.isFile()) {
-            result.push(absolutePath);
-        }
+        if (entry.isFile()) result.push(absolutePath);
     }
-
     return result;
 }
 
@@ -70,11 +47,8 @@ async function main(): Promise<void> {
     fs.mkdirSync(outputDir, { recursive: true });
 
     const files = collectFiles(projectRoot);
-
     const output = fs.createWriteStream(outputFile);
-    const archive = archiver("zip", {
-        zlib: { level: 9 }
-    });
+    const archive = archiver("zip", { zlib: { level: 9 } });
 
     const archiveFinished = new Promise<void>((resolve, reject) => {
         output.on("close", resolve);
